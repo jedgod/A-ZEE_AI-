@@ -1,4 +1,38 @@
+"use client";
+
+import { useState } from "react";
+
 export default function HomePage() {
+  const [mode, setMode] = useState<"chat" | "code" | "research">("chat");
+  const [model, setModel] = useState<"auto" | "reasoning" | "code">("auto");
+  const [prompt, setPrompt] = useState("Summarize the product strategy for a new AI workflow workspace.");
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          model,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      const payload = await response.json();
+      setAnswer(payload?.data?.answer ?? "Unable to generate a response.");
+    } catch {
+      setAnswer("Unable to reach the chat API right now.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-16">
       <header className="flex items-center justify-between gap-4 border-b border-slate-200 pb-6">
@@ -45,6 +79,74 @@ export default function HomePage() {
             <li>• Guardrails and approvals</li>
             <li>• Team collaboration</li>
           </ul>
+        </div>
+      </section>
+
+      <section className="mt-16 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Workspace
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Public chat workspace</h2>
+          </div>
+          <a href="/admin" className="text-sm font-medium text-slate-700 underline underline-offset-4">
+            Open admin
+          </a>
+        </div>
+
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="text-sm text-slate-700">
+              Mode
+              <select
+                className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2"
+                value={mode}
+                onChange={event => setMode(event.target.value as "chat" | "code" | "research")}
+              >
+                <option value="chat">chat</option>
+                <option value="code">code</option>
+                <option value="research">research</option>
+              </select>
+            </label>
+
+            <label className="text-sm text-slate-700">
+              Model
+              <select
+                className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2"
+                value={model}
+                onChange={event => setModel(event.target.value as "auto" | "reasoning" | "code")}
+              >
+                <option value="auto">auto</option>
+                <option value="reasoning">reasoning</option>
+                <option value="code">code</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block text-sm text-slate-700">
+            Prompt
+            <textarea
+              className="mt-2 min-h-[120px] w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900"
+              value={prompt}
+              onChange={event => setPrompt(event.target.value)}
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-lg bg-slate-900 px-5 py-3 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? "Sending..." : "Send to /api/chat"}
+          </button>
+        </form>
+
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Response</p>
+          <div className="prose max-w-none whitespace-pre-wrap text-sm text-slate-700">
+            {answer || "No response yet."}
+          </div>
         </div>
       </section>
 
