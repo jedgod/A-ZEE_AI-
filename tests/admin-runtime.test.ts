@@ -42,6 +42,8 @@ vi.mock("@/lib/admin/core", async () => {
   };
 });
 
+import { NextRequest } from "next/server";
+import { middleware } from "@/middleware";
 import { GET as meRoute } from "@/app/api/admin/me/route";
 import { GET as healthRoute } from "@/app/api/admin/health/route";
 import { POST as logoutRoute } from "@/app/api/admin/session/logout/route";
@@ -81,6 +83,14 @@ describe("15_ADMIN runtime", () => {
 
     const response = await logoutRoute(req);
     expect([200, 403, 401]).toContain(response.status);
+  });
+
+  it("redirects unauthenticated admin access to the host landing page", () => {
+    const request = new NextRequest(new URL("http://localhost/admin"));
+    const response = middleware(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/?auth=required");
   });
 
   it("bootstrap remains locked out", async () => {

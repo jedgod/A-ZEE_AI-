@@ -14,12 +14,14 @@ export type HostSession = AdminSession & {
   sessionId?: string;
 };
 
+export const ADMIN_SESSION_COOKIE = "az_session";
+
 function hash(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
 export async function getHostSession(): Promise<AdminSession | null> {
-  const token = (await cookies()).get("az_session")?.value;
+  const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/i.test(token)) return null;
 
   const result = await pool.query(
@@ -49,7 +51,7 @@ export async function getHostSession(): Promise<AdminSession | null> {
 }
 
 export async function revokeCurrentSession() {
-  const token = (await cookies()).get("az_session")?.value;
+  const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) deny(401, "SESSION_REQUIRED");
 
   await pool.query(
@@ -57,7 +59,7 @@ export async function revokeCurrentSession() {
     [hash(token)]
   );
 
-  (await cookies()).set("az_session", "", {
+  (await cookies()).set(ADMIN_SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
