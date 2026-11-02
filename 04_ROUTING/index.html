@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZ_AI — Routing Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f2ed;--paper:#fffef9;--ink:#263229;--muted:#7b8277;--line:#dcded3;--accent:#466736;--lime:#dfedb9;--mono:'IBM Plex Mono',monospace;--display:'Space Grotesk',sans-serif;--body:'DM Sans',sans-serif}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg);font:13px var(--body)}button,input,select{font:inherit}button{cursor:pointer}button,a,input,select{outline-offset:4px}a{color:inherit;text-decoration:none}.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.sidebar{padding:28px 18px;background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column}.brand{display:flex;gap:10px;align-items:center;font:700 22px var(--display);letter-spacing:-1px}.brand span{width:34px;height:34px;display:grid;place-items:center;background:var(--ink);color:var(--lime);font:14px var(--mono)}.project{font:10px/1.9 var(--mono);color:var(--muted);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:17px 0;margin:30px 8px}.label{font:9px var(--mono);letter-spacing:1.3px;color:var(--muted);margin:0 8px 15px}.nav{display:flex;gap:12px;font-size:11px;padding:14px 10px;color:var(--muted);margin:4px 0}.nav span{font:10px var(--mono)}.nav:hover{background:#eef0e6}.nav.active{background:var(--lime);color:var(--ink);font-weight:700}.side-foot{margin-top:auto;padding:40px 8px 0;font:9px/1.9 var(--mono);color:var(--muted)}header{height:74px;border-bottom:1px solid var(--line);padding:0 36px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)}header strong{color:var(--ink);font-weight:500}.status{font:9px var(--mono)}.status:before{content:"";width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;margin-right:8px}main{padding:36px;max-width:1500px;margin:auto}.hero{display:flex;justify-content:space-between;align-items:end;gap:25px;margin-bottom:29px}.eyebrow{font:10px var(--mono);letter-spacing:1.3px;color:var(--accent)}h1{font:500 clamp(35px,4.4vw,60px)/1.06 var(--display);letter-spacing:-2.6px;margin:16px 0}h1 span{color:var(--accent)}.intro{max-width:620px;color:var(--muted);line-height:1.8;margin:0}.btn{border:1px solid var(--line);background:var(--paper);padding:11px 15px;font-size:11px;font-weight:600;white-space:nowrap;transition:.2s}.btn:hover{background:var(--lime);transform:translateY(-2px)}.btn:active{transform:translateY(0)}.primary{background:var(--accent);color:white;border-color:var(--accent)}.primary:hover{background:#355026}.strip{display:flex;gap:24px;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:16px 0;margin-bottom:25px;font:9px var(--mono);color:var(--muted)}.strip strong{color:var(--ink)}.workbench{display:grid;grid-template-columns:320px minmax(0,1fr);border:1px solid var(--line);background:var(--paper)}.overview{padding:25px}.tag{display:inline-block;background:var(--lime);font:9px var(--mono);padding:5px 8px;color:var(--accent)}h2{font:500 25px var(--display);letter-spacing:-.7px;margin:15px 0 12px}.description{font-size:12px;line-height:1.8;color:var(--muted)}.field{display:block;font-size:11px;font-weight:600;margin:22px 0}.field small{display:block;font-size:10px;font-weight:400;line-height:1.8;color:var(--muted);margin:5px 0 9px}input,select{width:100%;border:1px solid var(--line);background:white;padding:11px;font-size:12px;color:var(--ink)}input:focus,select:focus{outline:2px solid var(--lime);border-color:var(--accent)}.result{padding:13px;background:#eef0e6;font:10px/1.8 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;margin-top:18px}.note{border-left:2px solid var(--accent);padding-left:12px;color:var(--muted);font-size:10px;line-height:1.9;margin-top:23px}.code-pane{background:#253026;color:#dfebd1;min-width:0;display:flex;flex-direction:column}.tabs{display:flex;gap:3px;padding:12px;border-bottom:1px solid #45503f;overflow:auto}.tab{background:none;border:0;padding:9px 10px;font:9px var(--mono);color:#a9b69e;white-space:nowrap}.tab:hover{background:#394533}.tab.active{background:var(--lime);color:var(--ink)}.code-bar{display:flex;justify-content:space-between;gap:16px;padding:18px 20px;font:9px var(--mono);color:#a9b69e}.copy{background:none;border:0;color:var(--lime);font:10px var(--mono)}pre{margin:0;padding:0 20px 25px;font:10px/1.9 var(--mono);overflow:auto;white-space:pre;max-height:590px;flex:1}.code-foot{border-top:1px solid #45503f;padding:14px 20px;font:9px/1.8 var(--mono);color:#a9b69e}.below{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:26px}.below h3{font-size:12px;margin:0 0 8px}.below p{font-size:11px;line-height:1.9;color:var(--muted);margin:0}footer{border-top:1px solid var(--line);padding-top:18px;margin-top:28px;display:flex;justify-content:space-between;gap:15px;font:9px var(--mono);color:var(--muted)}.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,15px);opacity:0;background:var(--ink);color:white;padding:13px 20px;font-size:12px;transition:.2s;pointer-events:none;z-index:10}.toast.show{opacity:1;transform:translate(-50%,0)}.reveal{animation:reveal .5s both}.workbench{animation-delay:.12s}@keyframes reveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(max-width:1100px){.shell{grid-template-columns:200px 1fr}.sidebar{padding:25px 14px}main{padding:30px 24px}header{padding:0 24px}.hero{align-items:start;flex-direction:column}.workbench{grid-template-columns:1fr}.overview{padding:23px}.field{max-width:550px}}@media(max-width:650px){.shell{display:block}.sidebar{padding:18px;border-right:0;border-bottom:1px solid var(--line)}.project,.label,.side-foot{display:none}nav{display:flex;overflow:auto;gap:5px;margin-top:18px}.nav{white-space:nowrap;padding:10px}.nav span{display:none}header{height:55px;padding:0 18px}.status{display:none}main{padding:26px 18px}h1{letter-spacing:-1.6px}.below{grid-template-columns:1fr;gap:20px}footer{flex-direction:column;line-height:1.8}.code-bar{padding:16px}pre{padding-left:16px;padding-right:16px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="#task_classifier"><span>AZ</span>Routing Lab</a>
+<div class="project">AZ_AI / CONTROL PLANE<br>04_ROUTING / ENGINEERING</div>
+<div class="label">ROUTING MODULES</div>
+<nav id="nav" aria-label="Routing modules"></nav>
+<div class="side-foot">CAPABILITY FIRST.<br>OPTIMIZATION SECOND.<br><br>5 MODULES / ONE CONTRACT<br>NO LIVE PROVIDER CALLS</div>
+</aside>
+<div>
+<header><div>AZ_AI / 04_ROUTING / <strong id="breadcrumb"></strong></div><span class="status">IMPLEMENTATION WORKBENCH</span></header>
+<main>
+<section class="hero reveal">
+<div><div class="eyebrow">04 / MODEL DISPATCH & RESILIENCE</div><h1>The right model.<br><span>For the right reason.</span></h1><p class="intro">Classify tasks, enforce eligibility, and optimize execution without compromising policy. Explore headed code templates for every routing module.</p></div>
+<button class="btn primary" id="download">Download all code ↓</button>
+</section>
+<div class="strip"><strong>05 ROUTING MODULES</strong><span>UI / shadcn + Tailwind</span><span>LOGIC / TypeScript + Zod</span><span>STORAGE / PostgreSQL · SQLite</span></div>
+<section class="workbench reveal" aria-label="Routing implementation explorer">
+<div class="overview">
+<span class="tag" id="tag"></span><h2 id="title"></h2><p class="description" id="description"></p>
+<form id="demo"><div id="demo-fields"></div><button type="submit" class="btn primary">Preview decision ↗</button></form>
+<div class="result" id="result" role="status">Run a local example to inspect the decision.</div>
+<p class="note">The preview uses illustrative data. Code tabs contain implementation templates; install the referenced libraries and wire authentication, telemetry, and repositories in your backend.</p>
+</div>
+<div class="code-pane">
+<div class="tabs" id="tabs" aria-label="Code files"></div>
+<div class="code-bar"><span id="path"></span><button id="copy" class="copy">Copy code ↗</button></div>
+<pre><code id="code"></code></pre>
+<div class="code-foot">Explicit headings · Server-controlled eligibility · Parameterized database writes</div>
+</div>
+</section>
+<section class="below">
+<div><h3>Never optimize around a policy boundary.</h3><p>Apply tenant permissions, residency, capabilities, context limits, and minimum quality before ranking candidates. No eligible model means a clear failure—not an unauthorized fallback.</p></div>
+<div><h3>Budgets are execution constraints.</h3><p>Cost estimates require current pricing and provider-specific tokenization. Latency statistics need fresh measurements. Enforce deadlines, reserve spend, and record actual usage server-side.</p></div>
+</section>
+<footer><span>AZ_AI / 04_ROUTING</span><span>INTENT → ELIGIBILITY → OPTIMIZATION → DISPATCH</span></footer>
+</main>
+</div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+// ============================================================
+// 04_ROUTING / SHARED CONTRACTS
+// ============================================================
+const contracts=`// ============================================================
+// 04_ROUTING / SHARED CONTRACTS
+// File: lib/routing/contracts.ts
+// ============================================================
+
+export type Task =
+  | "qa" | "summarize" | "write" | "code" | "extract" | "other";
+
+export type Candidate = {
+  id: string;
+  enabled: boolean;
+  verified: boolean;
+  allowedTenantIds: readonly string[];
+  tasks: readonly Task[];
+  capabilities: readonly string[];
+  region: string;
+  contextTokens: number;
+  qualityScore: number; // measured against a versioned eval
+  inputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+  p95LatencyMs: number | null;
+  telemetryAt: number | null;
+  latencySamples: number;
+};
+
+export type Requirements = {
+  tenantId: string;
+  task: Task;
+  capabilities: readonly string[];
+  region: string;
+  inputTokens: number;
+  outputTokens: number;
+  minQuality: number;
+};
+
+export function eligible(
+  models: readonly Candidate[], request: Requirements
+): Candidate[] {
+  if (!request.tenantId ||
+      !Number.isInteger(request.inputTokens) ||
+      !Number.isInteger(request.outputTokens) ||
+      request.inputTokens < 0 || request.outputTokens < 1 ||
+      !Number.isFinite(request.minQuality)) {
+    throw new Error("Invalid routing requirements");
+  }
+
+  return models.filter(model =>
+    model.enabled && model.verified &&
+    model.allowedTenantIds.includes(request.tenantId) &&
+    model.tasks.includes(request.task) &&
+    request.capabilities.every(c => model.capabilities.includes(c)) &&
+    model.region === request.region &&
+    model.contextTokens >= request.inputTokens + request.outputTokens &&
+    Number.isFinite(model.qualityScore) &&
+    model.qualityScore >= request.minQuality
+  );
+}
+
+// Build these objects from trusted server configuration.
+// Count tokens per provider/model; do not accept client counts.
+// Revalidate eligibility immediately before every dispatch.
+`;
+const modules={
+task_classifier:{
+title:"Task classifier",tag:"INTENT → TAXONOMY",
+description:"Validate an explicit task declaration. Ambiguous or undeclared tasks return “other” for clarification rather than guessing from a few keywords.",
+body:`import { z } from "zod";
+import type { Task } from "./contracts";
+
+const schema = z.object({
+  query: z.string().trim().min(1).max(50000),
+  declaredTask: z.enum([
+    "qa", "summarize", "write", "code", "extract", "other",
+  ]).optional(),
+}).strict();
+
+export function runTaskClassifier(raw: unknown): {
+  task: Task;
+  source: "user_declared" | "unresolved";
+  needsClarification: boolean;
+} {
+  const input = schema.parse(raw);
+  const task = input.declaredTask ?? "other";
+  return {
+    task,
+    source: input.declaredTask ? "user_declared" : "unresolved",
+    needsClarification: task === "other",
+  };
+}
+
+// For automatic classification, inject an evaluated classifier,
+// validate its schema, and calibrate abstention thresholds.
+// A declared task is a routing hint, never permission to act.`
+},
+model_selector:{
+title:"Model selector",tag:"ELIGIBILITY GATE",
+description:"Filter against capability and policy requirements, then choose by measured quality with a stable tie-breaker.",
+body:`import {
+  Candidate, Requirements, eligible
+} from "./contracts";
+
+export function runModelSelector(
+  registry: readonly Candidate[],
+  request: Requirements
+): Candidate {
+  const candidates = eligible(registry, request);
+  if (!candidates.length) {
+    throw new Error("No policy-compliant model available");
+  }
+  return candidates.sort((a, b) =>
+    b.qualityScore - a.qualityScore || a.id.localeCompare(b.id)
+  )[0];
+}
+
+// The registry is a server-side allowlist of exact model IDs.
+// Verify quality scores against your task evaluation set.
+// Add circuit-breaker health checks before dispatch.
+// Never loosen residency or authorization when selection fails.`
+},
+fallback_policy:{
+title:"Fallback policy",tag:"BOUNDED RESILIENCE",
+description:"Retry only explicitly transient failures across an already-approved candidate list. Safety refusals, cancellation, and invalid input stop the chain.",
+body:`export type FailureKind =
+  | "transient" | "invalid" | "safety" | "authorization";
+
+export class DispatchError extends Error {
+  constructor(public kind: FailureKind, message: string) {
+    super(message);
+  }
+}
+
+type Target = { id: string };
+type Execute<T> = (
+  target: Target, signal: AbortSignal
+) => Promise<T>;
+
+export async function runFallbackPolicy<T>(
+  approvedTargets: readonly Target[],
+  execute: Execute<T>,
+  parentSignal?: AbortSignal
+): Promise<{ value: T; modelId: string; attempts: number }> {
+  if (!approvedTargets.length) throw new Error("No approved targets");
+  const targets = approvedTargets.slice(0, 3);
+  const deadline = AbortSignal.timeout(30000);
+  const signal = parentSignal
+    ? AbortSignal.any([parentSignal, deadline]) : deadline;
+
+  for (let index = 0; index < targets.length; index++) {
+    signal.throwIfAborted();
+    try {
+      const value = await execute(targets[index], signal);
+      return {
+        value, modelId: targets[index].id, attempts: index + 1,
+      };
+    } catch (error) {
+      signal.throwIfAborted();
+      if (!(error instanceof DispatchError) ||
+          error.kind !== "transient" ||
+          index === targets.length - 1) throw error;
+    }
+  }
+  throw new Error("Fallback exhausted");
+}
+
+// Requires a runtime supporting AbortSignal.any/timeout.
+// Adapters must honor cancellation and classify failures.
+// Only transient network/service failures qualify.
+// Recheck eligibility and reserve budget before EACH attempt.
+// Do not replay side-effecting tools without idempotency keys.
+// Prevent nested SDK retries from multiplying the attempt budget.`
+},
+cost_optimizer:{
+title:"Cost optimizer",tag:"BUDGET-AWARE RANKING",
+description:"Rank eligible models by estimated token cost. Reject stale or invalid pricing in the registry, and reserve aggregate spend before execution.",
+body:`import {
+  Candidate, Requirements, eligible
+} from "./contracts";
+
+export function estimateUsd(
+  model: Candidate, inputTokens: number, outputTokens: number
+) {
+  if (![model.inputUsdPerMillion, model.outputUsdPerMillion]
+      .every(value => Number.isFinite(value) && value >= 0)) {
+    throw new Error("Invalid pricing");
+  }
+  return (
+    inputTokens * model.inputUsdPerMillion +
+    outputTokens * model.outputUsdPerMillion
+  ) / 1000000;
+}
+
+export function runCostOptimizer(
+  models: readonly Candidate[],
+  request: Requirements,
+  maxUsd: number
+) {
+  if (!Number.isFinite(maxUsd) || maxUsd <= 0) {
+    throw new Error("Invalid spending limit");
+  }
+  const ranked = eligible(models, request)
+    .map(model => ({
+      model,
+      estimatedUsd: estimateUsd(
+        model, request.inputTokens, request.outputTokens
+      ),
+    }))
+    .filter(item => item.estimatedUsd <= maxUsd)
+    .sort((a, b) =>
+      a.estimatedUsd - b.estimatedUsd ||
+      b.model.qualityScore - a.model.qualityScore ||
+      a.model.id.localeCompare(b.model.id)
+    );
+
+  if (!ranked.length) throw new Error("No eligible model within budget");
+  return ranked[0];
+}
+
+// Illustrative text-token pricing only.
+// Include tools, images, cached tokens, and reasoning charges
+// where the provider bills them. Version and refresh pricing.
+// Use model-specific token counts per candidate in production.
+// Atomically reserve budget; reconcile with actual billed usage.
+// Estimates are not a guaranteed maximum invoice.`
+},
+latency_optimizer:{
+title:"Latency optimizer",tag:"TELEMETRY-AWARE RANKING",
+description:"Choose among eligible models using recent p95 measurements. Insufficient samples or stale statistics are excluded rather than treated as fast.",
+body:`import {
+  Candidate, Requirements, eligible
+} from "./contracts";
+
+export function runLatencyOptimizer(
+  models: readonly Candidate[],
+  request: Requirements,
+  targetMs: number,
+  now = Date.now()
+) {
+  if (!Number.isFinite(targetMs) || targetMs <= 0) {
+    throw new Error("Invalid latency target");
+  }
+
+  const ranked = eligible(models, request)
+    .filter(model =>
+      model.p95LatencyMs !== null &&
+      Number.isFinite(model.p95LatencyMs) &&
+      model.p95LatencyMs > 0 &&
+      model.p95LatencyMs <= targetMs &&
+      model.telemetryAt !== null &&
+      model.telemetryAt <= now &&
+      now - model.telemetryAt <= 15 * 60 * 1000 &&
+      model.latencySamples >= 100
+    )
+    .sort((a, b) =>
+      a.p95LatencyMs! - b.p95LatencyMs! ||
+      b.qualityScore - a.qualityScore ||
+      a.id.localeCompare(b.id)
+    );
+
+  if (!ranked.length) throw new Error("No fresh eligible latency candidate");
+  return ranked[0];
+}
+
+// p95 is a statistical observation, not a deadline guarantee.
+// Segment by task, region, input/output size, and provider model.
+// Record time-to-first-token separately from full completion.
+// Enforce an actual deadline in the execution adapter.`
+}
+};
+function service(name){return `// ============================================================
+// 04_ROUTING / ${name.toUpperCase()}
+// File: lib/routing/${name}.ts — SERVER ONLY
+// ============================================================
+
+import "server-only";
+${modules[name].body}
+`;}
+function ui(name){return `// ============================================================
+// 04_ROUTING / ${name.toUpperCase()} / SHADCN UI PAGE
+// File: app/routing/${name}/page.tsx
+// Install shadcn: button, input, label. Configure Tailwind.
+// ============================================================
+
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function RoutingPage() {
+  const [requestId, setRequestId] = useState("");
+  const [result, setResult] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setResult("");
+
+    try {
+      const response = await fetch("/api/routing/${name}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId }),
+        signal: AbortSignal.timeout(45000),
+      });
+      if (!response.ok) throw new Error("Routing unavailable");
+      const data: unknown = await response.json();
+      setResult(JSON.stringify(data, null, 2));
+    } catch {
+      setResult("Unable to route this request. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-3xl space-y-6 p-6">
+      <header className="border-b pb-6">
+        <p className="font-mono text-xs text-muted-foreground">
+          04_ROUTING / ${name}
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold">
+          ${modules[name].title}
+        </h1>
+      </header>
+      <form onSubmit={submit} className="space-y-4">
+        <Label htmlFor="requestId">Authorized request ID</Label>
+        <Input id="requestId" value={requestId} required maxLength={200}
+          onChange={event => setRequestId(event.target.value)} />
+        <Button disabled={busy || !requestId.trim()}>
+          {busy ? "Routing…" : "Run module"}
+        </Button>
+      </form>
+      <pre aria-live="polite" aria-busy={busy}
+        className="overflow-auto whitespace-pre-wrap border-t pt-6 text-xs">
+        {result}
+      </pre>
+    </main>
+  );
+}
+
+// Implement API route separately:
+// 1. Authenticate, authorize origin, rate-limit, validate requestId.
+// 2. Load request by BOTH requestId and authenticated tenant ID.
+// 3. Load server-owned registry, pricing, and telemetry.
+// 4. Invoke this module with trusted adapters and requirements.
+// 5. Return a redacted decision summary; never return credentials.
+// Client request IDs do not establish ownership.
+`;}
+function sql(name,dialect){
+const pg=dialect==="postgresql";
+return `-- ============================================================
+-- 04_ROUTING / ${name.toUpperCase()} / ${dialect.toUpperCase()}
+-- Shared configuration and decision-audit migration
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS routing_settings (
+  tenant_id TEXT NOT NULL,
+  module TEXT NOT NULL,
+  config ${pg?"JSONB":"TEXT"} NOT NULL
+    ${pg?"":"CHECK (json_valid(config))"},
+  version INTEGER NOT NULL CHECK (version > 0),
+  updated_at ${pg?"TIMESTAMPTZ":"TEXT"} NOT NULL
+    DEFAULT ${pg?"NOW()":"CURRENT_TIMESTAMP"},
+  PRIMARY KEY (tenant_id, module)
+);
+
+CREATE TABLE IF NOT EXISTS routing_decisions (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  module TEXT NOT NULL,
+  selected_model TEXT,
+  status TEXT NOT NULL CHECK (
+    status IN ('selected', 'rejected', 'failed')
+  ),
+  metadata ${pg?"JSONB":"TEXT"} NOT NULL DEFAULT '{}'
+    ${pg?"":"CHECK (json_valid(metadata))"},
+  created_at ${pg?"TIMESTAMPTZ":"TEXT"} NOT NULL
+    DEFAULT ${pg?"NOW()":"CURRENT_TIMESTAMP"},
+  expires_at ${pg?"TIMESTAMPTZ":"TEXT"} NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS routing_decisions_tenant_request
+  ON routing_decisions(tenant_id, request_id, created_at);
+
+-- Runtime write using bound parameters:
+-- INSERT INTO routing_decisions
+-- (id, tenant_id, request_id, module, selected_model,
+--  status, metadata, expires_at)
+-- VALUES (${pg?"$1, $2, $3, $4, $5, $6, $7::jsonb, $8":"?, ?, ?, ?, ?, ?, ?, ?"});
+--
+-- Bind module = '${name}'.
+-- Store operational reasons, versions, and estimates only.
+-- Do not store raw prompts, secrets, or internal reasoning.
+-- Scope ALL reads and writes to authenticated tenant_id.
+-- Add host-schema request/user foreign keys and retention jobs.
+-- Keep pricing and measured latency in versioned registry storage.
+-- Atomic budget reservations require a separate transactional ledger.
+${pg?"-- Configure tenant-aware RLS in your deployment.":"-- Requires SQLite JSON functions; use consistent UTC timestamps."}
+`;
+}
+let current="task_classifier",file="service";
+const files={service:"module.ts",contracts:"contracts.ts",ui:"page.tsx",postgresql:"PostgreSQL",sqlite:"SQLite"};
+const demoState={task:"summarize",budget:"0.01",deadline:"1200",failure:"transient"};
+function renderDemo(){
+let fields;
+if(current==="task_classifier"||current==="model_selector")fields=`<label class="field">Declared task<small>Illustrative request; not an automatic classifier.</small><select name="task">${["qa","summarize","write","code","extract","other"].map(t=>`<option ${demoState.task===t?"selected":""}>${t}</option>`).join("")}</select></label>`;
+else if(current==="cost_optimizer")fields=`<label class="field">Budget (USD)<small>Fictional estimates: Model A $0.008; Model B $0.004.</small><input name="budget" type="number" min="0.0001" step="0.0001" value="${demoState.budget}" required></label>`;
+else if(current==="latency_optimizer")fields=`<label class="field">p95 target (milliseconds)<small>Illustrative fresh telemetry: A 900 ms; B 1500 ms.</small><input name="deadline" type="number" min="1" step="1" value="${demoState.deadline}" required></label>`;
+else fields=`<label class="field">Primary attempt result<small>Only transient failures qualify for a retry.</small><select name="failure">${["transient","safety","invalid","authorization","success"].map(t=>`<option ${demoState.failure===t?"selected":""}>${t}</option>`).join("")}</select></label>`;
+document.getElementById("demo-fields").innerHTML=fields;
+}
+function source(){return file==="service"?service(current):file==="contracts"?contracts:file==="ui"?ui(current):sql(current,file)}
+function renderCode(){
+document.getElementById("code").textContent=source();
+document.getElementById("path").textContent=file==="service"?`lib/routing/${current}.ts`:file==="contracts"?"lib/routing/contracts.ts":file==="ui"?`app/routing/${current}/page.tsx`:`migrations/${current}.${file}.sql`;
+document.querySelectorAll(".tab").forEach(b=>{b.classList.toggle("active",b.dataset.file===file);b.setAttribute("aria-pressed",String(b.dataset.file===file))});
+}
+function navigate(){
+const key=location.hash.slice(1);current=modules[key]?key:"task_classifier";
+const m=modules[current];
+document.getElementById("breadcrumb").textContent=current;
+document.getElementById("title").textContent=m.title;
+document.getElementById("tag").textContent=m.tag;
+document.getElementById("description").textContent=m.description;
+document.getElementById("result").textContent="Run a local example to inspect the decision.";
+document.querySelectorAll(".nav").forEach(a=>{a.classList.toggle("active",a.dataset.module===current);if(a.dataset.module===current)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+renderDemo();renderCode();
+}
+Object.keys(modules).forEach((name,i)=>{
+const a=document.createElement("a");a.className="nav";a.dataset.module=name;a.href="#"+name;a.innerHTML=`<span>0${i+1}</span>${name}`;document.getElementById("nav").append(a);
+});
+Object.entries(files).forEach(([key,label])=>{
+const b=document.createElement("button");b.className="tab";b.dataset.file=key;b.textContent=label;b.addEventListener("click",()=>{file=key;renderCode()});document.getElementById("tabs").append(b);
+});
+document.getElementById("demo-fields").addEventListener("input",e=>{if(e.target.name)demoState[e.target.name]=e.target.value});
+document.getElementById("demo").addEventListener("submit",e=>{
+e.preventDefault();let result;
+if(current==="task_classifier")result={task:demoState.task,source:"user_declared",needsClarification:demoState.task==="other"};
+else if(current==="model_selector")result=demoState.task==="other"?{status:"rejected",reason:"Clarify task before selection"}:{status:"selected",model:"Illustrative Model A",reason:"Eligible; highest measured quality in demo"};
+else if(current==="fallback_policy")result=demoState.failure==="transient"?{action:"Try next approved model",attemptLimit:3}:demoState.failure==="success"?{action:"Return result",attempts:1}:{action:"Stop; do not bypass failure",kind:demoState.failure};
+else if(current==="cost_optimizer"){const budget=Number(demoState.budget);result=budget>=0.004?{selected:"Illustrative Model B",estimatedUsd:0.004,note:"Lowest demo cost; reserve budget before dispatch"}:{status:"rejected",reason:"No demo model fits budget"}}
+else{const target=Number(demoState.deadline);result=target>=900?{selected:"Illustrative Model A",observedP95Ms:900,note:"Measured p95 is not a deadline guarantee"}:{status:"rejected",reason:"No fresh demo candidate meets target"}}
+document.getElementById("result").textContent=JSON.stringify({previewOnly:true,...result},null,2);
+});
+let timer;function notify(text){const el=document.getElementById("toast");el.textContent=text;el.classList.add("show");clearTimeout(timer);timer=setTimeout(()=>el.classList.remove("show"),3200)}
+document.getElementById("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(source());notify("Code copied with its module heading.")}catch{notify("Clipboard unavailable. Download the code bundle instead.")}});
+document.getElementById("download").addEventListener("click",()=>{
+const bundle={heading:"04_ROUTING / IMPLEMENTATION TEMPLATES",requirements:["Next.js App Router","Tailwind CSS","shadcn/ui: button input label","zod","server-only","PostgreSQL or SQLite driver"],notice:"API routes, authorization, registry storage, telemetry collection, tokenizers, and budget ledger must be implemented in the host application.",shared:{"contracts.ts":contracts},modules:Object.fromEntries(Object.keys(modules).map(name=>[name,{"module.ts":service(name),"page.tsx":ui(name),"postgresql.sql":sql(name,"postgresql"),"sqlite.sql":sql(name,"sqlite")}]))};
+const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="04-routing.code-bundle.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify("All five modules exported as a JSON code bundle.");
+});
+window.addEventListener("hashchange",navigate);navigate();
+</script>
+</body>
+</html>

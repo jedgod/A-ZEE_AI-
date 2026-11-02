@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZ_AI — Intake Engineering Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f3ee;--paper:#fffefa;--ink:#292a26;--muted:#83837a;--line:#deddd4;--accent:#bd4b2d;--soft:#f5e7dd;--mono:'IBM Plex Mono',monospace;--display:'Space Grotesk',sans-serif;--body:'DM Sans',sans-serif}
+*{box-sizing:border-box}body{margin:0;font:13px var(--body);color:var(--ink);background:var(--bg)}button,input,select,textarea{font:inherit}button{cursor:pointer}button,a,input,textarea,select{outline-offset:4px}a{color:inherit;text-decoration:none}.app{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100vh}.sidebar{background:var(--paper);border-right:1px solid var(--line);padding:28px 18px;display:flex;flex-direction:column}.brand{display:flex;gap:10px;align-items:center;font:700 23px var(--display);letter-spacing:-1px}.brand span{display:grid;place-items:center;width:34px;height:34px;background:var(--ink);color:white;font:14px var(--mono)}.project{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:17px 8px;margin:32px 0;font-size:11px;color:var(--muted);line-height:1.9}.project strong{display:block;color:var(--ink)}.label{font:9px var(--mono);letter-spacing:1.4px;color:var(--muted)}.sidebar>.label{padding:0 8px}nav{margin-top:15px}.nav{width:100%;display:flex;gap:12px;text-align:left;border:0;background:none;padding:14px 10px;margin:3px 0;color:var(--muted);font-size:12px}.nav span{font:10px var(--mono)}.nav:hover{background:#eeeee6}.nav.active{color:var(--accent);background:var(--soft);font-weight:700}.side-foot{margin-top:auto;padding:40px 8px 0;font:10px/1.9 var(--mono);color:var(--muted)}header{height:75px;border-bottom:1px solid var(--line);padding:0 38px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}header strong{color:var(--ink)}.live{font:9px var(--mono);letter-spacing:1px}.live:before{content:"";display:inline-block;width:6px;height:6px;background:var(--accent);border-radius:50%;margin-right:8px}main{padding:38px;max-width:1560px;margin:auto}.hero{display:flex;justify-content:space-between;align-items:end;gap:25px;margin-bottom:30px}.eyebrow{font:10px var(--mono);letter-spacing:1.2px;color:var(--accent)}h1{font:500 clamp(34px,4.5vw,61px)/1.04 var(--display);letter-spacing:-2.6px;margin:17px 0}h1 em{font-style:normal;color:var(--accent)}.subtitle{max-width:600px;font-size:13px;line-height:1.8;color:var(--muted);margin:0}.btn{border:1px solid var(--line);padding:11px 15px;background:var(--paper);font-size:11px;font-weight:600;white-space:nowrap;transition:.2s}.btn:hover{background:#ebe9df;transform:translateY(-2px)}.btn:active{transform:translateY(0)}.btn.primary{background:var(--accent);color:white;border-color:var(--accent)}.btn.primary:hover{background:#a33e25}.strip{display:flex;gap:25px;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:16px 0;font:9px var(--mono);color:var(--muted);margin-bottom:26px}.strip strong{color:var(--ink)}.workspace{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.25fr);border:1px solid var(--line);background:var(--paper)}.form-panel{padding:26px;min-width:0}h2{font:500 25px var(--display);letter-spacing:-.7px;margin:12px 0}.description{color:var(--muted);font-size:12px;line-height:1.8;margin-bottom:24px}.tag{font:9px var(--mono);padding:5px 8px;background:var(--soft);color:var(--accent);display:inline-block}.field{display:block;font-size:11px;font-weight:600;margin:20px 0}.field small{display:block;color:var(--muted);font-size:10px;font-weight:400;line-height:1.8;margin:5px 0 9px}input,textarea,select{width:100%;padding:11px;border:1px solid var(--line);background:white;color:var(--ink);border-radius:3px;font-size:12px}textarea{resize:vertical;min-height:148px;line-height:1.8}input:focus,textarea:focus,select:focus{border-color:var(--accent);outline:2px solid var(--soft)}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.two .field{margin-top:0}.form-actions{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:18px;margin-top:24px;gap:12px}.form-actions span{font:9px var(--mono);color:var(--muted)}.output{margin-top:18px;background:#efeee7;padding:13px;font:10px/1.8 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:190px;overflow:auto}.notice{font-size:10px;line-height:1.8;color:var(--muted);margin-top:22px;padding-left:12px;border-left:2px solid var(--accent)}.code-panel{background:#282c28;color:#d9dfd2;min-width:0;display:flex;flex-direction:column}.tabs{display:flex;overflow:auto;gap:3px;border-bottom:1px solid #454b41;padding:12px}.tab{background:none;border:0;color:#a4ae9d;padding:9px 11px;font:9px var(--mono);white-space:nowrap}.tab:hover{background:#3b4136}.tab.active{background:#e5ebce;color:#2b3324}.code-bar{padding:18px 21px;display:flex;justify-content:space-between;gap:15px;font:9px var(--mono);color:#aab39f}.copy{border:0;background:none;color:#e5ebce;font:10px var(--mono)}pre{font:10px/1.9 var(--mono);overflow:auto;white-space:pre;margin:0;padding:0 21px 25px;max-height:580px;flex:1;color:#e0e7d1}.code-foot{border-top:1px solid #454b41;font:9px/1.8 var(--mono);color:#aab39f;padding:15px 21px}.below{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin-top:26px}.below h3{font-size:12px;margin:0 0 8px}.below p{font-size:11px;line-height:1.9;color:var(--muted);margin:0}footer{margin-top:28px;border-top:1px solid var(--line);padding-top:18px;display:flex;justify-content:space-between;gap:15px;font:9px var(--mono);color:var(--muted)}.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,15px);opacity:0;pointer-events:none;background:var(--ink);color:white;padding:13px 20px;transition:.2s;font-size:12px;z-index:5}.toast.show{opacity:1;transform:translate(-50%,0)}.reveal{animation:reveal .5s both}.workspace{animation-delay:.12s}@keyframes reveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(max-width:1150px){.app{grid-template-columns:195px 1fr}.sidebar{padding:25px 14px}main{padding:30px 25px}header{padding:0 25px}.workspace{grid-template-columns:1fr}.hero{flex-direction:column;align-items:start}.code-panel{min-height:440px}}@media(max-width:650px){.app{display:block}.sidebar{padding:18px;border-right:0;border-bottom:1px solid var(--line)}.project,.sidebar>.label,.side-foot{display:none}nav{display:flex;gap:5px;overflow:auto;margin-top:18px}.nav{width:auto;white-space:nowrap;padding:10px}.nav span{display:none}header{height:55px;padding:0 18px}.live{display:none}main{padding:26px 18px}h1{letter-spacing:-1.7px}.form-panel{padding:22px 18px}.two,.below{grid-template-columns:1fr}.below{gap:20px}.strip{gap:15px}footer{flex-direction:column;line-height:1.8}.code-bar{padding:17px}pre{padding-left:17px;padding-right:17px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+<a class="brand" href="#user_query"><span>AZ</span>Intake Studio</a>
+<div class="project"><strong>AZ_AI / Engineering workspace</strong>Foundation → Request pipeline</div>
+<div class="label">01_INTAKE / MODULES</div>
+<nav id="nav" aria-label="Intake modules"></nav>
+<div class="side-foot">GOOD OUTPUT STARTS<br>WITH BETTER INPUT.<br><br>LOCAL PREVIEW ONLY.<br>NO MODEL CALLS.</div>
+</aside>
+<div>
+<header><div>AZ_AI / 01_INTAKE / <strong id="crumb">user_query</strong></div><span class="live">IMPLEMENTATION WORKBENCH</span></header>
+<main>
+<section class="hero reveal">
+<div><div class="eyebrow">01 / REQUEST FOUNDATION</div><h1>Make every input<br><em>execution-ready.</em></h1><p class="subtitle">Six explicit intake contracts. Explore validation code, shadcn/ui page templates, and PostgreSQL or SQLite persistence—one module at a time.</p></div>
+<button class="btn primary" id="download">Download code bundle ↓</button>
+</section>
+<div class="strip"><strong>06 INTAKE MODULES</strong><span>CLIENT / shadcn/ui + Tailwind</span><span>VALIDATION / Zod</span><span>STORAGE / PostgreSQL · SQLite</span></div>
+<section class="workspace reveal">
+<div class="form-panel">
+<span class="tag" id="tag"></span><h2 id="title"></h2><p class="description" id="description"></p>
+<form id="preview-form"><div id="fields"></div><div class="form-actions"><span>LOCAL CONTRACT PREVIEW</span><button class="btn primary" type="submit">Validate input ↗</button></div></form>
+<div class="output" id="output" role="status">Configure an input, then validate its contract.</div>
+<p class="notice">This standalone preview uses custom HTML/CSS. The code tabs contain React + shadcn/ui templates. Install dependencies, implement authentication, and wire server-side persistence before deployment.</p>
+</div>
+<div class="code-panel">
+<div class="tabs" id="tabs" aria-label="Implementation files"></div>
+<div class="code-bar"><span id="path"></span><button class="copy" id="copy">Copy ↗</button></div>
+<pre><code id="code"></code></pre>
+<div class="code-foot">Every file includes a module heading. Database scripts are migrations, not browser connections.</div>
+</div>
+</section>
+<section class="below">
+<div><h3>Normalize first. Route second.</h3><p>Capture the query, identify the task, and clarify intent before model selection. Constraints and modality become explicit contracts instead of hidden prompt assumptions.</p></div>
+<div><h3>Priority is not permission.</h3><p>User urgency never grants elevated access. Scheduling priority needs server-side authorization; attachments need MIME inspection, size limits, malware scanning, and access checks.</p></div>
+</section>
+<footer><span>AZ_AI / 01_INTAKE</span><span>STRUCTURED INPUT. ACCOUNTABLE EXECUTION.</span></footer>
+</main>
+</div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+// ============================================================
+// 01_INTAKE / MODULE DEFINITIONS
+// ============================================================
+const modules={
+user_query:{title:"User query",tag:"REQUEST CAPTURE",description:"Normalize the original request without changing its meaning. Preserve user text and bound input size.",fields:[["text","Request","textarea","Analyze our release notes and draft a concise summary."]],schema:`export const userQuerySchema = z.object({
+  text: z.string().trim().min(1).max(50000),
+}).strict();`,schemaName:"userQuerySchema"},
+task_type:{title:"Task type",tag:"TASK CLASSIFICATION",description:"Use an explicit task taxonomy for routing. Keep automatic classification separate from a user-declared task.",fields:[["type","Task category","select",["question_answering","summarization","writing","coding","extraction","planning","other"]]],schema:`export const taskTypeSchema = z.object({
+  type: z.enum([
+    "question_answering", "summarization", "writing",
+    "coding", "extraction", "planning", "other",
+  ]),
+}).strict();`,schemaName:"taskTypeSchema"},
+intent:{title:"Intent",tag:"OUTCOME DEFINITION",description:"Capture the desired outcome and clarification needs. Do not claim to infer hidden motives from the request.",fields:[["goal","Desired outcome","textarea","Create a decision-ready executive summary."],["needsClarification","Needs clarification","select",["no","yes"]]],schema:`export const intentSchema = z.object({
+  goal: z.string().trim().min(1).max(2000),
+  needsClarification: z.enum(["no", "yes"]),
+}).strict();`,schemaName:"intentSchema"},
+constraints:{title:"Constraints",tag:"EXECUTION BOUNDARIES",description:"Declare response length, language, and output format. Application constraints cannot override server safety or authorization policies.",fields:[["maxOutputTokens","Maximum output tokens","number",2048],["language","Language code","text","en"],["format","Output format","select",["text","markdown","json"]]],schema:`export const constraintsSchema = z.object({
+  maxOutputTokens: z.number().int().min(128).max(8192),
+  language: z.string().regex(/^[a-z]{2,3}(-[A-Z]{2})?$/),
+  format: z.enum(["text", "markdown", "json"]),
+}).strict();
+
+// Provider adapters must enforce token budgets.
+// JSON output still requires downstream schema validation.`,schemaName:"constraintsSchema"},
+priority:{title:"Priority",tag:"SCHEDULING HINT",description:"Record requested urgency separately from effective scheduling priority. Only the backend can authorize expedited execution.",fields:[["requested","Requested priority","select",["low","normal","high"]],["reason","Business justification","textarea","Standard operational request."]],schema:`export const prioritySchema = z.object({
+  requested: z.enum(["low", "normal", "high"]),
+  reason: z.string().trim().max(1000),
+}).strict();
+
+export function effectivePriority(
+  requested: "low" | "normal" | "high",
+  canExpedite: boolean
+) {
+  return requested === "high" && !canExpedite
+    ? "normal" : requested;
+}`,schemaName:"prioritySchema"},
+modality:{title:"Modality",tag:"INPUT CAPABILITIES",description:"Declare the input channel and reference server-managed attachments. File identifiers are not proof of ownership or safe content.",fields:[["kind","Input modality","select",["text","image","audio","document"]],["attachmentIds","Attachment IDs (comma-separated)","text",""]],schema:`export const modalitySchema = z.object({
+  kind: z.enum(["text", "image", "audio", "document"]),
+  attachmentIds: z.array(z.string().uuid()).max(10),
+}).strict().superRefine((value, ctx) => {
+  if (value.kind !== "text" && !value.attachmentIds.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["attachmentIds"],
+      message: "This modality requires an attachment",
+    });
+  }
+});
+
+// Verify ownership, MIME signatures, byte size,
+// malware-scan status, and provider capability server-side.`,schemaName:"modalitySchema"}
+};
+const values=Object.fromEntries(Object.entries(modules).map(([name,m])=>[name,Object.fromEntries(m.fields.map(([key,label,type,val])=>[key,type==="select"?val[0]:val]))]));
+let current="user_query",file="schema";
+const escape=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function schemaCode(name){return `// ============================================================
+// 01_INTAKE / ${name.toUpperCase()} / VALIDATION
+// File: lib/intake/${name}.ts
+// Dependency: zod
+// ============================================================
+
+import { z } from "zod";
+
+${modules[name].schema}
+
+export type ${pascal(name)}Input =
+  z.infer<typeof ${modules[name].schemaName}>;
+`;}
+function pascal(name){return name.split("_").map(x=>x[0].toUpperCase()+x.slice(1)).join("")}
+function uiCode(name){
+const m=modules[name];
+const defaults=Object.fromEntries(m.fields.map(([k,l,t,v])=>[k,t==="select"?v[0]:t==="number"?String(v):v]));
+const controls=m.fields.map(([key,label,type,options])=>{
+if(type==="select")return `      <div className="space-y-2">
+        <Label htmlFor="${key}">${label}</Label>
+        <Select value={form.${key}}
+          onValueChange={value => update("${key}", value)}>
+          <SelectTrigger id="${key}"><SelectValue /></SelectTrigger>
+          <SelectContent>
+${options.map(o=>`            <SelectItem value="${o}">${o}</SelectItem>`).join("\n")}
+          </SelectContent>
+        </Select>
+      </div>`;
+return `      <div className="space-y-2">
+        <Label htmlFor="${key}">${label}</Label>
+        <${type==="textarea"?"Textarea":"Input"} id="${key}"
+          ${type==="number"?'type="number" min="128" max="8192"':""}
+          value={form.${key}}
+          onChange={event => update("${key}", event.target.value)}
+        />
+      </div>`;
+}).join("\n");
+return `// ============================================================
+// 01_INTAKE / ${name.toUpperCase()} / SHADCN UI PAGE
+// File: app/intake/${name}/page.tsx
+// Install shadcn: button input textarea label select
+// Configure Tailwind in the host Next.js application.
+// ============================================================
+
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem,
+  SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ${m.schemaName} } from "@/lib/intake/${name}";
+
+export default function ${pascal(name)}Page() {
+  const [form, setForm] = useState(${JSON.stringify(defaults,null,2)});
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function update(key: keyof typeof form, value: string) {
+    setForm(previous => ({ ...previous, [key]: value }));
+  }
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    const payload = {
+      ...form,${name==="constraints"?"\n      maxOutputTokens: Number(form.maxOutputTokens),":""}${name==="modality"?'\n      attachmentIds: form.attachmentIds.split(",").map(s => s.trim()).filter(Boolean),':""}
+    };
+    const result = ${m.schemaName}.safeParse(payload);
+    if (!result.success) {
+      setStatus(result.error.issues.map(i => i.message).join("; "));
+      return;
+    }
+
+    setBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/intake/${name}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(result.data),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error("Save failed");
+      setStatus("Saved.");
+    } catch {
+      setStatus("Could not save. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-2xl space-y-6 p-6">
+      <header className="border-b pb-6">
+        <p className="font-mono text-xs text-muted-foreground">
+          01_INTAKE / ${name}
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold">${m.title}</h1>
+      </header>
+      <form onSubmit={save} className="space-y-6">
+${controls}
+        <Button type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save ${m.title.toLowerCase()}"}
+        </Button>
+        <p role="status" className="text-sm text-muted-foreground">
+          {status}
+        </p>
+      </form>
+    </main>
+  );
+}
+`;
+}
+function routeCode(name){return `// ============================================================
+// 01_INTAKE / ${name.toUpperCase()} / SERVER ROUTE
+// File: app/api/intake/${name}/route.ts
+// Host application must implement auth and repository helpers.
+// ============================================================
+
+import { NextRequest, NextResponse } from "next/server";
+import { ${modules[name].schemaName} } from "@/lib/intake/${name}";
+import { requireUser, requireSameOrigin, rateLimit } from "@/lib/security";
+import { saveIntakeModule } from "@/lib/db/intake";
+
+export async function POST(request: NextRequest) {
+  try {
+    // These helpers must reject unauthorized requests.
+    await requireSameOrigin(request);
+    const user = await requireUser(request);
+    await rateLimit(user.id, "intake-write");
+
+    // Also enforce byte limits at the reverse proxy.
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).length > 250000) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
+    let body: unknown;
+    try { body = JSON.parse(raw); }
+    catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
+    const parsed = ${modules[name].schemaName}.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid intake input", issues: parsed.error.issues },
+        { status: 422 }
+      );
+    }
+${name==="modality"?`
+    // REQUIRED: verify each attachment belongs to this user,
+    // is scanned, has an allowed MIME type, and fits byte limits.
+    // Reject unverified files before saving or invoking models.
+`:""}${name==="priority"?`
+    // Store requested priority only.
+    // Compute effective queue priority from server entitlements.
+`:""}
+    const record = await saveIntakeModule({
+      userId: user.id,
+      module: "${name}",
+      payload: parsed.data,
+    });
+
+    return NextResponse.json({ id: record.id }, { status: 201 });
+  } catch {
+    // Map typed authentication/rate-limit failures to 401/403/429
+    // in your security helpers or application error middleware.
+    return NextResponse.json(
+      { error: "Request could not be completed" }, { status: 500 }
+    );
+  }
+}
+
+// Repository contract:
+// saveIntakeModule({ userId, module, payload }) -> { id: string }
+// Generate IDs server-side; use bound SQL parameters.
+// Link records to an authorized intake request when assembling
+// all six modules into a single pipeline request.
+`;}
+function sqlCode(name,dialect){
+const pg=dialect==="postgresql";
+return `-- ============================================================
+-- 01_INTAKE / ${name.toUpperCase()} / ${dialect.toUpperCase()}
+-- File: migrations/intake_${name}.${pg?"pg":"sqlite"}.sql
+-- ============================================================
+
+${pg?"":"PRAGMA foreign_keys = ON;\n"}
+CREATE TABLE IF NOT EXISTS intake_${name} (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  payload ${pg?"JSONB":"TEXT"} NOT NULL${pg?"":" CHECK (json_valid(payload))"},
+  schema_version TEXT NOT NULL DEFAULT '1.0.0',
+  created_at ${pg?"TIMESTAMPTZ":"TEXT"} NOT NULL DEFAULT ${pg?"NOW()":"CURRENT_TIMESTAMP"}
+);
+
+CREATE INDEX IF NOT EXISTS intake_${name}_owner_request
+  ON intake_${name}(user_id, request_id);
+
+-- Parameterized INSERT, run through your backend driver:
+-- INSERT INTO intake_${name}
+--   (id, user_id, request_id, payload)
+-- VALUES (${pg?"$1, $2, $3, $4::jsonb":"?, ?, ?, ?"});
+--
+-- Bind JSON.stringify(validatedPayload) as the payload.
+-- Never interpolate user input into SQL.
+-- Authorize ownership of request_id before writing.
+-- Add request/user foreign keys using your application schema.
+-- Add retention and deletion policies for sensitive intake data.
+${pg?"-- Enable tenant isolation / RLS as appropriate for your deployment.":"-- Requires SQLite JSON functions; JSON is stored as validated TEXT."}
+`;
+}
+const files={schema:"schema.ts",ui:"page.tsx",route:"route.ts",postgresql:"PostgreSQL",sqlite:"SQLite"};
+function source(){return file==="schema"?schemaCode(current):file==="ui"?uiCode(current):file==="route"?routeCode(current):sqlCode(current,file)}
+function renderCode(){
+document.getElementById("code").textContent=source();
+document.getElementById("path").textContent=`01_INTAKE/${current}/${files[file]}`;
+document.querySelectorAll(".tab").forEach(b=>{b.classList.toggle("active",b.dataset.file===file);b.setAttribute("aria-pressed",String(b.dataset.file===file))});
+}
+function navigate(){
+const key=location.hash.slice(1);current=modules[key]?key:"user_query";const m=modules[current];
+document.getElementById("crumb").textContent=current;document.getElementById("title").textContent=m.title;document.getElementById("tag").textContent=m.tag;document.getElementById("description").textContent=m.description;
+document.getElementById("fields").innerHTML=m.fields.map(([key,label,type,options])=>{
+const v=values[current][key];let control;
+if(type==="select")control=`<select id="${key}" name="${key}">${options.map(o=>`<option ${v===o?"selected":""} value="${o}">${o.replaceAll("_"," ")}</option>`).join("")}</select>`;
+else if(type==="textarea")control=`<textarea id="${key}" name="${key}" maxlength="${current==="user_query"?50000:current==="intent"?2000:1000}" ${key==="reason"?"":"required"}>${escape(v)}</textarea>`;
+else control=`<input id="${key}" name="${key}" type="${type}" value="${escape(v)}" ${type==="number"?'min="128" max="8192" required':key==="language"?'pattern="[a-z]{2,3}(-[A-Z]{2})?" required':""}>`;
+return `<label class="field" for="${key}">${label}<small>${key==="attachmentIds"?"Use UUIDs from your authenticated upload service.":key==="language"?"Use a code such as en, fr, or en-US.":"An explicit value for the intake contract."}</small>${control}</label>`;
+}).join("");
+document.getElementById("output").textContent="Configure an input, then validate its contract.";
+document.querySelectorAll(".nav").forEach(b=>{b.classList.toggle("active",b.dataset.module===current);if(b.dataset.module===current)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+renderCode();
+}
+Object.entries(modules).forEach(([name,m],i)=>{const a=document.createElement("a");a.className="nav";a.href="#"+name;a.dataset.module=name;a.innerHTML=`<span>0${i+1}</span>${name}`;document.getElementById("nav").append(a)});
+Object.entries(files).forEach(([key,label])=>{const b=document.createElement("button");b.className="tab";b.dataset.file=key;b.textContent=label;b.addEventListener("click",()=>{file=key;renderCode()});document.getElementById("tabs").append(b)});
+document.getElementById("fields").addEventListener("input",e=>{if(e.target.name)values[current][e.target.name]=e.target.value});
+document.getElementById("preview-form").addEventListener("submit",e=>{
+e.preventDefault();const payload={...values[current]};
+if(current==="constraints")payload.maxOutputTokens=Number(payload.maxOutputTokens);
+if(current==="modality"){
+payload.attachmentIds=payload.attachmentIds.split(",").map(x=>x.trim()).filter(Boolean);
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if(payload.attachmentIds.length>10||payload.attachmentIds.some(x=>!uuid.test(x))){document.getElementById("output").textContent="Invalid attachment list: provide up to 10 UUIDs.";return}
+if(payload.kind!=="text"&&!payload.attachmentIds.length){document.getElementById("output").textContent="This modality requires at least one attachment ID.";return}
+}
+document.getElementById("output").textContent=JSON.stringify({module:"01_INTAKE/"+current,validation:"Local field checks passed; revalidate with Zod on the server.",payload},null,2);
+});
+let timer;function toast(text){const el=document.getElementById("toast");el.textContent=text;el.classList.add("show");clearTimeout(timer);timer=setTimeout(()=>el.classList.remove("show"),3200)}
+document.getElementById("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(source());toast("Code copied with its module heading.")}catch{toast("Clipboard unavailable. Download the code bundle.")}});
+document.getElementById("download").addEventListener("click",()=>{
+const bundle={heading:"01_INTAKE / IMPLEMENTATION TEMPLATES",requirements:["Next.js App Router","Tailwind CSS","shadcn/ui components","zod","PostgreSQL or SQLite driver"],notice:"Security helpers and database repository must be implemented in the host application.",modules:Object.fromEntries(Object.keys(modules).map(name=>[name,{"schema.ts":schemaCode(name),"page.tsx":uiCode(name),"route.ts":routeCode(name),"postgresql.sql":sqlCode(name,"postgresql"),"sqlite.sql":sqlCode(name,"sqlite")}]))};
+const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="01-intake.code-bundle.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast("All six modules downloaded as a JSON code bundle.");
+});
+window.addEventListener("hashchange",navigate);navigate();
+</script>
+</body>
+</html>

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZ_AI — Delivery & Operations Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f4f0;--paper:#fffef9;--ink:#26382e;--muted:#788277;--line:#dbe0d4;--green:#386347;--lime:#dfecb4;--mono:'IBM Plex Mono',monospace;--display:'Space Grotesk',sans-serif;--body:'DM Sans',sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px var(--body)}button{font:inherit;cursor:pointer}a{color:inherit;text-decoration:none}button,a{outline-offset:4px}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}.sidebar{padding:28px 18px;background:var(--paper);border-right:1px solid var(--line)}.brand{display:flex;gap:10px;align-items:center;font:700 22px var(--display);letter-spacing:-1px}.brand span{display:grid;place-items:center;background:var(--ink);color:var(--lime);width:34px;height:34px;font:14px var(--mono)}.project{margin:26px 8px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font:9px/1.9 var(--mono);color:var(--muted)}.group-title{font:9px var(--mono);letter-spacing:1px;margin:23px 8px 11px;color:var(--muted)}.nav{display:flex;gap:10px;padding:9px;font-size:11px;color:var(--muted);margin:3px 0}.nav span{font:9px var(--mono);padding-top:2px}.nav:hover{background:#ecefe3}.nav.active{background:var(--lime);color:var(--ink);font-weight:700}header{height:73px;border-bottom:1px solid var(--line);padding:0 36px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px}header strong{color:var(--ink);font-weight:500}.status{font:9px var(--mono)}.status:before{content:"";display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:8px}main{max-width:1500px;margin:auto;padding:36px}.hero{display:flex;justify-content:space-between;align-items:end;gap:25px;margin-bottom:29px}.eyebrow{font:10px var(--mono);letter-spacing:1.2px;color:var(--green)}h1{font:500 clamp(35px,4.3vw,59px)/1.06 var(--display);letter-spacing:-2.4px;margin:17px 0}h1 span{color:var(--green)}.intro{color:var(--muted);line-height:1.8;max-width:620px;margin:0}.btn{background:var(--paper);border:1px solid var(--line);padding:11px 15px;font-size:11px;font-weight:600;white-space:nowrap;transition:.2s}.btn:hover{background:var(--lime);transform:translateY(-2px)}.btn:active{transform:translateY(0)}.primary{background:var(--green);color:white;border-color:var(--green)}.primary:hover{background:#284c33}.strip{display:flex;flex-wrap:wrap;gap:23px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:16px 0;margin-bottom:25px;font:9px var(--mono);color:var(--muted)}.strip strong{color:var(--ink)}.workbench{display:grid;grid-template-columns:300px minmax(0,1fr);background:var(--paper);border:1px solid var(--line)}.overview{padding:25px}.tag{display:inline-block;background:var(--lime);color:var(--green);padding:5px 7px;font:9px var(--mono)}h2{font:500 25px var(--display);letter-spacing:-.7px;margin:15px 0 12px}.description{font-size:12px;line-height:1.85;color:var(--muted)}.meta{border-top:1px solid var(--line);padding-top:17px;margin-top:25px;font:9px/1.9 var(--mono);color:var(--muted)}.meta strong{display:block;color:var(--ink);font-weight:400;margin:7px 0 20px;overflow-wrap:anywhere}.note{border-left:2px solid var(--green);padding-left:12px;color:var(--muted);font-size:10px;line-height:1.9;margin-top:24px}.code-pane{min-width:0;display:flex;flex-direction:column;background:#233129;color:#dfe8d0}.tabs{display:flex;gap:4px;padding:12px;overflow:auto;border-bottom:1px solid #43513f}.tab{border:0;background:none;color:#a7b69d;font:9px var(--mono);padding:9px 10px;white-space:nowrap}.tab:hover{background:#384833}.tab.active{background:var(--lime);color:var(--ink)}.code-bar{display:flex;justify-content:space-between;gap:15px;padding:18px 20px;font:9px var(--mono);color:#a7b69d}.copy{background:none;border:0;font:10px var(--mono);color:var(--lime)}pre{margin:0;padding:0 20px 25px;overflow:auto;white-space:pre;font:10px/1.9 var(--mono);min-height:400px;max-height:600px;flex:1}.code-foot{border-top:1px solid #43513f;padding:14px 20px;font:9px/1.8 var(--mono);color:#a7b69d}.below{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:26px}.below h3{font-size:12px;margin:0 0 8px}.below p{font-size:11px;color:var(--muted);line-height:1.9;margin:0}footer{border-top:1px solid var(--line);padding-top:18px;margin-top:28px;display:flex;justify-content:space-between;gap:15px;font:9px var(--mono);color:var(--muted)}.toast{position:fixed;bottom:25px;left:50%;transform:translate(-50%,15px);opacity:0;background:var(--ink);color:white;padding:13px 20px;font-size:12px;transition:.2s;pointer-events:none;z-index:10}.toast.show{opacity:1;transform:translate(-50%,0)}.reveal{animation:reveal .5s both}.workbench{animation-delay:.12s}@keyframes reveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(max-width:1100px){.shell{grid-template-columns:210px 1fr}main{padding:30px 24px}header{padding:0 24px}.hero{flex-direction:column;align-items:start}.workbench{grid-template-columns:1fr}.overview{padding:23px}.meta{display:flex;flex-wrap:wrap;gap:12px}.meta strong{margin:0}}@media(max-width:650px){.shell{display:block}.sidebar{padding:18px;border-right:0;border-bottom:1px solid var(--line)}.project,.group-title{display:none}.navigation,.group{display:flex;gap:5px}.navigation{overflow:auto;margin-top:18px}.nav{white-space:nowrap;padding:10px}.nav span{display:none}header{height:55px;padding:0 18px}.status{display:none}main{padding:26px 18px}h1{letter-spacing:-1.6px}.below{grid-template-columns:1fr;gap:20px}footer{flex-direction:column;line-height:1.8}.code-bar{padding:16px}pre{padding-left:16px;padding-right:16px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="#cleanup"><span>AZ</span>Operations Lab</a>
+<div class="project">AZ_AI / ENGINEERING WORKSPACE<br>DELIVER → LEARN → OBSERVE</div>
+<nav class="navigation" id="navigation" aria-label="Implementation modules"></nav>
+</aside>
+<div>
+<header><div>AZ_AI / <strong id="breadcrumb"></strong></div><span class="status">18 MODULES · IMPLEMENTATION LIBRARY</span></header>
+<main>
+<section class="hero reveal">
+<div><div class="eyebrow">11_POSTPROCESS → 14_OBSERVABILITY</div><h1>Deliver with care.<br><span>Improve with evidence.</span></h1><p class="intro">Postprocessing, safe delivery, actionable feedback, and privacy-aware telemetry. Explore headed TypeScript services, shadcn/ui pages, and SQL migrations.</p></div>
+<button class="btn primary" id="export">Export all modules ↓</button>
+</section>
+<div class="strip"><strong>18 MODULES / 4 LAYERS</strong><span>UI / shadcn + Tailwind</span><span>SERVER / TypeScript + Zod</span><span>DB / PostgreSQL · SQLite</span></div>
+<section class="workbench reveal" aria-label="Code explorer">
+<div class="overview"><span class="tag" id="tag"></span><h2 id="title"></h2><p class="description" id="description"></p><div class="meta">MODULE PATH<strong id="module-path"></strong>IMPLEMENTATION BOUNDARY<strong id="boundary"></strong></div><button class="btn" id="download">Download this file ↓</button><p class="note">Integration templates, not a deployed backend. Install dependencies and implement the referenced repositories, authentication, and API routes. No live model calls or database connections occur here.</p></div>
+<div class="code-pane"><div class="tabs" id="tabs" aria-label="Implementation files"></div><div class="code-bar"><span id="path"></span><button class="copy" id="copy">Copy code ↗</button></div><pre><code id="code"></code></pre><div class="code-foot">Module headings included · Owner-scoped operations · No private reasoning logs</div></div>
+</section>
+<section class="below">
+<div><h3>Delivery is a release gate.</h3><p>Serve only authorized, validated artifacts. Revalidate translated content and preserve citation provenance. Use text rendering by default, and never stream unvalidated model tokens as final answers.</p></div>
+<div><h3>Observe the system—not private lives.</h3><p>Record operational metadata with retention limits. Keep raw prompts and secrets out of telemetry. Feedback is untrusted data; improvement candidates need review before any production change.</p></div>
+</section>
+<footer><span>AZ_AI / DELIVERY & OPERATIONS</span><span>CONTROLLED RELEASE. MEASURABLE IMPROVEMENT.</span></footer>
+</main>
+</div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+// ============================================================
+// SHARED / DELIVERY & OPERATIONS CONTRACTS
+// ============================================================
+const shared=`// ============================================================
+// SHARED / OPERATIONS CONTRACTS
+// File: lib/operations/contracts.ts
+// ============================================================
+
+import { z } from "zod";
+
+export type Auth = { userId: string; tenantId: string };
+
+export function requireAuth(auth: Auth) {
+  if (!auth.userId || !auth.tenantId) throw new Error("Unauthorized");
+}
+
+export const artifactSchema = z.object({
+  id: z.string().uuid(),
+  requestId: z.string().uuid(),
+  text: z.string().min(1).max(100000),
+  citations: z.array(z.object({
+    sourceId: z.string().min(1).max(200),
+    url: z.string().url().max(2000),
+  }).strict()).max(30),
+  warnings: z.array(z.string().max(1000)).max(10),
+  validationVersion: z.string().min(1).max(100),
+}).strict();
+
+export type Artifact = z.infer<typeof artifactSchema>;
+
+export interface ArtifactRepository {
+  // MUST enforce ownership and current delivery approval.
+  readApproved(auth: Auth, artifactId: string): Promise<Artifact>;
+}
+
+export interface RecordRepository {
+  // Table identifiers must be resolved from a server allowlist.
+  insert(input: {
+    auth: Auth; module: string; requestId: string;
+    payload: unknown; expiresAt: string;
+  }): Promise<{ id: string }>;
+}
+
+export function expiresIn(days: number) {
+  return new Date(Date.now() + days * 86400000).toISOString();
+}
+
+// Auth must originate from authenticated server state.
+// All repositories enforce tenant/user/request ownership.
+// Never use arbitrary table names from request JSON.
+// Bound SQL parameters, encryption, deletion, and quotas are required.
+`;
+const modules={
+cleanup:{layer:"11_POSTPROCESS",title:"Cleanup",description:"Normalize transport artifacts without stripping meaningful formatting or silently rewriting the answer.",body:`export function runCleanup(raw: unknown) {
+  const text = z.string().min(1).max(100000).parse(raw);
+  return text.replace(/^\\uFEFF/, "").replace(/\\r\\n?/g, "\\n");
+}
+
+// Preserve code indentation and intentional spacing.
+// Cleanup is not HTML sanitization or factual validation.`},
+normalize_format:{layer:"11_POSTPROCESS",title:"Normalize format",description:"Serialize validated answer data into text or JSON deterministically. Keep HTML out of the default delivery contract.",body:`export function runNormalizeFormat(raw: unknown) {
+  const input = z.object({
+    format: z.enum(["text", "json"]),
+    text: z.string().min(1).max(100000),
+  }).strict().parse(raw);
+  return {
+    contentType: input.format === "json"
+      ? "application/json" : "text/plain; charset=utf-8",
+    body: input.format === "json"
+      ? JSON.stringify({ text: input.text }) : input.text,
+  };
+}`},
+citations:{layer:"11_POSTPROCESS",title:"Citations",description:"Resolve cited identifiers against authorized source records. Unknown sources fail rather than becoming fabricated links.",body:`export interface SourceRepository {
+  resolve(auth: Auth, ids: readonly string[]): Promise<Array<{
+    sourceId: string; url: string;
+  }>>;
+}
+
+export async function runCitations(
+  auth: Auth, raw: unknown, repository: SourceRepository
+) {
+  requireAuth(auth);
+  const ids = z.array(z.string().min(1).max(200)).max(30).parse(raw);
+  const unique = [...new Set(ids)];
+  const sources = await repository.resolve(auth, unique);
+  return unique.map(id => {
+    const source = sources.find(item => item.sourceId === id);
+    if (!source) throw new Error("Unresolved citation");
+    const url = new URL(source.url);
+    if (url.protocol !== "https:" || url.username || url.password) {
+      throw new Error("Unsafe citation URL");
+    }
+    return { sourceId: id, url: url.href };
+  });
+}
+
+// Resolution does not prove the source supports the claim.
+// Preserve source versions and perform evidence checks separately.`},
+translation:{layer:"11_POSTPROCESS",title:"Translation",description:"Translate text through a bounded adapter and explicitly mark the result as needing renewed validation.",body:`export interface Translator {
+  translate(input: {
+    text: string; targetLanguage: string;
+  }): Promise<string>;
+}
+
+export async function runTranslation(raw: unknown, adapter: Translator) {
+  const input = z.object({
+    text: z.string().min(1).max(20000),
+    targetLanguage: z.enum(["en", "es", "fr", "de", "ja"]),
+  }).strict().parse(raw);
+  const text = z.string().min(1).max(40000)
+    .parse(await adapter.translate(input));
+  return { text, language: input.targetLanguage, requiresRevalidation: true };
+}
+
+// Enforce provider deadlines and budgets in the adapter.
+// Recheck policy, meaning, terminology, and citations before delivery.`},
+response_packaging:{layer:"11_POSTPROCESS",title:"Response packaging",description:"Package an approved artifact behind an owner-scoped repository instead of accepting client-provided approval flags.",body:`export async function runResponsePackaging(
+  auth: Auth, artifactId: string, repository: ArtifactRepository
+) {
+  requireAuth(auth);
+  z.string().uuid().parse(artifactId);
+  const artifact = artifactSchema.parse(
+    await repository.readApproved(auth, artifactId)
+  );
+  return { schemaVersion: "1.0.0", ...artifact };
+}`},
+final_answer:{layer:"12_DELIVERY",title:"Final answer",description:"Release only the persisted artifact that passed the current delivery gate. Avoid treating a client’s “validated” field as authority.",body:`export async function runFinalAnswer(
+  auth: Auth, artifactId: string, repository: ArtifactRepository
+) {
+  requireAuth(auth);
+  z.string().uuid().parse(artifactId);
+  return artifactSchema.parse(
+    await repository.readApproved(auth, artifactId)
+  );
+}
+
+// Repository checks ownership, policy approval, validation version,
+// expiry, and any required human approval before returning text.`},
+api_response:{layer:"12_DELIVERY",title:"API response",description:"Return a strict approved artifact envelope with privacy-preserving cache headers.",body:`export async function runApiResponse(
+  auth: Auth, artifactId: string, repository: ArtifactRepository
+) {
+  requireAuth(auth);
+  z.string().uuid().parse(artifactId);
+  const artifact = artifactSchema.parse(
+    await repository.readApproved(auth, artifactId)
+  );
+  return Response.json(
+    { schemaVersion: "1.0.0", data: artifact },
+    { headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    } }
+  );
+}
+
+// Route maps typed failures to 401/403/404/422/429.
+// Do not expose internal exceptions or credentials to callers.`},
+ui_render:{layer:"12_DELIVERY",title:"UI render",description:"Render answer text as escaped React content with a small reusable shadcn component. No raw HTML injection.",body:`// This module is implemented as a React component.
+// See the page.tsx tab for the complete renderer.
+// Keep rendering on the client, ownership checks on the server.
+
+export function validateRenderableArtifact(raw: unknown) {
+  return artifactSchema.parse(raw);
+}
+
+// Do not use dangerouslySetInnerHTML for generated output.
+// If Markdown is added, disable raw HTML and sanitize links.`},
+streaming_output:{layer:"12_DELIVERY",title:"Streaming output",description:"Stream an already approved artifact as SSE. This avoids presenting unvalidated token fragments as final answers.",body:`export async function runStreamingOutput(
+  auth: Auth, artifactId: string, repository: ArtifactRepository
+) {
+  requireAuth(auth);
+  z.string().uuid().parse(artifactId);
+  const artifact = artifactSchema.parse(
+    await repository.readApproved(auth, artifactId)
+  );
+  const encoder = new TextEncoder();
+  const chunks = artifact.text.match(/[\\s\\S]{1,500}/gu) ?? [];
+  let index = 0;
+
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (index < chunks.length) {
+        controller.enqueue(encoder.encode(
+          "event: chunk\\ndata: " +
+          JSON.stringify({ text: chunks[index++] }) + "\\n\\n"
+        ));
+      } else {
+        controller.enqueue(encoder.encode(
+          "event: done\\ndata: " +
+          JSON.stringify({ artifactId: artifact.id }) + "\\n\\n"
+        ));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, { headers: {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Accel-Buffering": "no",
+  } });
+}
+
+// ReadableStream pull respects consumer backpressure.
+// Client parses SSE frames incrementally, including partial frames.
+// For live model streaming, buffer until policy/schema checks pass.`},
+user_rating:{layer:"13_FEEDBACK",title:"User rating",description:"Store an owner-scoped rating tied to a real request. Feedback does not automatically modify prompts or models.",body:`export async function runUserRating(
+  auth: Auth, raw: unknown, repository: RecordRepository
+) {
+  requireAuth(auth);
+  const input = z.object({
+    requestId: z.string().uuid(),
+    rating: z.number().int().min(1).max(5),
+  }).strict().parse(raw);
+  return repository.insert({
+    auth, module: "user_rating", requestId: input.requestId,
+    payload: { rating: input.rating }, expiresAt: expiresIn(90),
+  });
+}
+
+// Enforce request ownership and one current rating per owner/request.
+// Add an idempotent upsert in your repository if edits are allowed.`},
+correction_capture:{layer:"13_FEEDBACK",title:"Correction capture",description:"Capture bounded user corrections as untrusted review material, never as automatic training data or privileged instructions.",body:`export async function runCorrectionCapture(
+  auth: Auth, raw: unknown, repository: RecordRepository
+) {
+  requireAuth(auth);
+  const input = z.object({
+    requestId: z.string().uuid(),
+    correction: z.string().trim().min(1).max(5000),
+  }).strict().parse(raw);
+  return repository.insert({
+    auth, module: "correction_capture", requestId: input.requestId,
+    payload: { correction: input.correction, reviewStatus: "pending" },
+    expiresAt: expiresIn(90),
+  });
+}
+
+// Apply data minimization and sensitive-data screening before storage.
+// Training reuse requires separate consent and reviewed data policy.`},
+error_logs:{layer:"13_FEEDBACK",title:"Error logs",description:"Persist stable error categories and correlation IDs—not raw stack traces, request bodies, or provider credentials.",body:`export async function runErrorLogs(
+  auth: Auth, raw: unknown, repository: RecordRepository
+) {
+  requireAuth(auth);
+  const input = z.object({
+    requestId: z.string().uuid(),
+    category: z.enum(["timeout", "provider", "validation", "internal"]),
+    correlationId: z.string().uuid(),
+  }).strict().parse(raw);
+  return repository.insert({
+    auth, module: "error_logs", requestId: input.requestId,
+    payload: { category: input.category, correlationId: input.correlationId },
+    expiresAt: expiresIn(30),
+  });
+}
+
+// Categories must come from typed server errors.
+// Keep restricted diagnostic traces in a separate redacted system.`},
+improvement_queue:{layer:"13_FEEDBACK",title:"Improvement queue",description:"Create deduplicated review candidates from existing authorized feedback. Queue entries require review before deployment.",body:`export interface ImprovementRepository {
+  enqueueReviewedCandidate(input: {
+    auth: Auth; feedbackId: string;
+    status: "pending_review";
+  }): Promise<{ id: string }>;
+}
+
+export async function runImprovementQueue(
+  auth: Auth, raw: unknown, repository: ImprovementRepository
+) {
+  requireAuth(auth);
+  const input = z.object({
+    feedbackId: z.string().uuid(),
+  }).strict().parse(raw);
+  return repository.enqueueReviewedCandidate({
+    auth, feedbackId: input.feedbackId, status: "pending_review",
+  });
+}
+
+// Restrict to authorized reviewers; verify feedback ownership.
+// Deduplicate by feedback ID. Require evaluation + approval
+// before changing production prompts, policies, or model routing.`},
+traces:{layer:"14_OBSERVABILITY",title:"Traces",description:"Emit bounded span metadata through a telemetry adapter. Keep content and user identifiers out of broad telemetry labels.",body:`export interface TraceSink {
+  emit(input: {
+    traceId: string; spanId: string; operation: string;
+    durationMs: number; status: "ok" | "error";
+  }): Promise<void>;
+}
+
+export async function runTraces(raw: unknown, sink: TraceSink) {
+  const span = z.object({
+    traceId: z.string().regex(/^[a-f0-9]{32}$/),
+    spanId: z.string().regex(/^[a-f0-9]{16}$/),
+    operation: z.enum(["retrieve", "generate", "validate", "deliver"]),
+    durationMs: z.number().finite().min(0).max(3600000),
+    status: z.enum(["ok", "error"]),
+  }).strict().parse(raw);
+  await sink.emit(span);
+  return { recorded: true };
+}
+
+// Prefer OpenTelemetry for propagation and span lifecycle.
+// Generate IDs server-side; limit retention and sampling.`},
+metrics:{layer:"14_OBSERVABILITY",title:"Metrics",description:"Record fixed-name counters and histograms with bounded labels. Avoid request IDs or raw model IDs as high-cardinality labels.",body:`export interface MetricSink {
+  record(input: {
+    name: "request_duration_ms" | "request_count";
+    value: number; outcome: "success" | "failure";
+  }): Promise<void>;
+}
+
+export async function runMetrics(raw: unknown, sink: MetricSink) {
+  const input = z.object({
+    name: z.enum(["request_duration_ms", "request_count"]),
+    value: z.number().finite().min(0).max(3600000),
+    outcome: z.enum(["success", "failure"]),
+  }).strict().parse(raw);
+  if (input.name === "request_count" && input.value !== 1) {
+    throw new Error("Request counter increments must equal one");
+  }
+  await sink.record(input);
+  return { recorded: true };
+}
+
+// Collect from trusted server instrumentation only.
+// Export metrics to a dedicated telemetry backend, not per-event SQL.`},
+prompts_log:{layer:"14_OBSERVABILITY",title:"Prompts log",description:"Log prompt versions and token counts rather than prompt content. Raw prompt retention requires a separate consent-aware policy.",body:`export async function runPromptsLog(
+  auth: Auth, raw: unknown, repository: RecordRepository
+) {
+  requireAuth(auth);
+  const input = z.object({
+    requestId: z.string().uuid(),
+    templateVersion: z.string().regex(/^[A-Za-z0-9_.-]{1,100}$/),
+    inputTokens: z.number().int().min(0).max(10000000),
+  }).strict().parse(raw);
+  return repository.insert({
+    auth, module: "prompts_log", requestId: input.requestId,
+    payload: {
+      templateVersion: input.templateVersion,
+      inputTokens: input.inputTokens,
+    },
+    expiresAt: expiresIn(30),
+  });
+}
+
+// Do not include raw prompt text, private reasoning, or secrets.
+// Token counts come from provider usage or a verified tokenizer.`},
+model_performance:{layer:"14_OBSERVABILITY",title:"Model performance",description:"Record verified execution usage and latency against an allowlisted model. Aggregate results by task and model version.",body:`export async function runModelPerformance(
+  auth: Auth, raw: unknown, allowedModels: ReadonlySet<string>,
+  repository: RecordRepository
+) {
+  requireAuth(auth);
+  const input = z.object({
+    requestId: z.string().uuid(),
+    modelId: z.string().min(1).max(200),
+    durationMs: z.number().finite().min(0).max(3600000),
+    inputTokens: z.number().int().min(0),
+    outputTokens: z.number().int().min(0),
+    outcome: z.enum(["success", "failure"]),
+  }).strict().parse(raw);
+  if (!allowedModels.has(input.modelId)) throw new Error("Unknown model");
+  return repository.insert({
+    auth, module: "model_performance", requestId: input.requestId,
+    payload: input, expiresAt: expiresIn(90),
+  });
+}
+
+// Inputs originate from provider usage and monotonic server timers.
+// Do not treat latency or task success as a universal quality score.`},
+audit_trail:{layer:"14_OBSERVABILITY",title:"Audit trail",description:"Append restricted security events to a dedicated audit sink. Application audit rows alone are not tamper-proof.",body:`export interface AuditSink {
+  append(input: {
+    actor: Auth; action: string; resourceId: string;
+    outcome: "allowed" | "denied"; occurredAt: string;
+  }): Promise<{ id: string }>;
+}
+
+export async function runAuditTrail(
+  actor: Auth, raw: unknown, sink: AuditSink
+) {
+  requireAuth(actor);
+  const input = z.object({
+    action: z.enum(["artifact_read", "policy_change", "tool_approval"]),
+    resourceId: z.string().uuid(),
+    outcome: z.enum(["allowed", "denied"]),
+  }).strict().parse(raw);
+  return sink.append({
+    actor, ...input, occurredAt: new Date().toISOString(),
+  });
+}
+
+// Record actions from authorization enforcement, not client claims.
+// Use a restricted append-only sink and independent integrity storage.
+// Retention/access policies depend on your compliance requirements.`
+}
+};
+function service(name){
+const m=modules[name];
+return `// ============================================================
+// ${m.layer} / ${name.toUpperCase()}
+// File: lib/operations/${name}.ts — SERVER ONLY
+// ============================================================
+
+import "server-only";
+import { z } from "zod";
+import {
+  type Auth, type ArtifactRepository, type RecordRepository,
+  requireAuth, artifactSchema, expiresIn
+} from "./contracts";
+
+${m.body}
+`;
+}
+function renderer(){
+return `// ============================================================
+// 12_DELIVERY / UI_RENDER / SHADCN COMPONENT
+// File: components/approved-answer.tsx
+// Install shadcn: separator. Configure Tailwind.
+// ============================================================
+
+import { Separator } from "@/components/ui/separator";
+
+type Props = {
+  text: string;
+  warnings: string[];
+  citations: Array<{ sourceId: string; url: string }>;
+};
+
+export function ApprovedAnswer({ text, warnings, citations }: Props) {
+  return (
+    <article className="mx-auto max-w-3xl space-y-6 p-6">
+      <h1 className="text-2xl font-semibold">Final answer</h1>
+      <div className="whitespace-pre-wrap leading-7">{text}</div>
+      {warnings.length > 0 && (
+        <aside aria-label="Warnings" className="border-l-2 pl-4 text-sm">
+          {warnings.map((warning, i) => <p key={i}>{warning}</p>)}
+        </aside>
+      )}
+      <Separator />
+      <ul className="space-y-2 text-sm">
+        {citations.map(source => {
+          let safe = false;
+          try {
+            const url = new URL(source.url);
+            safe = url.protocol === "https:" && !url.username && !url.password;
+          } catch {}
+          return (
+            <li key={source.sourceId}>
+              {safe ? (
+                <a href={source.url} target="_blank" rel="noopener noreferrer"
+                  className="underline underline-offset-4">
+                  {source.sourceId}
+                </a>
+              ) : source.sourceId}
+            </li>
+          );
+        })}
+      </ul>
+    </article>
+  );
+}
+
+// Parent must obtain this artifact through owner-scoped delivery API.
+// React escapes text. Never insert generated raw HTML.
+`;
+}
+function ui(name){
+if(name==="ui_render")return renderer();
+const m=modules[name];
+return `// ============================================================
+// ${m.layer} / ${name.toUpperCase()} / SHADCN PAGE
+// File: app/operations/${name}/page.tsx
+// Install shadcn: button, textarea, label; configure Tailwind.
+// ============================================================
+
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+
+export default function ModulePage() {
+  const [input, setInput] = useState("{}");
+  const [result, setResult] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    let payload: unknown;
+    try { payload = JSON.parse(input); }
+    catch { setResult("Enter valid JSON."); return; }
+
+    setBusy(true);
+    setResult("");
+    try {
+      const response = await fetch("/api/operations/${name}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!response.ok) throw new Error("Request unavailable");
+      const text = await response.text();
+      setResult(text);
+    } catch {
+      setResult("Unable to complete this request.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-3xl space-y-6 p-6">
+      <header className="border-b pb-6">
+        <p className="font-mono text-xs text-muted-foreground">
+          ${m.layer} / ${name}
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold">${m.title}</h1>
+      </header>
+      <form onSubmit={submit} className="space-y-4">
+        <Label htmlFor="input">Module arguments (JSON)</Label>
+        <Textarea id="input" value={input} maxLength={100000}
+          className="min-h-48 font-mono text-xs"
+          onChange={event => setInput(event.target.value)} />
+        <Button disabled={busy}>
+          {busy ? "Processing…" : "Run module"}
+        </Button>
+      </form>
+      <pre aria-live="polite" aria-busy={busy}
+        className="overflow-auto whitespace-pre-wrap border-t pt-6 text-xs">
+        {result}
+      </pre>
+    </main>
+  );
+}
+
+// Developer-console template; referenced API route is not included.
+// Authenticate → CSRF/origin checks → rate-limit → validate arguments
+// → authorize request ownership → inject trusted adapters → execute.
+// Server instrumentation modules must not accept arbitrary client events.
+// streaming_output: this debug page buffers SSE as text;
+// production client must parse SSE incrementally and handle cancellation.
+`;
+}
+function sql(name,dialect){
+const pg=dialect==="postgresql",m=modules[name];
+return `-- ============================================================
+-- ${m.layer} / ${name.toUpperCase()} / ${dialect.toUpperCase()}
+-- Shared operational record migration
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS operations_records (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  module TEXT NOT NULL,
+  payload ${pg?"JSONB":"TEXT"} NOT NULL
+    ${pg?"":"CHECK (json_valid(payload))"},
+  created_at ${pg?"TIMESTAMPTZ":"TEXT"} NOT NULL
+    DEFAULT ${pg?"NOW()":"CURRENT_TIMESTAMP"},
+  expires_at ${pg?"TIMESTAMPTZ":"TEXT"} NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS operations_records_owner_request
+  ON operations_records(tenant_id, user_id, request_id, module);
+
+CREATE INDEX IF NOT EXISTS operations_records_expiry
+  ON operations_records(expires_at);
+
+-- Parameterized runtime INSERT:
+-- INSERT INTO operations_records
+-- (id, tenant_id, user_id, request_id, module, payload, expires_at)
+-- VALUES (${pg?"$1, $2, $3, $4, $5, $6::jsonb, $7":"?, ?, ?, ?, ?, ?, ?"});
+--
+-- Bind module = '${name}'.
+-- This shared table supports operational records, not all adapters.
+-- Approved artifact storage, sources, improvement queues,
+-- telemetry backends, and audit sinks need dedicated implementations.
+-- Scope reads/writes to authenticated tenant and user ownership.
+-- Add request/user foreign keys using your application schema.
+-- Configure retention deletion and encrypted storage as required.
+-- No raw prompts, secrets, or private reasoning in telemetry.
+${pg?"-- Configure tenant-aware RLS.":"-- Requires SQLite JSON functions; use consistent UTC timestamps."}
+${name==="audit_trail"?"-- Audit integrity requires restricted append-only storage outside this table.":""}
+${name==="user_rating"?"-- Repository should enforce one current rating per owner/request.":""}
+`;
+}
+const files={service:"module.ts",shared:"contracts.ts",ui:"page.tsx",postgresql:"PostgreSQL",sqlite:"SQLite"};
+let current="cleanup",file="service";
+for(const layer of ["11_POSTPROCESS","12_DELIVERY","13_FEEDBACK","14_OBSERVABILITY"]){
+const group=document.createElement("div");group.className="group";
+const label=document.createElement("div");label.className="group-title";label.textContent=layer+" /";group.append(label);
+Object.entries(modules).filter(([,m])=>m.layer===layer).forEach(([name,m],i)=>{
+const a=document.createElement("a");a.className="nav";a.href="#"+name;a.dataset.module=name;a.innerHTML=`<span>0${i+1}</span>${name}`;group.append(a);
+});
+document.getElementById("navigation").append(group);
+}
+for(const [key,label] of Object.entries(files)){
+const b=document.createElement("button");b.className="tab";b.dataset.file=key;b.textContent=label;b.addEventListener("click",()=>{file=key;renderCode()});document.getElementById("tabs").append(b);
+}
+function source(){return file==="service"?service(current):file==="shared"?shared:file==="ui"?ui(current):sql(current,file)}
+function filename(){return file==="service"?current+".ts":file==="shared"?"contracts.ts":file==="ui"?(current==="ui_render"?"approved-answer.tsx":"page.tsx"):current+"."+file+".sql"}
+function renderCode(){
+document.getElementById("code").textContent=source();
+document.getElementById("path").textContent=file==="shared"?"lib/operations/contracts.ts":modules[current].layer+"/"+current+"/"+filename();
+document.querySelectorAll(".tab").forEach(b=>{b.classList.toggle("active",b.dataset.file===file);b.setAttribute("aria-pressed",String(b.dataset.file===file))});
+}
+function navigate(){
+const key=location.hash.slice(1);current=modules[key]?key:"cleanup";const m=modules[current];
+document.getElementById("breadcrumb").textContent=m.layer+" / "+current;
+document.getElementById("tag").textContent=m.layer.replace(/^\d+_/,"");
+document.getElementById("title").textContent=m.title;
+document.getElementById("description").textContent=m.description;
+document.getElementById("module-path").textContent=m.layer+"/"+current;
+document.getElementById("boundary").textContent={
+"11_POSTPROCESS":"Validated artifact transformations",
+"12_DELIVERY":"Owner-scoped approved release",
+"13_FEEDBACK":"Untrusted input + human review",
+"14_OBSERVABILITY":"Trusted server instrumentation"
+}[m.layer];
+document.querySelectorAll(".nav").forEach(a=>{a.classList.toggle("active",a.dataset.module===current);if(a.dataset.module===current)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+renderCode();
+}
+let timer;
+function notify(text){const el=document.getElementById("toast");el.textContent=text;el.classList.add("show");clearTimeout(timer);timer=setTimeout(()=>el.classList.remove("show"),3200)}
+function download(text,name,type){
+const url=URL.createObjectURL(new Blob([text],{type}));
+const a=document.createElement("a");a.href=url;a.download=name;a.click();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+document.getElementById("copy").addEventListener("click",async()=>{
+try{await navigator.clipboard.writeText(source());notify("Code copied with its module heading.")}
+catch{notify("Clipboard unavailable. Download this file instead.")}
+});
+document.getElementById("download").addEventListener("click",()=>{download(source(),filename(),"text/plain");notify("Selected file downloaded.")});
+document.getElementById("export").addEventListener("click",()=>{
+const bundle={
+heading:"11_POSTPROCESS + 12_DELIVERY + 13_FEEDBACK + 14_OBSERVABILITY",
+requirements:["Next.js App Router","Tailwind CSS","shadcn/ui: button textarea label separator","zod","server-only","PostgreSQL or SQLite driver"],
+notice:"Integration templates. Host application must implement API routes, authorization, repositories, translation, source resolution, telemetry adapters, and a restricted audit sink.",
+shared:{"lib/operations/contracts.ts":shared},
+modules:Object.fromEntries(Object.keys(modules).map(name=>[name,{
+"module.ts":service(name),
+[name==="ui_render"?"approved-answer.tsx":"page.tsx"]:ui(name),
+"postgresql.sql":sql(name,"postgresql"),
+"sqlite.sql":sql(name,"sqlite")
+}]))
+};
+download(JSON.stringify(bundle,null,2),"az-ai-delivery-operations.code-bundle.json","application/json");
+notify("All eighteen modules exported as a JSON code bundle.");
+});
+window.addEventListener("hashchange",navigate);navigate();
+</script>
+</body>
+</html>

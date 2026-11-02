@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AZ_AI — Extension Control Plane</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f2ec;--paper:#fffef8;--ink:#27342c;--muted:#7d8577;--line:#dcdfd2;--accent:#41653a;--lime:#deecad;--code:#223027;--mono:'IBM Plex Mono',monospace;--display:'Space Grotesk',sans-serif;--body:'DM Sans',sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px var(--body)}button,input,select{font:inherit}button{cursor:pointer}button,a,input,select{outline-offset:4px}a{color:inherit;text-decoration:none}.shell{display:grid;grid-template-columns:235px minmax(0,1fr);min-height:100vh}.sidebar{padding:29px 18px;border-right:1px solid var(--line);background:var(--paper);display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:10px;font:700 22px var(--display);letter-spacing:-1px}.mark{background:var(--ink);color:var(--lime);width:35px;height:35px;display:grid;place-items:center;font:14px var(--mono)}.workspace-label{padding:16px 0;margin:30px 8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font:9px/1.9 var(--mono);color:var(--muted)}.label{font:9px var(--mono);letter-spacing:1.3px;color:var(--muted);margin:0 8px 13px}.nav{display:flex;gap:11px;padding:13px 10px;font-size:11px;color:var(--muted);margin:3px 0}.nav span{font:9px var(--mono)}.nav:hover{background:#ecefe2}.nav.active{background:var(--lime);color:var(--ink);font-weight:700}.side-foot{margin-top:auto;padding:40px 8px 0;font:9px/1.9 var(--mono);color:var(--muted)}header{height:73px;display:flex;align-items:center;justify-content:space-between;padding:0 36px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}header strong{color:var(--ink);font-weight:500}.status{font:9px var(--mono)}.status:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px}main{max-width:1550px;margin:auto;padding:36px}.hero{display:flex;justify-content:space-between;align-items:end;gap:25px;margin-bottom:29px}.eyebrow{font:10px var(--mono);letter-spacing:1.3px;color:var(--accent)}h1{font:500 clamp(36px,4.4vw,62px)/1.04 var(--display);letter-spacing:-2.6px;margin:17px 0}h1 span{color:var(--accent)}.intro{max-width:620px;color:var(--muted);line-height:1.8;margin:0}.btn{background:var(--paper);border:1px solid var(--line);padding:11px 15px;font-size:11px;font-weight:600;white-space:nowrap;transition:background .2s,transform .2s}.btn:hover{background:var(--lime);transform:translateY(-2px)}.btn:active{transform:translateY(0)}.primary{background:var(--accent);color:white;border-color:var(--accent)}.primary:hover{background:#31502b}.strip{display:flex;flex-wrap:wrap;gap:23px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:25px;font:9px var(--mono);color:var(--muted)}.strip strong{color:var(--ink)}.workbench{display:grid;grid-template-columns:310px minmax(0,1fr);border:1px solid var(--line);background:var(--paper)}.overview{padding:25px}.tag{font:9px var(--mono);background:var(--lime);color:var(--accent);padding:5px 8px;display:inline-block}h2{font:500 25px var(--display);letter-spacing:-.8px;margin:15px 0 12px}.description{color:var(--muted);font-size:12px;line-height:1.85}.path-label{border-top:1px solid var(--line);padding-top:17px;margin-top:24px;font:9px/1.9 var(--mono);color:var(--muted)}.path-label strong{color:var(--ink);display:block;font-weight:400;margin:7px 0 20px;overflow-wrap:anywhere}.notice{font-size:10px;line-height:1.9;color:var(--muted);border-left:2px solid var(--accent);padding-left:12px;margin-top:25px}.code-pane{background:var(--code);color:#deead0;min-width:0;display:flex;flex-direction:column}.file-select{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #43523e}.file-select label{font:9px var(--mono);color:#a6b79b}.file-select select{background:#344532;border:1px solid #506047;color:#e7efd7;padding:9px;font:10px var(--mono);min-width:0;width:100%;max-width:440px}.code-bar{display:flex;justify-content:space-between;gap:15px;padding:18px 20px;font:9px var(--mono);color:#a6b79b}.copy{background:none;border:0;color:var(--lime);font:10px var(--mono)}pre{margin:0;padding:0 20px 25px;font:10px/1.9 var(--mono);white-space:pre;overflow:auto;min-height:430px;max-height:610px;flex:1}.code-foot{border-top:1px solid #43523e;padding:14px 20px;font:9px/1.8 var(--mono);color:#a6b79b}.security{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:26px}.security h3{font-size:12px;margin:0 0 8px}.security p{font-size:11px;line-height:1.9;color:var(--muted);margin:0}footer{border-top:1px solid var(--line);padding-top:18px;margin-top:28px;display:flex;justify-content:space-between;gap:15px;font:9px var(--mono);color:var(--muted)}.toast{position:fixed;bottom:25px;left:50%;transform:translate(-50%,15px);opacity:0;background:var(--ink);color:white;padding:13px 20px;font-size:12px;transition:.2s;pointer-events:none;z-index:10}.toast.show{opacity:1;transform:translate(-50%,0)}.reveal{animation:reveal .5s both}.workbench{animation-delay:.12s}@keyframes reveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(max-width:1100px){.shell{grid-template-columns:205px 1fr}.sidebar{padding:25px 14px}main{padding:30px 24px}header{padding:0 24px}.hero{flex-direction:column;align-items:start}.workbench{grid-template-columns:1fr}.overview{padding:23px}}@media(max-width:650px){.shell{display:block}.sidebar{padding:18px;border-right:0;border-bottom:1px solid var(--line)}.workspace-label,.label,.side-foot{display:none}nav{display:flex;overflow:auto;gap:5px;margin-top:18px}.nav{white-space:nowrap;padding:10px}.nav span{display:none}header{height:55px;padding:0 18px}.status{display:none}main{padding:26px 18px}h1{letter-spacing:-1.7px}.security{grid-template-columns:1fr;gap:20px}footer{flex-direction:column;line-height:1.8}.file-select{flex-direction:column;align-items:start;gap:8px}.code-bar{padding:16px}pre{padding-left:16px;padding-right:16px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="#registry"><span class="mark">AZ</span>Extension Lab</a>
+<div class="workspace-label">AZ_AI / CONTROL PLANE<br>15_EXTENSIONS / ENGINEERING</div>
+<div class="label">EXTENSION FOUNDATION</div>
+<nav id="navigation" aria-label="Extension modules"></nav>
+<div class="side-foot">EXPAND CAPABILITIES.<br>NOT THE TRUST BOUNDARY.<br><br>REVIEWED BUILT-INS ONLY.<br>NO DYNAMIC CODE LOADING.</div>
+</aside>
+<div>
+<header><div>AZ_AI / 15_EXTENSIONS / <strong id="breadcrumb">registry</strong></div><span class="status">SOURCE LIBRARY · LOCAL ONLY</span></header>
+<main>
+<section class="hero reveal">
+<div><div class="eyebrow">15 / GOVERNED EXTENSIBILITY</div><h1>Extend the system.<br><span>Keep control.</span></h1><p class="intro">An allowlisted extension foundation with versioned manifests, tenant approvals, immutable hook context, and execution auditing.</p></div>
+<button class="btn primary" id="export">Export project files ↓</button>
+</section>
+<div class="strip"><strong>8 MODULES</strong><span>UI / shadcn + Tailwind</span><span>SERVER / Next.js + TypeScript</span><span>DB / PostgreSQL · SQLite</span></div>
+<section class="workbench reveal" aria-label="Extension code explorer">
+<div class="overview"><span class="tag" id="tag"></span><h2 id="title"></h2><p class="description" id="description"></p><div class="path-label">SELECTED FILE<strong id="selected-path"></strong></div><button class="btn" id="download">Download this file ↓</button><p class="notice">This browser-based source library is complete as a standalone page. Exported application files are an integration scaffold: provide your authentication implementation and apply the database migration. Untrusted third-party packages require a separate sandbox service.</p></div>
+<div class="code-pane"><div class="file-select"><label for="files">SOURCE FILE</label><select id="files"></select></div><div class="code-bar"><span id="language"></span><button class="copy" id="copy">Copy code ↗</button></div><pre><code id="code"></code></pre><div class="code-foot">Explicit headings · Server-only execution · No client-controlled entrypoints</div></div>
+</section>
+<section class="security">
+<div><h3>A manifest requests permissions. It does not grant them.</h3><p>The runtime intersects reviewed extension requirements with tenant-admin grants and caller permissions. Extensions cannot modify identity, policy results, or approval status through hooks.</p></div>
+<div><h3>Built-ins are trusted code—not sandboxed code.</h3><p>Only reviewed static imports run in-process. Cancellation is cooperative; a malicious plugin can ignore it. Execute untrusted extensions in isolated workers or a hardened remote service with resource and network limits.</p></div>
+</section>
+<footer><span>AZ_AI / EXTENSION CONTROL PLANE</span><span>ALLOWLIST → APPROVAL → EXECUTION → AUDIT</span></footer>
+</main>
+</div>
+</div>
+<div id="toast" class="toast" role="status"></div>
+<script>
+// ============================================================
+// SOURCE LIBRARY / 15_EXTENSIONS
+// ============================================================
+const sources={};
+function add(path,group,code){sources[path]={group,code};}
+add("lib/extensions/manifest.ts","manifests",`// ============================================================
+// 15_EXTENSIONS / MANIFESTS
+// ============================================================
+import { z } from "zod";
+
+export const permissionSchema = z.enum([
+  "read_context", "read_output", "write_metadata"
+]);
+export const hookSchema = z.enum([
+  "after_preprocess", "after_model_call", "before_delivery"
+]);
+export const manifestSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9_-]{2,63}$/),
+  name: z.string().min(1).max(100),
+  version: z.string().regex(/^\\d+\\.\\d+\\.\\d+$/),
+  apiVersion: z.literal("1"),
+  kind: z.enum(["adapter", "plugin", "capability", "policy", "hook"]),
+  description: z.string().max(1000),
+  permissions: z.array(permissionSchema).max(3),
+  hooks: z.array(hookSchema).max(3),
+}).strict();
+
+export type Manifest = z.infer<typeof manifestSchema>;
+export type Permission = z.infer<typeof permissionSchema>;
+export type Hook = z.infer<typeof hookSchema>;
+`);
+add("lib/extensions/contracts.ts","adapters",`// ============================================================
+// 15_EXTENSIONS / ADAPTER CONTRACT
+// ============================================================
+import type { Manifest, Hook } from "./manifest";
+
+export type Actor = {
+  userId: string;
+  tenantId: string;
+  permissions: ReadonlySet<string>;
+};
+
+export type HookData = Readonly<{
+  context?: string;
+  output?: string;
+}>;
+
+export type ExtensionResult = {
+  metadata: Record<string, string | number | boolean>;
+};
+
+export interface Extension {
+  manifest: Manifest;
+  execute(input: {
+    hook: Hook;
+    data: HookData;
+    signal: AbortSignal;
+  }): Promise<ExtensionResult>;
+}
+
+// Extensions receive projected data, not Actor or credentials.
+// Return values cannot replace pipeline identity or approval gates.
+`);
+add("lib/extensions/registry.ts","registry",`// ============================================================
+// 15_EXTENSIONS / STATIC REGISTRY
+// ============================================================
+import "server-only";
+import { manifestSchema } from "./manifest";
+import type { Extension } from "./contracts";
+import { outputStats } from "./plugins/output-stats";
+
+function defineRegistry(extensions: readonly Extension[]) {
+  const entries = new Map<string, Extension>();
+  for (const extension of extensions) {
+    manifestSchema.parse(extension.manifest);
+    if (entries.has(extension.manifest.id)) {
+      throw new Error("Duplicate extension ID");
+    }
+    entries.set(extension.manifest.id, extension);
+  }
+  return {
+    list: () => [...entries.values()].map(e => e.manifest),
+    get: (id: string) => {
+      const extension = entries.get(id);
+      if (!extension) throw new Error("Unknown extension");
+      return extension;
+    },
+  };
+}
+
+export const registry = defineRegistry([outputStats]);
+
+// Add reviewed static imports here. No eval, require(path),
+// client entrypoints, or arbitrary dynamic imports.
+// Package signing alone does not establish code safety.
+`);
+add("lib/extensions/plugins/output-stats.ts","plugins",`// ============================================================
+// 15_EXTENSIONS / PLUGINS / OUTPUT STATS
+// ============================================================
+import type { Extension } from "../contracts";
+
+export const outputStats: Extension = {
+  manifest: {
+    id: "output-stats",
+    name: "Output statistics",
+    version: "1.0.0",
+    apiVersion: "1",
+    kind: "hook",
+    description: "Records output length without storing content.",
+    permissions: ["read_output", "write_metadata"],
+    hooks: ["after_model_call"],
+  },
+  async execute({ data, signal }) {
+    signal.throwIfAborted();
+    return {
+      metadata: { outputCharacters: data.output?.length ?? 0 },
+    };
+  },
+};
+`);
+add("lib/extensions/permissions.ts","permissions",`// ============================================================
+// 15_EXTENSIONS / PERMISSIONS
+// ============================================================
+import type { Actor, HookData } from "./contracts";
+import type { Permission } from "./manifest";
+
+export function authorize(
+  actor: Actor,
+  required: readonly Permission[],
+  granted: readonly Permission[]
+) {
+  if (!actor.userId || !actor.tenantId) throw new Error("Unauthorized");
+  for (const permission of required) {
+    if (!granted.includes(permission) ||
+        !actor.permissions.has("extensions:" + permission)) {
+      throw new Error("Extension permission denied");
+    }
+  }
+}
+
+export function projectData(
+  required: readonly Permission[], input: HookData
+): HookData {
+  return Object.freeze({
+    ...(required.includes("read_context") ? { context: input.context } : {}),
+    ...(required.includes("read_output") ? { output: input.output } : {}),
+  });
+}
+
+// Actor and grants come exclusively from authenticated server state.
+// read_context/read_output may expose personal data;
+// grant them only for approved purposes and reviewed code.
+`);
+add("lib/extensions/database.ts","registry",`// ============================================================
+// 15_EXTENSIONS / DATABASE ADAPTER
+// Install: pg, better-sqlite3; dev: @types/pg @types/better-sqlite3
+// ============================================================
+import "server-only";
+import { Pool } from "pg";
+import Database from "better-sqlite3";
+
+const dialect = process.env.DB_DIALECT ?? "sqlite";
+if (!["sqlite", "postgresql"].includes(dialect)) {
+  throw new Error("Unsupported database dialect");
+}
+const pool = dialect === "postgresql"
+  ? new Pool({ connectionString: process.env.DATABASE_URL })
+  : null;
+const sqlite = dialect === "sqlite"
+  ? new Database(process.env.SQLITE_PATH ?? "extensions.sqlite")
+  : null;
+sqlite?.pragma("journal_mode = WAL");
+sqlite?.pragma("foreign_keys = ON");
+
+export async function query<T>(
+  sql: string, params: readonly unknown[] = []
+): Promise<T[]> {
+  if (pool) {
+    let index = 0;
+    const postgresSql = sql.replace(/\\?/g, () => "$" + (++index));
+    return (await pool.query(postgresSql, [...params])).rows as T[];
+  }
+  return sqlite!.prepare(sql).all(...params) as T[];
+}
+
+export async function execute(sql: string, params: readonly unknown[]) {
+  if (pool) {
+    let index = 0;
+    await pool.query(sql.replace(/\\?/g, () => "$" + (++index)), [...params]);
+  } else {
+    sqlite!.prepare(sql).run(...params);
+  }
+}
+
+// Only application-owned SQL may use this placeholder conversion.
+// Do not pass user SQL or SQL containing literal '?' characters.
+// For serverless production, use managed pooling or a native driver.
+`);
+add("lib/extensions/repository.ts","registry",`// ============================================================
+// 15_EXTENSIONS / TENANT INSTALLATIONS
+// ============================================================
+import "server-only";
+import { z } from "zod";
+import { query, execute } from "./database";
+import { permissionSchema } from "./manifest";
+
+const rowSchema = z.object({
+  extension_id: z.string(),
+  approved_version: z.string(),
+  enabled: z.number().int().min(0).max(1),
+  granted_permissions: z.string(),
+});
+
+export async function installations(tenantId: string) {
+  const rows = await query<unknown>(
+    "SELECT extension_id, approved_version, enabled, granted_permissions " +
+    "FROM extension_installations WHERE tenant_id = ?",
+    [tenantId]
+  );
+  return rows.map(raw => {
+    const row = rowSchema.parse(raw);
+    return {
+      id: row.extension_id,
+      version: row.approved_version,
+      enabled: row.enabled === 1,
+      grants: z.array(permissionSchema)
+        .parse(JSON.parse(row.granted_permissions)),
+    };
+  });
+}
+
+export async function saveInstallation(input: {
+  tenantId: string; id: string; version: string;
+  enabled: boolean; grants: string[]; actorId: string;
+}) {
+  await execute(
+    "INSERT INTO extension_installations " +
+    "(tenant_id, extension_id, approved_version, enabled, " +
+    "granted_permissions, approved_by, updated_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+    "ON CONFLICT (tenant_id, extension_id) DO UPDATE SET " +
+    "approved_version = excluded.approved_version, " +
+    "enabled = excluded.enabled, " +
+    "granted_permissions = excluded.granted_permissions, " +
+    "approved_by = excluded.approved_by, updated_at = excluded.updated_at",
+    [input.tenantId, input.id, input.version, input.enabled ? 1 : 0,
+     JSON.stringify(input.grants), input.actorId, new Date().toISOString()]
+  );
+}
+`);
+add("lib/extensions/audit.ts","audit",`// ============================================================
+// 15_EXTENSIONS / EXECUTION AUDIT
+// ============================================================
+import "server-only";
+import { randomUUID } from "node:crypto";
+import { execute } from "./database";
+
+export async function audit(input: {
+  tenantId: string; actorId: string; extensionId: string;
+  event: "configuration" | "execution";
+  status: "success" | "failure";
+  durationMs?: number;
+}) {
+  await execute(
+    "INSERT INTO extension_events " +
+    "(id, tenant_id, actor_id, extension_id, event, status, " +
+    "duration_ms, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [randomUUID(), input.tenantId, input.actorId, input.extensionId,
+     input.event, input.status, Math.round(input.durationMs ?? 0),
+     new Date().toISOString(),
+     new Date(Date.now() + 30 * 86400000).toISOString()]
+  );
+}
+
+// No content, credentials, or private reasoning is stored.
+// Restrict writes/reads to server roles and enforce retention.
+// This database audit is not tamper-proof; security-critical
+// events should also flow to an independently protected sink.
+`);
+add("lib/extensions/hooks.ts","hooks",`// ============================================================
+// 15_EXTENSIONS / HOOK EXECUTION
+// ============================================================
+import "server-only";
+import { z } from "zod";
+import { performance } from "node:perf_hooks";
+import type { Actor, HookData } from "./contracts";
+import type { Hook } from "./manifest";
+import { registry } from "./registry";
+import { installations } from "./repository";
+import { authorize, projectData } from "./permissions";
+import { audit } from "./audit";
+
+const outputSchema = z.object({
+  metadata: z.record(z.union([
+    z.string().max(200), z.number().finite(), z.boolean(),
+  ])),
+}).strict();
+
+export async function runHooks(
+  actor: Actor, hook: Hook, data: HookData,
+  parentSignal?: AbortSignal
+) {
+  if ((data.context?.length ?? 0) > 100000 ||
+      (data.output?.length ?? 0) > 100000) {
+    throw new Error("Hook payload too large");
+  }
+  const results: Record<string, unknown> = {};
+  for (const install of await installations(actor.tenantId)) {
+    if (!install.enabled) continue;
+    const extension = registry.get(install.id);
+    const manifest = extension.manifest;
+    if (!manifest.hooks.includes(hook)) continue;
+    if (manifest.version !== install.version) {
+      throw new Error("Extension update requires reapproval");
+    }
+    authorize(actor, manifest.permissions, install.grants);
+    const timeout = AbortSignal.timeout(3000);
+    const signal = parentSignal
+      ? AbortSignal.any([parentSignal, timeout]) : timeout;
+    const start = performance.now();
+    try {
+      const result = outputSchema.parse(await extension.execute({
+        hook, data: projectData(manifest.permissions, data), signal,
+      }));
+      signal.throwIfAborted();
+      if (Object.keys(result.metadata).length > 20) {
+        throw new Error("Too many metadata fields");
+      }
+      if (!manifest.permissions.includes("write_metadata") &&
+          Object.keys(result.metadata).length) {
+        throw new Error("Unauthorized metadata write");
+      }
+      // Namespace output; it cannot overwrite core pipeline fields.
+      results[manifest.id] = result.metadata;
+      await audit({
+        tenantId: actor.tenantId, actorId: actor.userId,
+        extensionId: manifest.id, event: "execution",
+        status: "success", durationMs: performance.now() - start,
+      });
+    } catch (error) {
+      await audit({
+        tenantId: actor.tenantId, actorId: actor.userId,
+        extensionId: manifest.id, event: "execution",
+        status: "failure", durationMs: performance.now() - start,
+      });
+      throw error; // Fail closed; caller handles the pipeline failure.
+    }
+  }
+  return results;
+}
+
+// Cooperative deadline only: built-ins must honor AbortSignal.
+// An in-process extension can still access process resources.
+// Untrusted packages require isolated execution, not this runtime.
+`);
+add("lib/extensions/auth.ts","permissions",`// ============================================================
+// 15_EXTENSIONS / HOST AUTHENTICATION BOUNDARY
+// ============================================================
+import "server-only";
+import type { Actor } from "./contracts";
+
+export async function requireActor(): Promise<Actor> {
+  // Replace with your session provider (Auth.js, Clerk, or equivalent).
+  // Resolve tenant membership and permissions on the server.
+  // Never trust user/tenant/permissions headers from a browser.
+  throw new Error("Authentication adapter must be implemented");
+}
+
+export function requireAdmin(actor: Actor) {
+  if (!actor.permissions.has("extensions:admin")) {
+    throw new Error("Forbidden");
+  }
+}
+
+export function requireSameOrigin(request: Request) {
+  const allowed = process.env.APP_ORIGIN;
+  if (!allowed || request.headers.get("origin") !== allowed) {
+    throw new Error("Invalid origin");
+  }
+}
+
+// Add your host rate limiter and CSRF/session protections.
+// Fail-closed stub intentionally prevents accidental unauthenticated use.
+`);
+add("app/api/extensions/route.ts","marketplace",`// ============================================================
+// 15_EXTENSIONS / CURATED CATALOG API
+// ============================================================
+import { registry } from "@/lib/extensions/registry";
+import { installations, saveInstallation } from "@/lib/extensions/repository";
+import { requireActor, requireAdmin, requireSameOrigin } from "@/lib/extensions/auth";
+import { permissionSchema } from "@/lib/extensions/manifest";
+import { audit } from "@/lib/extensions/audit";
+import { z } from "zod";
+
+export const runtime = "nodejs";
+
+export async function GET() {
+  try {
+    const actor = await requireActor();
+    requireAdmin(actor);
+    const installed = await installations(actor.tenantId);
+    return Response.json(
+      registry.list().map(manifest => ({
+        ...manifest,
+        installation: installed.find(i => i.id === manifest.id) ?? null,
+      })),
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch {
+    return Response.json({ error: "Not authorized" }, { status: 403 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    requireSameOrigin(request);
+    const actor = await requireActor();
+    requireAdmin(actor);
+    const body = await request.text();
+    if (new TextEncoder().encode(body).length > 10000) {
+      return Response.json({ error: "Payload too large" }, { status: 413 });
+    }
+    const input = z.object({
+      id: z.string().max(64),
+      enabled: z.boolean(),
+      grants: z.array(permissionSchema).max(3),
+    }).strict().parse(JSON.parse(body));
+    const manifest = registry.get(input.id).manifest;
+    if (input.grants.some(p => !manifest.permissions.includes(p))) {
+      return Response.json({ error: "Invalid grant" }, { status: 422 });
+    }
+    if (input.enabled &&
+        manifest.permissions.some(p => !input.grants.includes(p))) {
+      return Response.json({ error: "Required grants missing" }, { status: 422 });
+    }
+    await saveInstallation({
+      tenantId: actor.tenantId, actorId: actor.userId,
+      id: manifest.id, version: manifest.version,
+      enabled: input.enabled, grants: input.grants,
+    });
+    await audit({
+      tenantId: actor.tenantId, actorId: actor.userId,
+      extensionId: manifest.id, event: "configuration", status: "success",
+    });
+    return Response.json({ saved: true });
+  } catch {
+    return Response.json({ error: "Configuration not saved" }, { status: 400 });
+  }
+}
+
+// Production: rate-limit writes; use a transaction for installation
+// changes plus audit, and map typed auth/validation failures.
+// Curated catalog only; never download arbitrary executable packages.
+`);
+add("app/extensions/page.tsx","marketplace",`// ============================================================
+// 15_EXTENSIONS / SHADCN + TAILWIND MANAGEMENT PAGE
+// ============================================================
+"use client";
+
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { manifestSchema, type Manifest } from "@/lib/extensions/manifest";
+import { z } from "zod";
+
+const rowSchema = manifestSchema.extend({
+  installation: z.object({
+    id: z.string(), version: z.string(), enabled: z.boolean(),
+    grants: z.array(z.string()),
+  }).nullable(),
+});
+type Row = z.infer<typeof rowSchema>;
+
+export default function ExtensionsPage() {
+  const [items, setItems] = useState<Row[]>([]);
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    const response = await fetch("/api/extensions", { cache: "no-store" });
+    if (!response.ok) throw new Error("Catalog unavailable");
+    setItems(z.array(rowSchema).parse(await response.json()));
+  }
+
+  useEffect(() => {
+    load().catch(() => setStatus("Unable to load the catalog."));
+  }, []);
+
+  async function toggle(item: Row) {
+    const enabled = !item.installation?.enabled;
+    if (enabled && !window.confirm(
+      "Approve version " + item.version + " with permissions: " +
+      item.permissions.join(", ") + "?"
+    )) return;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/extensions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id, enabled, grants: item.permissions,
+        }),
+      });
+      if (!response.ok) throw new Error("Save failed");
+      await load();
+      setStatus("Configuration saved.");
+    } catch {
+      setStatus("Unable to save extension configuration.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-5xl space-y-8 p-6">
+      <header className="border-b pb-6">
+        <p className="font-mono text-xs text-muted-foreground">15_EXTENSIONS</p>
+        <h1 className="mt-3 text-4xl font-semibold">Governed extensions</h1>
+        <p className="mt-3 text-muted-foreground">
+          Reviewed built-ins. Tenant-scoped approval. Explicit permissions.
+        </p>
+      </header>
+      <div role="status" className="text-sm">{status}</div>
+      <ul className="divide-y">
+        {items.map(item => (
+          <li key={item.id} className="flex flex-col gap-5 py-6 sm:flex-row sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">{item.name}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{item.description}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge variant="outline">v{item.version}</Badge>
+                {item.permissions.map(p => <Badge key={p} variant="secondary">{p}</Badge>)}
+              </div>
+            </div>
+            <Button disabled={busy} onClick={() => toggle(item)}>
+              {item.installation?.enabled ? "Disable" : "Review & enable"}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+
+// Protect this page in your application auth middleware.
+// API independently enforces authorization.
+`);
+for(const dialect of ["postgresql","sqlite"]){
+const pg=dialect==="postgresql";
+add("migrations/extensions."+dialect+".sql","registry",`-- ============================================================
+-- 15_EXTENSIONS / ${dialect.toUpperCase()} MIGRATION
+-- ============================================================
+${pg?"":"PRAGMA foreign_keys = ON;\n"}
+CREATE TABLE IF NOT EXISTS extension_installations (
+  tenant_id TEXT NOT NULL,
+  extension_id TEXT NOT NULL,
+  approved_version TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0,1)),
+  granted_permissions TEXT NOT NULL
+    CHECK (${pg?"jsonb_typeof(granted_permissions::jsonb) = 'array'":"json_valid(granted_permissions)"}),
+  approved_by TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, extension_id)
+);
+
+CREATE TABLE IF NOT EXISTS extension_events (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  extension_id TEXT NOT NULL,
+  event TEXT NOT NULL CHECK (event IN ('configuration','execution')),
+  status TEXT NOT NULL CHECK (status IN ('success','failure')),
+  duration_ms INTEGER NOT NULL CHECK (duration_ms >= 0),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS extension_events_tenant_time
+  ON extension_events(tenant_id, created_at);
+CREATE INDEX IF NOT EXISTS extension_events_expiry
+  ON extension_events(expires_at);
+
+-- TEXT timestamps use canonical UTC ISO-8601 in this portable scaffold.
+-- Add tenant/user foreign keys to your host application schema.
+-- Use parameterized writes and owner-scoped reads.
+-- Schedule expiry deletion; audit integrity needs an independent sink.
+${pg?"-- Deploy tenant RLS where applicable; application role must not bypass it.":""}
+`);
+}
+add("README.md","adapters",`# 15_EXTENSIONS — Integration guide
+
+## Stack
+Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui,
+Zod 3, PostgreSQL or SQLite.
+
+## Install in an existing Next.js application
+npm install zod@^3 server-only pg better-sqlite3
+npm install -D @types/pg @types/better-sqlite3
+npx shadcn@latest add button badge
+
+Copy exported files into their indicated paths.
+Use the host application's existing layout, Tailwind setup,
+TypeScript configuration, and @/* import alias.
+
+## Environment
+APP_ORIGIN=https://your-app.example
+DB_DIALECT=sqlite
+SQLITE_PATH=extensions.sqlite
+
+For PostgreSQL:
+DB_DIALECT=postgresql
+DATABASE_URL=your-server-only-connection-string
+
+Never commit secrets. Use your deployment secret manager.
+
+## Apply ONE migration
+sqlite3 extensions.sqlite < migrations/extensions.sqlite.sql
+or:
+psql "$DATABASE_URL" -f migrations/extensions.postgresql.sql
+
+## Required host integration
+Implement lib/extensions/auth.ts with your session provider.
+Add CSRF/session protections, admin page protection, and rate limits.
+Resolve permissions from your server authorization system.
+Review residency and data-sharing implications of grants.
+
+## Register reviewed code
+Add a static Extension import to registry.ts.
+Update its version for every behavior change.
+Tenant installations pin the approved version; updates need reapproval.
+
+## Pipeline hook
+import { runHooks } from "@/lib/extensions/hooks";
+const metadata = await runHooks(actor, "after_model_call", {
+  output: validatedOutput,
+}, requestSignal);
+
+Store metadata under a separate extension namespace.
+Do not use it to override authorization or validation decisions.
+
+## Important limits
+This is a built-in extension scaffold, not a marketplace installer.
+No package uploads or arbitrary entrypoints are supported.
+In-process code is trusted; AbortSignal is cooperative.
+Use a hardened sandbox service for third-party extensions.
+Add transactional configuration/audit writes before production.
+Database audit tables are not tamper-proof.
+
+## Suggested tests
+- Unauthenticated catalog/write calls are denied.
+- Cross-tenant installations never appear.
+- Missing caller permissions block execution.
+- Version changes require reapproval.
+- Unknown extensions and grants are rejected.
+- Hooks cannot overwrite core fields.
+- Oversized outputs and metadata are rejected.
+- Extension errors fail closed.
+- SQL parameters remain bound.
+`);
+const groups={
+registry:{title:"Registry & storage",tag:"TENANT CONTROL",description:"Static code registrations meet tenant-specific approvals. Enablement and permission grants are persisted separately from reviewed manifests."},
+manifests:{title:"Versioned manifests",tag:"CAPABILITY CONTRACT",description:"Strict manifests declare compatibility, hooks, and requested permissions. No executable entrypoint paths are accepted."},
+permissions:{title:"Permissions & identity",tag:"LEAST PRIVILEGE",description:"Intersect tenant approvals with caller rights. Project only permitted data into hooks; authentication fails closed until integrated."},
+adapters:{title:"Adapter contracts",tag:"HOST INTEGRATION",description:"A narrow execution interface and installation guide. Extend reviewed code through static registration, never arbitrary package loading."},
+plugins:{title:"Built-in plugins",tag:"REVIEWED CODE",description:"A working output-statistics extension demonstrates a content-minimizing capability with explicit permission requirements."},
+hooks:{title:"Pipeline hooks",tag:"BOUNDED EXECUTION",description:"Version checks, permission projection, schema validation, namespaced results, and audited execution without mutable identity."},
+audit:{title:"Audit events",tag:"OPERATIONAL EVIDENCE",description:"Record execution status and timing without raw content. Use an independent protected sink for security-critical integrity."},
+marketplace:{title:"Curated catalog",tag:"ADMIN EXPERIENCE",description:"An authenticated API and shadcn/ui management page for reviewed extensions. This catalog deliberately cannot install untrusted packages."}
+};
+let current="registry",selected="";
+for(const [name,g] of Object.entries(groups)){
+const a=document.createElement("a");a.className="nav";a.href="#"+name;a.dataset.group=name;a.innerHTML=`<span>${String(Object.keys(groups).indexOf(name)+1).padStart(2,"0")}</span>${name}`;document.getElementById("navigation").append(a);
+}
+function renderCode(){
+const entry=sources[selected];document.getElementById("code").textContent=entry.code;
+document.getElementById("selected-path").textContent=selected;
+document.getElementById("language").textContent=selected.endsWith(".sql")?"SQL / MIGRATION":selected.endsWith(".md")?"MARKDOWN / GUIDE":selected.endsWith(".tsx")?"TSX / CLIENT UI":"TYPESCRIPT / APPLICATION SOURCE";
+}
+function navigate(){
+const key=location.hash.slice(1);current=groups[key]?key:"registry";const g=groups[current];
+document.getElementById("breadcrumb").textContent=current;document.getElementById("title").textContent=g.title;document.getElementById("tag").textContent=g.tag;document.getElementById("description").textContent=g.description;
+const select=document.getElementById("files");select.replaceChildren();
+for(const [path,entry] of Object.entries(sources)){if(entry.group===current){const opt=document.createElement("option");opt.value=path;opt.textContent=path;select.append(opt)}}
+selected=select.value;
+document.querySelectorAll(".nav").forEach(a=>{a.classList.toggle("active",a.dataset.group===current);if(a.dataset.group===current)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+renderCode();
+}
+document.getElementById("files").addEventListener("change",e=>{selected=e.target.value;renderCode()});
+let timer;function notify(text){const t=document.getElementById("toast");t.textContent=text;t.classList.add("show");clearTimeout(timer);timer=setTimeout(()=>t.classList.remove("show"),3200)}
+function download(text,name,type){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+document.getElementById("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(sources[selected].code);notify("Code copied with its module heading.")}catch{notify("Clipboard unavailable. Download the selected file.")}});
+document.getElementById("download").addEventListener("click",()=>{download(sources[selected].code,selected.split("/").pop(),"text/plain");notify("Source file downloaded.")});
+document.getElementById("export").addEventListener("click",()=>{
+download(JSON.stringify({heading:"15_EXTENSIONS / INTEGRATION SCAFFOLD",notice:"Implement host authentication before use; third-party execution requires separate sandboxing.",files:Object.fromEntries(Object.entries(sources).map(([path,entry])=>[path,entry.code]))},null,2),"15-extensions.project-files.json","application/json");
+notify("Project files exported as a path-to-source JSON bundle.");
+});
+window.addEventListener("hashchange",navigate);navigate();
+</script>
+</body>
+</html>

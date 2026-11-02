@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>00_META — AI Control Plane</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f8fa;--paper:#fff;--ink:#172434;--muted:#718094;--line:#e0e6ed;--blue:#2158d5;--light:#edf3ff;--mono:'IBM Plex Mono',monospace;--body:'Manrope',sans-serif;--display:'Space Grotesk',sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:13px}button,input,textarea,select{font:inherit}button,a,input,select,textarea{outline-offset:4px}button{cursor:pointer}a{text-decoration:none;color:inherit}button{transition:background .2s,transform .2s}button:active{transform:scale(.97)}.shell{display:grid;grid-template-columns:245px 1fr;min-height:100vh}.sidebar{background:var(--paper);border-right:1px solid var(--line);padding:30px 18px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:21px;font-weight:700;padding:0 12px}.logo{background:var(--ink);color:white;font:500 15px var(--mono);width:34px;height:34px;display:grid;place-items:center;border-radius:8px}.workspace-label{margin:34px 12px 24px;padding:13px 11px;border:1px solid var(--line);border-radius:6px;font-size:11px;line-height:1.9;color:var(--muted)}.workspace-label strong{display:block;color:var(--ink);font-size:12px}.nav-label{font:10px var(--mono);letter-spacing:1.4px;color:var(--muted);padding:0 12px;margin-bottom:12px}.nav-btn{width:100%;display:flex;align-items:center;gap:12px;padding:13px 12px;background:none;border:0;text-align:left;border-radius:6px;color:#657386;margin:3px 0}.nav-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6}.nav-btn:hover{background:var(--bg)}.nav-btn.active{background:var(--light);color:var(--blue);font-weight:700}.nav-btn small{margin-left:auto;font:10px var(--mono);opacity:.7}.sidebar-bottom{margin-top:auto;padding:50px 12px 0;font-size:11px;line-height:1.9;color:var(--muted)}.sidebar-bottom b{color:var(--ink);font-weight:600}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#21875a;margin-right:7px}.content{min-width:0}.topbar{height:76px;background:white;border-bottom:1px solid var(--line);padding:0 40px;display:flex;align-items:center;justify-content:space-between;gap:16px}.breadcrumb{color:var(--muted);font-size:12px}.breadcrumb strong{color:var(--ink);font-weight:600}.top-actions{display:flex;align-items:center;gap:16px;font:10px var(--mono);color:var(--muted)}.avatar{width:31px;height:31px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--ink)}main{max-width:1450px;margin:auto;padding:38px 40px}.heading{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:30px}.eyebrow{font:10px var(--mono);text-transform:uppercase;letter-spacing:1.3px;color:var(--blue)}h1{font:600 clamp(29px,3.2vw,43px) var(--display);letter-spacing:-1.6px;margin:12px 0 8px}.subtitle{color:var(--muted);line-height:1.8;margin:0;max-width:630px}.btn{background:white;border:1px solid var(--line);border-radius:5px;padding:10px 15px;font-weight:600;font-size:11px;white-space:nowrap}.btn:hover{background:#eef2f6}.btn.primary{background:var(--blue);border-color:var(--blue);color:white}.btn.primary:hover{background:#1746b2}.heading-actions{display:flex;gap:8px}.architecture{display:flex;align-items:center;gap:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:17px 0;margin-bottom:28px;overflow:auto;white-space:nowrap;font:10px var(--mono);color:var(--muted)}.architecture strong{color:var(--ink)}.architecture .selected{color:var(--blue)}.architecture span.sep{color:#b5bfcc}.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.82fr);gap:25px;align-items:start}.editor,.code-pane{background:white;border:1px solid var(--line);border-radius:8px;overflow:hidden}.section-head{padding:23px 25px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:15px}h2{font:600 17px var(--display);margin:0;letter-spacing:-.3px}.section-head small{display:block;color:var(--muted);font-size:11px;line-height:1.7;margin-top:5px}.tag{font:9px var(--mono);padding:5px 7px;background:var(--light);color:var(--blue);border-radius:4px}.form-body{padding:25px}.field{display:block;font-size:11px;font-weight:700;margin-bottom:22px}.field small{font-size:10px;color:var(--muted);font-weight:400;display:block;line-height:1.7;margin:5px 0 9px}input[type=text],input[type=number],textarea,select{width:100%;border:1px solid #dce3eb;border-radius:5px;background:#fff;padding:11px 12px;font-size:12px;color:var(--ink)}input:focus,textarea:focus,select:focus{outline:2px solid #cbdcff;border-color:var(--blue)}textarea{line-height:1.8;resize:vertical;min-height:112px}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.form-footer{background:#fbfcfe;border-top:1px solid var(--line);padding:16px 25px;display:flex;align-items:center;justify-content:space-between;gap:12px}.save-note{font-size:10px;color:var(--muted)}.code-pane{background:#162130;border-color:#162130;color:#c5d1e1}.code-top{padding:20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #2b3848}.code-top h2{color:#f1f5fb;font-size:14px}.code-top small{color:#8a9bb0}.code-switches{display:flex;padding:13px 16px;gap:6px;border-bottom:1px solid #2b3848}.code-switch{background:none;border:0;color:#8fa1b8;border-radius:4px;font:10px var(--mono);padding:7px 10px}.code-switch.active{background:#2b3c53;color:#e6efff}.code-switch:hover{background:#27364a}.code-path{font:9px var(--mono);color:#91a4bf;padding:18px 20px 0}pre{font:11px/1.9 var(--mono);margin:0;padding:17px 20px 24px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto;color:#b8d8ff}.code-bottom{border-top:1px solid #2b3848;padding:15px 20px;font:9px/1.8 var(--mono);color:#8fa1b8}.support{margin-top:27px;display:grid;grid-template-columns:1fr 1fr;gap:25px;border-top:1px solid var(--line);padding-top:22px}.support h3{font-size:11px;margin:0 0 7px}.support p{font-size:11px;line-height:1.8;color:var(--muted);margin:0}.support a{color:var(--blue)}.toggle{display:flex;justify-content:space-between;align-items:center;gap:15px;border-bottom:1px solid var(--line);padding:14px 0}.toggle:first-child{padding-top:0}.toggle strong{font-size:12px}.toggle small{display:block;font-size:10px;line-height:1.8;color:var(--muted);margin-top:5px}.toggle input{accent-color:var(--blue);width:17px;height:17px}.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:11px 7px;border-bottom:1px solid var(--line);text-align:left}th{font:9px var(--mono);color:var(--muted)}td select{font-size:10px;padding:7px;min-width:95px}.model-row{padding:17px 0;border-bottom:1px solid var(--line)}.model-row:first-child{padding-top:0}.model-name{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12px;font-weight:600}.model-row .field{margin-bottom:12px}.env{font:9px var(--mono);color:var(--muted)}.callout{padding:12px 14px;background:var(--light);font-size:10px;line-height:1.8;color:#496389;border-radius:5px;margin:20px 0 0}.toast{position:fixed;bottom:25px;left:50%;transform:translate(-50%,15px);background:var(--ink);color:white;padding:13px 20px;border-radius:6px;opacity:0;transition:.2s;pointer-events:none;font-size:12px;z-index:10}.toast.show{opacity:1;transform:translate(-50%,0)}.page-reveal{animation:reveal .5s both}.grid{animation-delay:.1s}@keyframes reveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(min-width:1450px){.sidebar{position:sticky;top:0;height:100vh}}@media(max-width:1100px){.shell{grid-template-columns:205px 1fr}.grid{grid-template-columns:1fr}.topbar{padding:0 26px}main{padding:30px 26px}.heading{align-items:start;flex-direction:column}.sidebar{padding:27px 12px}}@media(max-width:700px){.shell{display:block}.sidebar{padding:18px 16px;border-right:0;border-bottom:1px solid var(--line)}.brand{padding:0;font-size:19px}.workspace-label,.nav-label,.sidebar-bottom{display:none}nav{display:flex;overflow:auto;margin-top:20px;gap:5px}.nav-btn{width:auto;white-space:nowrap;padding:10px}.nav-btn small{display:none}.nav-btn svg{width:14px}.topbar{height:58px;padding:0 20px}.top-actions>span:first-child{display:none}main{padding:26px 18px}.two,.support{grid-template-columns:1fr}.section-head,.form-body{padding:20px}.architecture{gap:10px}.heading-actions{width:100%}.heading-actions .btn{flex:1}h1{letter-spacing:-1px}.form-footer{padding:15px 20px}.support{gap:17px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="#mission"><span class="logo">AZ</span>Control Plane</a>
+<div class="workspace-label"><strong>AZ_AI / Workspace</strong><span class="dot"></span>Development environment</div>
+<div class="nav-label">00_META / FOUNDATION</div>
+<nav aria-label="Meta pages" id="nav"></nav>
+<div class="sidebar-bottom"><span class="dot"></span><b>Local workspace</b><br>No credentials or API calls.<br>Configuration version 1.0.0</div>
+</aside>
+<div class="content">
+<header class="topbar"><div class="breadcrumb">Workspace <span aria-hidden="true"> / </span> 00_META <span aria-hidden="true"> / </span> <strong id="crumb">Mission</strong></div><div class="top-actions"><span>MODEL-AGNOSTIC</span><span class="avatar">AZ</span></div></header>
+<main>
+<section class="heading page-reveal">
+<div><div class="eyebrow" id="eyebrow">01 / Strategic foundation</div><h1 id="title">Mission & objectives</h1><p class="subtitle" id="subtitle"></p></div>
+<div class="heading-actions"><button class="btn" id="download-config">Export config ↓</button><button class="btn primary" id="download-sql">Download SQL ↗</button></div>
+</section>
+<div class="architecture" aria-label="Technology context"><strong>IMPLEMENTATION TARGET</strong><span class="sep">/</span><span>shadcn/ui</span><span>+</span><span>Tailwind CSS</span><span class="sep">/</span><span class="selected">PostgreSQL · SQLite</span></div>
+<div class="grid page-reveal">
+<section class="editor" aria-labelledby="form-title">
+<div class="section-head"><div><h2 id="form-title">Mission configuration</h2><small id="form-caption"></small></div><span class="tag">00_META</span></div>
+<form id="form"><div class="form-body" id="fields"></div><div class="form-footer"><span class="save-note" id="save-status" role="status">Changes are saved locally.</span><button class="btn primary" type="submit">Save changes</button></div></form>
+</section>
+<section class="code-pane" aria-labelledby="code-title">
+<div class="code-top"><div><h2 id="code-title">Configuration source</h2><small style="display:block;margin-top:5px;font-size:10px">Explicit headings. Portable structure.</small></div><button class="code-switch" id="copy" aria-label="Copy displayed code">Copy ⧉</button></div>
+<div class="code-switches" aria-label="Code formats"><button class="code-switch active" data-format="json">JSON</button><button class="code-switch" data-format="postgresql">PostgreSQL</button><button class="code-switch" data-format="sqlite">SQLite</button></div>
+<div class="code-path" id="code-path"></div><pre id="code"></pre>
+<div class="code-bottom">Generated from this page’s configuration.<br>SQL uses a module-scoped configuration table.</div>
+</section>
+</div>
+<section class="support">
+<div><h3>One foundation, five dedicated pages</h3><p>Mission, scope, policies, capabilities, and provider registrations share a single versioned configuration. Switch pages without losing edits.</p></div>
+<div><h3>Prototype → implementation</h3><p>This standalone interface uses custom CSS, not installed React components. Use its exported JSON and SQL with your shadcn/ui + Tailwind application. Database access and policy enforcement belong on your server.</p></div>
+</section>
+</main>
+</div>
+</div>
+<div class="toast" role="status" id="toast"></div>
+<script>
+// ============================================================
+// 00_META / SHARED CONFIGURATION & PAGE REGISTRY
+// ============================================================
+const pages = {
+mission:{label:"Mission",title:"Mission & objectives",eyebrow:"01 / Strategic foundation",subtitle:"Give every model a shared purpose. Define who you serve, what you deliver, and how success is measured.",caption:"The intent behind every request.",icon:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'},
+scope:{label:"Scope",title:"Scope & boundaries",eyebrow:"02 / Operating contract",subtitle:"Turn an all-purpose ambition into explicit supported tasks, exclusions, and human-review boundaries.",caption:"Define where the system can operate.",icon:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>'},
+policies:{label:"Policies",title:"Policies & safeguards",eyebrow:"03 / Governance layer",subtitle:"Make trust requirements explicit. Declare controls here and enforce them throughout your backend.",caption:"Safety controls are not just prompt instructions.",icon:'<path d="M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>'},
+capability_matrix:{label:"Capabilities",title:"Capability matrix",eyebrow:"04 / Routing intelligence",subtitle:"Route by verified capability, not provider reputation. Support depends on the exact API model and endpoint.",caption:"Validate these declarations with integration tests.",icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'},
+model_registry:{label:"Model registry",title:"Models & providers",eyebrow:"05 / Provider inventory",subtitle:"Register exact model identifiers behind a common adapter contract. Keep credentials out of the browser.",caption:"Enable providers only after configuring their adapters.",icon:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 4 16 4 16 0V5M4 12v7c0 4 16 4 16 0v-7"/>'}
+};
+const providers={openai:"OpenAI / ChatGPT",google:"Google / Gemini",xai:"xAI / Grok",custom:"Custom / Arial AI"};
+const capabilities=["text_generation","structured_output","vision","tool_calling","web_retrieval"];
+const defaults={
+schema_version:"1.0.0",
+mission:{system_name:"AZ_AI",statement:"Provide reliable, context-aware assistance across AI providers with measurable quality and human oversight.",audience:"Knowledge workers and engineering teams",success_metric:"90% pass rate on a versioned evaluation set"},
+scope:{allowed_tasks:["Research and summarization","Writing and editing","Code assistance","Structured extraction"],excluded_tasks:["Unauthorized data access","Autonomous high-impact decisions"],environment:"development",human_review:"high_impact_actions"},
+policies:{pii_redaction:true,source_grounding:true,untrusted_content_isolation:true,tool_approval:true,retention_days:30,failure_behavior:"stop_and_escalate"},
+capability_matrix:{strategy:"quality_then_cost",providers:Object.fromEntries(Object.keys(providers).map(p=>[p,Object.fromEntries(capabilities.map(c=>[c,"unverified"]))]))},
+model_registry:Object.fromEntries(Object.keys(providers).map(p=>[p,{enabled:false,model_id:"",credential_env:p.toUpperCase()+"_API_KEY",timeout_seconds:60}]))
+};
+let config=structuredClone(defaults),current="mission",format="json";
+function merge(target,source){for(const k of Object.keys(target)){if(!source||!(k in source))continue;const a=target[k],b=source[k];if(a&&typeof a==="object"&&!Array.isArray(a)){if(b&&typeof b==="object"&&!Array.isArray(b))merge(a,b)}else if(Array.isArray(a)){if(Array.isArray(b)&&b.every(x=>typeof x==="string"))target[k]=b}else if(typeof a===typeof b)target[k]=b}}
+try{const saved=JSON.parse(localStorage.getItem("az-meta-control-v1"));if(saved?.schema_version===defaults.schema_version)merge(config,saved)}catch(e){}
+const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function field(key,label,hint,type="text",options=[]){
+const value=key.split(".").reduce((o,k)=>o[k],config);
+const common=`data-key="${key}" id="${key}"`;
+let input;
+if(type==="textarea"||type==="list")input=`<textarea ${common} ${type==="list"?'data-list="true"':""}>${escapeHTML(Array.isArray(value)?value.join("\n"):value)}</textarea>`;
+else if(type==="select")input=`<select ${common}>${options.map(v=>`<option value="${v}" ${value===v?"selected":""}>${escapeHTML(v.replaceAll("_"," "))}</option>`).join("")}</select>`;
+else input=`<input ${common} type="${type}" value="${escapeHTML(value)}" ${type==="number"?'min="0" max="3650" required':''}>`;
+return `<label class="field" for="${key}">${label}<small>${hint}</small>${input}</label>`;
+}
+function toggle(key,label,hint){const value=key.split(".").reduce((o,k)=>o[k],config);return `<label class="toggle"><span><strong>${label}</strong><small>${hint}</small></span><input type="checkbox" data-key="${key}" ${value?"checked":""}></label>`}
+
+// ============================================================
+// PAGE 01 — 00_META / MISSION
+// ============================================================
+function missionPage(){return field("mission.system_name","System name","A stable identifier used throughout the architecture.")+field("mission.statement","Mission statement","Describe the outcome your system should deliver.","textarea")+`<div class="two">${field("mission.audience","Primary audience","Who benefits from the system?")}${field("mission.success_metric","Success metric","Use a measurable evaluation target.")}</div>`}
+
+// ============================================================
+// PAGE 02 — 00_META / SCOPE
+// ============================================================
+function scopePage(){return field("scope.allowed_tasks","Supported tasks","One supported task per line.","list")+field("scope.excluded_tasks","Excluded activities","One operating boundary per line.","list")+`<div class="two">${field("scope.environment","Environment","Deployment stage.","select",["development","staging","production"])}${field("scope.human_review","Human review","Approval threshold.","select",["high_impact_actions","all_external_actions","all_outputs"])}</div>`}
+
+// ============================================================
+// PAGE 03 — 00_META / POLICIES
+// ============================================================
+function policiesPage(){return toggle("policies.pii_redaction","Sensitive-data minimization","Redact personal data before requests and logging.")+toggle("policies.source_grounding","Require source grounding","Use available evidence and disclose uncertainty.")+toggle("policies.untrusted_content_isolation","Isolate untrusted content","Treat documents and tool results as data, not instructions.")+toggle("policies.tool_approval","Approve consequential tool actions","Confirm writes, deletion, payments, and messages.")+`<div class="two" style="margin-top:22px">${field("policies.retention_days","Retention days","Enforce deletion in your storage layer.","number")}${field("policies.failure_behavior","Failure behavior","When checks fail.","select",["stop_and_escalate","safe_fallback"])}</div><p class="callout">These are configuration declarations. Enforce authorization, validation, and approval server-side; do not rely on prompts alone.</p>`}
+
+// ============================================================
+// PAGE 04 — 00_META / CAPABILITY_MATRIX
+// ============================================================
+function capabilityPage(){return `<div class="table-scroll"><table><thead><tr><th>CAPABILITY</th>${Object.keys(providers).map(p=>`<th>${p.toUpperCase()}</th>`).join("")}</tr></thead><tbody>${capabilities.map(c=>`<tr><td>${c.replaceAll("_"," ")}</td>${Object.keys(providers).map(p=>`<td><select aria-label="${p} ${c}" data-key="capability_matrix.providers.${p}.${c}">${["unverified","supported","unsupported"].map(v=>`<option value="${v}" ${config.capability_matrix.providers[p][c]===v?"selected":""}>${v}</option>`).join("")}</select></td>`).join("")}</tr>`).join("")}</tbody></table></div><p class="callout">Defaults are unverified. Test exact model IDs, endpoint behavior, and account permissions before marking support.</p><div style="margin-top:22px">${field("capability_matrix.strategy","Routing strategy","Apply after capability and policy eligibility checks.","select",["quality_then_cost","lowest_latency","lowest_cost"])}</div>`}
+
+// ============================================================
+// PAGE 05 — 00_META / MODEL_REGISTRY
+// ============================================================
+function registryPage(){return Object.keys(providers).map(p=>`<div class="model-row"><div class="model-name"><span>${providers[p]}</span><label style="font-size:10px;font-weight:400"><input type="checkbox" data-key="model_registry.${p}.enabled" ${config.model_registry[p].enabled?"checked":""}> Enabled</label></div><div class="two">${field(`model_registry.${p}.model_id`,"API model ID","Exact identifier from provider documentation.")}${field(`model_registry.${p}.timeout_seconds`,"Timeout (seconds)","Bound request duration.","number")}</div><div class="env">SERVER SECRET / ${config.model_registry[p].credential_env}</div></div>`).join("")+`<p class="callout">Custom providers, including Arial AI, require verified API documentation and an adapter. These environment-variable names are references, not credentials.</p>`}
+const renderers={mission:missionPage,scope:scopePage,policies:policiesPage,capability_matrix:capabilityPage,model_registry:registryPage};
+
+// ============================================================
+// DATABASE — POSTGRESQL / SQLITE CONFIGURATION STORAGE
+// ============================================================
+function sql(dialect){
+const data=JSON.stringify(config[current],null,2).replaceAll("'","''");
+const heading=`-- =====================================================\n-- 00_META / ${current.toUpperCase()}\n-- ${pages[current].title} — ${dialect==="postgresql"?"PostgreSQL":"SQLite"}\n-- =====================================================\n`;
+if(dialect==="postgresql")return heading+`\nCREATE TABLE IF NOT EXISTS az_ai_meta (\n  module TEXT PRIMARY KEY,\n  schema_version TEXT NOT NULL,\n  config JSONB NOT NULL,\n  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n);\n\nINSERT INTO az_ai_meta (module, schema_version, config)\nVALUES (\n  '${current}',\n  '${config.schema_version}',\n  '${data}'::jsonb\n)\nON CONFLICT (module) DO UPDATE SET\n  schema_version = EXCLUDED.schema_version,\n  config = EXCLUDED.config,\n  updated_at = NOW();\n`;
+return heading+`\n-- Requires SQLite JSON functions and UPSERT support.\nCREATE TABLE IF NOT EXISTS az_ai_meta (\n  module TEXT PRIMARY KEY,\n  schema_version TEXT NOT NULL,\n  config TEXT NOT NULL CHECK (json_valid(config)),\n  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO az_ai_meta (module, schema_version, config)\nVALUES (\n  '${current}',\n  '${config.schema_version}',\n  '${data}'\n)\nON CONFLICT (module) DO UPDATE SET\n  schema_version = excluded.schema_version,\n  config = excluded.config,\n  updated_at = CURRENT_TIMESTAMP;\n`;
+}
+function source(){return format==="json"?JSON.stringify({heading:`00_META / ${current}`,schema_version:config.schema_version,[current]:config[current]},null,2):sql(format)}
+function updateCode(){document.getElementById("code").textContent=source();document.getElementById("code-path").textContent=`00_META/${current}/${format==="json"?"config.json":format+".sql"}`;document.querySelectorAll("[data-format]").forEach(b=>b.classList.toggle("active",b.dataset.format===format))}
+function navigate(){
+const key=location.hash.slice(1);current=pages[key]?key:"mission";const p=pages[current];
+document.getElementById("crumb").textContent=p.label;document.getElementById("eyebrow").textContent=p.eyebrow;document.getElementById("title").textContent=p.title;document.getElementById("subtitle").textContent=p.subtitle;document.getElementById("form-title").textContent=p.label+" configuration";document.getElementById("form-caption").textContent=p.caption;document.getElementById("fields").innerHTML=renderers[current]();document.querySelectorAll(".nav-btn").forEach(b=>{b.classList.toggle("active",b.dataset.page===current);if(b.dataset.page===current)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});updateCode();
+}
+Object.keys(pages).forEach((p,i)=>{const a=document.createElement("a");a.className="nav-btn";a.href="#"+p;a.dataset.page=p;a.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${pages[p].icon}</svg><span>${pages[p].label}</span><small>0${i+1}</small>`;document.getElementById("nav").append(a)});
+window.addEventListener("hashchange",navigate);
+document.getElementById("fields").addEventListener("input",e=>{
+const el=e.target;if(!el.dataset.key||!el.checkValidity())return;const keys=el.dataset.key.split("."),last=keys.pop();keys.reduce((o,k)=>o[k],config)[last]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.dataset.list?el.value.split("\n").map(s=>s.trim()).filter(Boolean):el.value;persist();updateCode()
+});
+function persist(){try{localStorage.setItem("az-meta-control-v1",JSON.stringify(config));document.getElementById("save-status").textContent="Saved in this browser."}catch(e){document.getElementById("save-status").textContent="Storage unavailable. Export to save."}}
+let timer;function toast(message){const el=document.getElementById("toast");el.textContent=message;el.classList.add("show");clearTimeout(timer);timer=setTimeout(()=>el.classList.remove("show"),3500)}
+function validRegistry(){return Object.values(config.model_registry).every(m=>!m.enabled||m.model_id.trim())}
+document.getElementById("form").addEventListener("submit",e=>{e.preventDefault();if(current==="model_registry"&&!validRegistry()){toast("Enter a model ID for each enabled provider.");return}persist();toast("Configuration saved locally. No database connection is active.")});
+document.querySelectorAll("[data-format]").forEach(b=>b.addEventListener("click",()=>{format=b.dataset.format;updateCode()}));
+document.getElementById("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(source());toast("Code copied with its section heading.")}catch(e){toast("Clipboard unavailable. Select the code or download it.")}});
+function download(text,name,type){const u=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+document.getElementById("download-config").addEventListener("click",()=>{if(!validRegistry()){toast("Enter a model ID for each enabled provider before exporting.");return}download(JSON.stringify(config,null,2),"az-ai-00-meta.json","application/json");toast("All five modules exported.")});
+document.getElementById("download-sql").addEventListener("click",()=>{if(current==="model_registry"&&!validRegistry()){toast("Enter a model ID for each enabled provider.");return}const dialect=format==="sqlite"?"sqlite":"postgresql";download(sql(dialect),`00-meta-${current}-${dialect}.sql`,"text/plain");toast(`${pages[current].label} SQL exported for ${dialect}.`)});
+navigate();
+</script>
+</body>
+</html>
