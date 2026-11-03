@@ -165,6 +165,35 @@ until then the endpoints return `503 SEARCH_NOT_CONFIGURED` and 00_META keeps `l
 - Web content is passed to models as untrusted data. Plan limits, policy checks and routing are the
   same as chat. `npm run check:search` tests it end to end with a local fake Tavily and real models.
 
+## A-Zee Search Index (migration 020, experimental)
+
+`/search` → **My index**: full-text search over documents you add yourself, in collections
+(separate workspaces). Readiness: PostgreSQL full-text search is locally tested (unit tests, a browser
+test, and `npm run check:search-index` end to end). **Vector search is infrastructure blocked**: the
+pgvector extension isn't installed (the status endpoint checks `pg_available_extensions`). Turn the
+index off with `AZ_FEATURE_SEARCH_INDEX=off`. It works without `TAVILY_API_KEY`.
+
+- Sources: pasted text, one GitHub file, or one Google Drive document at a time, chosen explicitly.
+  Connected accounts are never indexed automatically; connectors stay read-only. **Sync** re-fetches
+  one document on request; **Delete** removes it (and its chunks) from the index.
+- Indexing: content is normalized (LF, no NULs) and split into chunks that are exact slices of the
+  document; each chunk has a generated `tsvector` (English) with a GIN index. Limits: 1 MB per
+  document, 1,000 documents and 50 collections per account.
+- Updates and duplicates: the same source (or a text edit) with new content replaces all chunks and
+  increments `version`; identical content is a no-op; identical text in a collection is not stored
+  twice (concurrent ingests are serialized per collection).
+- Queries: `websearch_to_tsquery` (quotes, `or`, `-term`; never a syntax error), ranked with
+  `ts_rank_cd`, excerpts from `ts_headline`. Each result carries provenance: document, collection,
+  source type and URL, version, content hash, indexed time, chunk and character offsets.
+- Access: this machine's signed-in account only; every query is filtered by owner (and collection when
+  given). Another account's documents and collections return 404. POSTs/PUTs/DELETEs need
+  `X-AZee-Request: 1` and the same origin.
+- Routes: `GET /api/v1/search/index`, `GET|POST /api/v1/search/index/collections`,
+  `DELETE …/collections/:id`, `GET|POST …/documents` (`{ source: "text", title, content }`,
+  `{ source: "github", repo, path, ref? }`, `{ source: "google_drive", fileId }` plus `collectionId`),
+  `GET|PUT|DELETE …/documents/:id`, `POST …/documents/:id/sync`,
+  `GET …/query?q=&collectionId=&limit=`.
+
 ## Connectors: GitHub and Google Drive (migration 017, experimental)
 
 `/connectors` (Settings → Connectors) gives the local account **read-only** access to GitHub

@@ -17,7 +17,7 @@ export const FEATURES: Record<FeatureName, Definition> = {
   connectors: { label: "GitHub and Google Drive connectors", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_CONNECTORS" },
   codeAgent: { label: "AI Code Agent (inspect, patch, review, rollback)", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_CODE_AGENT" },
   codeExecution: { label: "Sandboxed code execution", readiness: "infrastructure_blocked", experimental: true, env: "AZ_FEATURE_CODE_EXECUTION", blockedBy: "No container runtime (Docker) or remote sandbox service is configured." },
-  searchIndex: { label: "A-Zee Search Index (PostgreSQL full-text)", readiness: "planned", experimental: true, env: "AZ_FEATURE_SEARCH_INDEX" },
+  searchIndex: { label: "A-Zee Search Index (PostgreSQL full-text)", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_SEARCH_INDEX" },
   vectorSearch: { label: "Vector search (pgvector)", readiness: "infrastructure_blocked", experimental: true, env: "AZ_FEATURE_VECTOR_SEARCH", blockedBy: "The pgvector extension isn't installed in this PostgreSQL server, and no embedding provider is configured." },
   voice: { label: "Voice AI (browser speech)", readiness: "planned", experimental: true, env: "AZ_FEATURE_VOICE" },
   cloudIde: { label: "Cloud IDE (editor, files, Git panel, agent, previews)", readiness: "planned", experimental: true, env: "AZ_FEATURE_CLOUD_IDE" },

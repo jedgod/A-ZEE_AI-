@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowLeft, CheckCircle2, CircleAlert, CircleHelp, Download, ExternalLink, Globe, Loader2, Microscope, Scale, ShieldCheck, Square } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CircleAlert, CircleHelp, Database, Download, ExternalLink, Globe, Loader2, Microscope, Scale, ShieldCheck, Square } from "lucide-react";
 import { MessageContent } from "@/components/message-content";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IndexPanel } from "./index-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -394,7 +395,7 @@ export function SearchApp() {
         <div>
           <a href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"><ArrowLeft className="h-3.5 w-3.5" />Workspace</a>
           <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold tracking-tight"><Globe className="h-7 w-7 text-emerald-700" />A-Zee Search</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Live web answers with numbered citations. Every claim is checked against the text of the source it cites.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Live web answers with numbered citations, and full-text search over documents you index. Every claim is checked against the text of the source it cites.</p>
         </div>
         <a href="/platform" className="text-sm text-muted-foreground hover:underline">Platform overview →</a>
       </header>
@@ -413,11 +414,13 @@ export function SearchApp() {
           <TabsTrigger value="research"><Microscope className="mr-1.5 h-4 w-4" />Deep research</TabsTrigger>
           <TabsTrigger value="compare"><Scale className="mr-1.5 h-4 w-4" />Compare</TabsTrigger>
           <TabsTrigger value="verify"><ShieldCheck className="mr-1.5 h-4 w-4" />Verify claims</TabsTrigger>
+          <TabsTrigger value="index"><Database className="mr-1.5 h-4 w-4" />My index</TabsTrigger>
         </TabsList>
         <TabsContent value="search" className="mt-5"><SmartSearch onResearch={q => { setSeed(q); setTab("research"); }} /></TabsContent>
         <TabsContent value="research" className="mt-5"><DeepResearch seed={seed} /></TabsContent>
         <TabsContent value="compare" className="mt-5"><Compare /></TabsContent>
         <TabsContent value="verify" className="mt-5"><VerifyClaims /></TabsContent>
+        <TabsContent value="index" className="mt-5"><IndexPanel /></TabsContent>
       </Tabs>
     </main>
   );

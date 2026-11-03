@@ -13,13 +13,14 @@ export function platformState() {
   const search = searchConfigured();
   const providers = configuredProviders().length;
   const db = Boolean(process.env.DATABASE_URL);
-  const searchStatus: Status = search ? "partial" : "needs-setup";
+  // The personal search index works without a web search key; live web retrieval needs Tavily.
+  const searchStatus: Status = "partial";
   const researchStatus: Status = search ? "live" : "needs-setup";
 
   const modules: Module[] = [
     { n: 1, name: "A-Zee Search", status: searchStatus, summary: "Live web search, crawling, indexing, citations and source verification",
-      inApp: "Live web retrieval (Tavily), numbered citations, source dates, freshness and relevance, quote-verified claims, provenance recorded per answer.",
-      next: search ? "Own crawler and search index (OpenSearch), reranking." : "Add TAVILY_API_KEY to .env.local.", href: "/search" },
+      inApp: `Search index (PostgreSQL full-text, locally tested): documents you add, ranked excerpts with source provenance, sync and deletion. Live web retrieval (Tavily)${search ? "" : " — needs setup"}: numbered citations, source dates, freshness, quote-verified claims.`,
+      next: `${search ? "" : "Add TAVILY_API_KEY to .env.local for live web search. "}Vector search is infrastructure blocked (pgvector not installed); own crawler, OpenSearch and reranking not built.`, href: "/search" },
     { n: 2, name: "Deep Research", status: researchStatus, summary: "Multi-step investigation, evidence synthesis, reports and references",
       inApp: "Durable research jobs with checkpoints and resume, evidence tables, conflicting claims, research gaps, Markdown export.",
       next: search ? "PDF/Word export; connected knowledge bases." : "Add TAVILY_API_KEY to .env.local.", href: "/search" },

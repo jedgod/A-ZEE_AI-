@@ -20,6 +20,7 @@
     "check:search": "node scripts/check-search.cjs",
     "check:connectors": "node scripts/check-connectors.cjs",
     "check:code-agent": "node scripts/check-code-agent.cjs",
+    "check:search-index": "node scripts/check-search-index.cjs",
     "check:billing": "node scripts/check-billing.cjs"
   },
   "dependencies": {
