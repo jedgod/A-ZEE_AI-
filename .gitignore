@@ -16,3 +16,4 @@ __pycache__/
 !.env.example
 pipeline-api/.venv/
 .pytest_cache/
+.mirror/

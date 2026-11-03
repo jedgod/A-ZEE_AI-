@@ -165,6 +165,29 @@ until then the endpoints return `503 SEARCH_NOT_CONFIGURED` and 00_META keeps `l
 - Web content is passed to models as untrusted data. Plan limits, policy checks and routing are the
   same as chat. `npm run check:search` tests it end to end with a local fake Tavily and real models.
 
+## Connectors: GitHub and Google Drive (migration 017, experimental)
+
+`/connectors` (Settings → Connectors) gives the local account **read-only** access to GitHub
+repositories and Google Drive documents. Readiness: locally tested against fake providers; not yet
+tested against the real GitHub and Google services. Turn it off with `AZ_FEATURE_CONNECTORS=off`.
+
+- Setup (in `.env.local`, then restart): `CONNECTOR_TOKEN_KEY` (32 random bytes, base64:
+  `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`),
+  `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+  OAuth callback URL: `${APP_ORIGIN}/api/connectors/<github|google_drive>/callback`.
+  For GitHub, a GitHub App with *Contents: Read-only* limits access more tightly than an OAuth App's
+  `repo` scope (`GITHUB_SCOPES` overrides the requested scopes).
+- OAuth: single-use state stored hashed with a 10-minute lifetime; PKCE (S256) for Google; Drive
+  scope `drive.readonly`. Tokens are encrypted with AES-256-GCM, refreshed when expiring, never sent
+  to the browser, and revoked at the provider on disconnect.
+- Provider calls are GET-only. Every access is logged in `connector_audit` (no tokens recorded).
+- Routes: `GET /api/connectors`, `POST /api/connectors/:provider/connect`,
+  `GET /api/connectors/:provider/callback`, `DELETE /api/connectors/:provider`,
+  `GET /api/connectors/audit`, `GET /api/connectors/github/repos`,
+  `GET /api/connectors/github/repos/:owner/:repo/tree|file`, `GET /api/connectors/google_drive/files[/:id]`.
+- `npm run check:connectors` runs the full flow against local fake GitHub and Google servers on a
+  second app server (port 3003); it refuses to run while real connections exist.
+
 ## AI providers
 
 Configure one or more of `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`,

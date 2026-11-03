@@ -980,6 +980,10 @@ export default function WorkspacePage() {
               <button className={styles.outline} onClick={() => { setDialog(null); setDialog("privacy"); }}>Clear…</button>
             </div>
           </div>
+          <div className={styles.settingsRow}>
+            <div><strong>Connectors</strong><small>Read-only GitHub and Google Drive access.</small></div>
+            <div className={styles.settingsActions}><a className={styles.outline} href="/connectors">Manage</a></div>
+          </div>
           <p className={styles.settingsNote}>Personalization (custom instructions, answer length) is in the account menu: select your name at the bottom of the sidebar.</p>
         </div>
       ),

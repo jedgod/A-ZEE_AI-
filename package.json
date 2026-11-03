@@ -18,6 +18,7 @@
     "plan:set": "node scripts/plan-set.cjs",
     "check:sidebar": "node scripts/check-sidebar.cjs",
     "check:search": "node scripts/check-search.cjs",
+    "check:connectors": "node scripts/check-connectors.cjs",
     "check:billing": "node scripts/check-billing.cjs"
   },
   "dependencies": {

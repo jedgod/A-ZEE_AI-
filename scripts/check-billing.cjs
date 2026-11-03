@@ -30,7 +30,7 @@ const access = () => fetch(base + '/api/me/access').then(r => r.json()).then(j =
   const user = (await db.query('SELECT id, email, plan FROM users WHERE is_local')).rows[0];
   assert.ok(user, 'needs the local account (npm run account:seed)');
   const snapshot = (await db.query('SELECT * FROM subscriptions WHERE user_id = $1', [user.id])).rows;
-  const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', 'localhost', '--port', '3001'],
+  const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '--hostname', 'localhost', '--port', '3001'],
     { env: { ...process.env, BILLING_WEBHOOK_SECRET: secret, APP_ORIGIN: base }, stdio: 'ignore' });
   try {
     const unconfigured = await fetch('http://localhost:3000/api/webhooks/billing', { method: 'POST', body: '{}' });

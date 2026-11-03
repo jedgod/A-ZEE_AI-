@@ -59,7 +59,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const other = `check-${randomUUID()}`;
   await new Promise(r => tavily.listen(0, '127.0.0.1', r));
   const env = { ...process.env, TAVILY_API_KEY: 'tvly-fake-check', TAVILY_BASE_URL: `http://127.0.0.1:${tavily.address().port}`, APP_ORIGIN: BASE };
-  const start = () => spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', 'localhost', '--port', String(PORT)], { env, stdio: 'ignore' });
+  const start = () => spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '--hostname', 'localhost', '--port', String(PORT)], { env, stdio: 'ignore' });
   let server = start();
   try {
     // Without a key (main server): a clear setup error.

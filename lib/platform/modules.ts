@@ -46,7 +46,7 @@ export function platformState() {
     { n: 17, name: "DevOps Agent", status: "planned", summary: "Pipelines, release artifacts, deployment plans, rollback", inApp: "Not built." },
     { n: 18, name: "App Builder", status: "planned", summary: "Web, mobile, backend, API and database scaffolding", inApp: "Not built." },
     { n: 19, name: "Database Agent", status: "planned", summary: "Schema design, migration planning, SQL review", inApp: "Not built." },
-    { n: 20, name: "Connector Hub", status: "partial", summary: "GitHub, Drive, email, calendars, enterprise integrations", inApp: "VS Code (AZee Connect) with scoped API tokens.", next: "GitHub, Drive, email connectors." },
+    { n: 20, name: "Connector Hub", status: "partial", summary: "GitHub, Drive, email, calendars, enterprise integrations", inApp: "GitHub (repositories and files) and Google Drive (documents), read-only over OAuth with encrypted tokens and an audit log — experimental; VS Code (AZee Connect) with scoped API tokens.", next: "Needs OAuth app credentials and CONNECTOR_TOKEN_KEY in .env.local; email and calendar connectors not built.", href: "/connectors" },
     { n: 21, name: "Knowledge Graph", status: "planned", summary: "Relationships between sources, files, code, entities, decisions", inApp: "Not built." },
     { n: 22, name: "Collaboration", status: "partial", summary: "Teams, shared workspaces, comments, approvals", inApp: "Staff operations, approval workflows, project share links.", href: "/operations" },
     { n: 23, name: "Billing and Access", status: db ? "live" : "needs-setup", summary: "Plans, metering, quotas, entitlements, organization billing",
