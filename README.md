@@ -188,6 +188,37 @@ tested against the real GitHub and Google services. Turn it off with `AZ_FEATURE
 - `npm run check:connectors` runs the full flow against local fake GitHub and Google servers on a
   second app server (port 3003); it refuses to run while real connections exist.
 
+## AI Code Agent (migration 018, experimental)
+
+`/code-agent` (Settings → AI Code Agent): inspect a repository, plan a change, review a proposed
+multi-file patch, approve it, apply it, and roll it back. Readiness: locally tested (unit tests, a
+browser test, and `npm run check:code-agent` end to end with real models on a throwaway git
+repository). **Code execution is infrastructure blocked**: the agent never runs commands or tests;
+its plan lists the tests to run by hand. Turn it off with `AZ_FEATURE_CODE_AGENT=off`.
+
+- Setup (server, `.env.local`): `CODE_AGENT_WORKSPACE_ROOT` (absolute folder holding repositories) and
+  `CODE_AGENT_REPOS` (comma-separated folder names the agent may use). Nothing else is reachable.
+- Path safety: relative paths only; traversal, absolute/UNC paths, NTFS streams, device names and
+  trailing dots are refused; a symlink or junction anywhere on the path is refused (checked again
+  right before each write). `.git`, `.env*` (except `.env.example`), keys and credential files are
+  never read or written, nor listed in the tree or git status; `node_modules`/`.next` aren't written.
+- Patches: the model returns exact search/replace edits for planned files only; generating stores
+  the patch and writes nothing. The review shows unified diffs, totals and warnings: added secrets
+  **block** approval; dependency, CI/deploy, migration and deletion changes are **high** risk and need
+  acknowledging. Approval is bound to the patch hash; regenerating drops it.
+- Apply: every file must still hash to what the patch was generated against (otherwise
+  `409 STALE_PATCH` and the task needs regenerating); files are written via temp file + rename, and a
+  failure restores the files already written. Rollback restores only the agent's files from their
+  snapshots, and refuses (`409 ROLLBACK_CONFLICT`, nothing changed) if any was edited since. No
+  `git reset`/`git clean` is ever used. Git status comes from a fixed read-only `git status` with
+  hooks and fsmonitor disabled.
+- Routes (`X-AZee-Request: 1` and same origin required for POSTs; tasks are owner-scoped):
+  `GET /api/code-agent`, `GET /api/code-agent/repos/:repo/tree|file?path=|git`,
+  `GET|POST /api/code-agent/tasks`, `GET /api/code-agent/tasks/:id`, `POST …/:id/plan`,
+  `POST …/:id/generate`, `GET …/:id/diff`, `POST …/:id/approve` `{ patchHash, acknowledgeRisks }`,
+  `POST …/:id/apply` `{ patchHash }`, `POST …/:id/rollback`, `GET …/:id/audit`.
+- Audit (`code_agent_audit`): task, actor, action, outcome, patch hash and paths, never file contents.
+
 ## AI providers
 
 Configure one or more of `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`,
