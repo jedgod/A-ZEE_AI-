@@ -1,7 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
-import { pool, deny } from "./core";
+import { pool } from "./db";
+import { fail as deny } from "./errors";
 
 export type AdminSession = {
   userId: string;
@@ -25,10 +26,11 @@ export async function getHostSession(): Promise<AdminSession | null> {
   if (!token || !/^[a-f0-9]{64}$/i.test(token)) return null;
 
   const result = await pool.query(
-    "SELECT s.user_id, s.tenant_id, s.role, s.platform " +
+    "SELECT s.user_id, s.tenant_id, m.role, i.platform_admin AS platform " +
       "FROM admin_sessions s " +
       "JOIN admin_memberships m ON m.user_id = s.user_id AND m.tenant_id = s.tenant_id " +
       "JOIN admin_tenants t ON t.id = s.tenant_id " +
+      "JOIN admin_identities i ON i.id = s.user_id " +
       "WHERE s.token_hash = $1 " +
       "AND s.revoked_at IS NULL " +
       "AND s.expires_at > now() " +

@@ -17,7 +17,7 @@ const schema = z.object({
 export interface SearchAdapter {
   search(input: {
     tenantId: string; userId: string; query: string; limit: number;
-  }): Promise<Array<{ sourceId: string; text: string }>>;
+  }): Promise<Array<{ sourceId: string; text: string; title?: string; url?: string }>>;
 }
 
 export async function runSearch(
@@ -32,6 +32,9 @@ export async function runSearch(
   return results.slice(0, 5).map(item => ({
     sourceId: item.sourceId,
     text: item.text.slice(0, 10000),
+    // Title and URL are passed through for 11 citations, which validates the URL before showing it.
+    ...(typeof item.title === "string" ? { title: item.title.slice(0, 200) } : {}),
+    ...(typeof item.url === "string" ? { url: item.url.slice(0, 2048) } : {}),
     trust: "untrusted" as const,
   }));
 }

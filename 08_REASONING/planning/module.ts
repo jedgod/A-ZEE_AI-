@@ -21,7 +21,8 @@ export async function runPlanning(raw: unknown, model: ModelAdapter) {
   }).strict();
   return generateValidated(
     model,
-    "Provide an ordered work plan with testable acceptance criteria.",
+    // State the exact shape: models otherwise guess field names and types, failing validation.
+    'Provide an ordered work plan (1-10 steps) with testable acceptance criteria. Return {"steps":[{"action":"...","acceptanceCriterion":"...","requiresApproval":false}]}.',
     { task }, schema
   );
 }

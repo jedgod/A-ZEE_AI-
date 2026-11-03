@@ -1,3 +1,4 @@
+import type { PolicyContext } from "@/00_META/policies";
 import { preflight, type PreflightResult } from "@/00_META";
 
 const DEFAULT_REGISTRY = [
@@ -21,7 +22,7 @@ const DEFAULT_REGISTRY = [
 export type MetadataBridgeInput = {
   actor?: unknown;
   request?: unknown;
-  policyContext?: unknown;
+  policyContext?: PolicyContext;
   registry?: unknown;
   policy?: unknown;
   options?: unknown;

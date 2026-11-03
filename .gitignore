@@ -5,3 +5,14 @@ coverage/
 .env*
 .DS_Store
 npm-debug.log*
+*.tsbuildinfo
+test-results/
+playwright-report/
+runtime-logs/
+azee-connect/integrations/vscode/dist/
+*.vsix
+__pycache__/
+*.pyc
+!.env.example
+pipeline-api/.venv/
+.pytest_cache/

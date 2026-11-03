@@ -34,7 +34,7 @@ export const scope = scopeSchema.parse({
   },
   live_search: {
     enabled:false, environments:["development","production"],
-    boundary:"Requires a separately configured and audited search adapter.",
+    boundary:"Enabled only while a search adapter is configured (lib/search, TAVILY_API_KEY). Sources are untrusted; answers record them and verify quotes.",
   },
   code_execution: {
     enabled:false, environments:["development"],
@@ -46,10 +46,15 @@ export const scope = scopeSchema.parse({
   },
 });
 
+// Capabilities switched on at runtime only while their adapter is configured.
+const runtimeEnabled: Partial<Record<Capability, () => boolean>> = {
+  live_search: () => typeof process !== "undefined" && Boolean(process.env.TAVILY_API_KEY?.trim()),
+};
+
 export function checkScope(capability:Capability, production:boolean):Decision {
   const declaration = scope[capability];
   const reasons:string[] = [];
-  if (!declaration?.enabled) reasons.push("CAPABILITY_OUT_OF_SCOPE");
+  if (!declaration?.enabled && !runtimeEnabled[capability]?.()) reasons.push("CAPABILITY_OUT_OF_SCOPE");
   const env = production ? "production" : "development";
   if (!declaration?.environments.includes(env))
     reasons.push("ENVIRONMENT_NOT_SUPPORTED");

@@ -12,7 +12,7 @@ import { authorize, projectData } from "./permissions";
 import { audit } from "./audit";
 
 const outputSchema = z.object({
-  metadata: z.record(z.union([
+  metadata: z.record(z.string(), z.union([
     z.string().max(200), z.number().finite(), z.boolean(),
   ])),
 }).strict();

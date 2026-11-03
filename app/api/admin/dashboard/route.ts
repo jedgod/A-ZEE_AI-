@@ -22,7 +22,7 @@ export function GET() {
            (SELECT COUNT(*)::int FROM admin_records WHERE tenant_id = $1 AND module = 'policies' AND deleted_at IS NULL) AS policies,
            (SELECT COUNT(*)::int FROM admin_records WHERE tenant_id = $1 AND module = 'incidents' AND deleted_at IS NULL) AS incidents
          FROM admin_tenants
-         WHERE tenant_id = $1 AND deleted_at IS NULL`,
+         WHERE id = $1 AND deleted_at IS NULL`,
         [actor.tenantId]
       ),
       pool.query(

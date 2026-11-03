@@ -1,28 +1,14 @@
-const policies = [
-  { name: "PII redaction", scope: "All tenants", status: "Enforced" },
-  { name: "Model compatibility", scope: "Production", status: "Review" },
-  { name: "Extension permissions", scope: "Tenant-scoped", status: "Enforced" },
-];
+// ============================================================
+// 15_ADMIN / POLICIES — PRODUCTION VIEW
+// Mounted at /admin/policies (app/admin/[module]/page.tsx); admin sign-in required.
+// The mock layout that was here (hard-coded sample rows) now renders real tenant data and
+// controls: components/admin/sections.tsx, backed by lib/admin/console.ts and /api/admin.
+// ============================================================
 
-export default function PoliciesPage() {
-  return (
-    <main className="mx-auto max-w-5xl p-6">
-      <header className="mb-6 border-b pb-4">
-        <p className="font-mono text-xs text-muted-foreground">POLICIES</p>
-        <h1 className="mt-2 text-3xl font-semibold">Policy center</h1>
-      </header>
+import { Policies } from "@/components/admin/sections";
+import { consoleActor } from "@/lib/admin/console";
 
-      <div className="space-y-4">
-        {policies.map((policy) => (
-          <div key={policy.name} className="rounded-xl border p-4">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-medium">{policy.name}</h2>
-              <span className="rounded-full bg-muted px-2 py-1 text-xs">{policy.status}</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">Scope: {policy.scope}</p>
-          </div>
-        ))}
-      </div>
-    </main>
-  );
+export default async function Page() {
+  const actor = await consoleActor();
+  return <Policies actor={actor} />;
 }

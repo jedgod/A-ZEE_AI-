@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { manifestSchema, type Manifest } from "@/lib/extensions/manifest";
+import { manifestSchema, type Manifest } from "@/15_EXTENSIONS/manifests";
 import { z } from "zod";
 
 const rowSchema = manifestSchema.extend({
@@ -21,9 +21,12 @@ export default function ExtensionsPage() {
   const [items, setItems] = useState<Row[]>([]);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signInNeeded, setSignInNeeded] = useState(false);
 
   async function load() {
     const response = await fetch("/api/extensions", { cache: "no-store" });
+    // Managing plugins is a staff-admin task (the API enforces it); say so instead of failing.
+    if (response.status === 401 || response.status === 403) { setSignInNeeded(true); return; }
     if (!response.ok) throw new Error("Catalog unavailable");
     setItems(z.array(rowSchema).parse(await response.json()));
   }
@@ -67,6 +70,16 @@ export default function ExtensionsPage() {
         </p>
       </header>
       <div role="status" className="text-sm">{status}</div>
+      {signInNeeded && (
+        <div className="rounded-xl border bg-muted/40 p-5 text-sm">
+          <p className="font-medium">Plugins are managed by staff administrators.</p>
+          <p className="mt-1 text-muted-foreground">Sign in with a staff admin account to review, enable or disable plugins for this workspace.</p>
+          <div className="mt-4 flex gap-2">
+            <Button asChild><a href="/login?next=/extensions">Staff sign-in</a></Button>
+            <Button asChild variant="outline"><a href="/">Back to workspace</a></Button>
+          </div>
+        </div>
+      )}
       <ul className="divide-y">
         {items.map(item => (
           <li key={item.id} className="flex flex-col gap-5 py-6 sm:flex-row sm:justify-between">

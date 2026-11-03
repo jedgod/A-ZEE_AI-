@@ -4,7 +4,7 @@ import { parsePayload } from "@/lib/admin/contracts";
 describe("admin schemas", () => {
   it("validates user payloads", () => {
     const payload = parsePayload("users", {
-      userId: "11111111-1111-1111-1111-111111111111",
+      userId: "11111111-1111-4111-8111-111111111111",
       role: "viewer",
       status: "active",
       displayName: "Test User",

@@ -1,11 +1,11 @@
 // ============================================================
 // 15_EXTENSIONS / CURATED CATALOG API
 // ============================================================
-import { registry } from "@/lib/extensions/registry";
-import { installations, saveInstallation } from "@/lib/extensions/repository";
-import { requireActor, requireAdmin, requireSameOrigin } from "@/lib/extensions/auth";
-import { permissionSchema } from "@/lib/extensions/manifest";
-import { audit } from "@/lib/extensions/audit";
+// Imported through the 15_EXTENSIONS facade (the module's public entry point).
+import { installations, registry, saveInstallation } from "@/15_EXTENSIONS/registry";
+import { requireActor, requireAdmin, requireSameOrigin } from "@/15_EXTENSIONS/permissions";
+import { permissionSchema } from "@/15_EXTENSIONS/manifests";
+import { audit } from "@/15_EXTENSIONS/audit";
 import { z } from "zod";
 
 export const runtime = "nodejs";

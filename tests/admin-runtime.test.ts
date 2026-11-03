@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/admin/db", () => ({
+  pool: { query: vi.fn(async () => ({ rows: [], rowCount: 0 })), connect: vi.fn() },
+  transaction: vi.fn(),
+}));
+
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) =>
@@ -56,7 +61,7 @@ describe("15_ADMIN runtime", () => {
   });
 
   it("exposes the current actor from /api/admin/me", async () => {
-    const response = await meRoute(new Request("http://localhost/api/admin/me"));
+    const response = await meRoute();
     expect(response.status).toBe(200);
 
     const payload = await response.json();
@@ -65,7 +70,7 @@ describe("15_ADMIN runtime", () => {
   });
 
   it("returns a health payload", async () => {
-    const response = await healthRoute(new Request("http://localhost/api/admin/health"));
+    const response = await healthRoute();
     expect(response.status).toBe(200);
 
     const payload = await response.json();
@@ -82,21 +87,19 @@ describe("15_ADMIN runtime", () => {
     });
 
     const response = await logoutRoute(req);
-    expect([200, 403, 401]).toContain(response.status);
+    expect(response.status).toBe(200);
   });
 
-  it("redirects unauthenticated admin access to the host landing page", () => {
+  it("redirects unauthenticated admin access to staff sign-in", () => {
     const request = new NextRequest(new URL("http://localhost/admin"));
     const response = middleware(request);
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toContain("/?auth=required");
+    expect(response.headers.get("location")).toContain("/login?next=%2Fadmin");
   });
 
   it("bootstrap remains locked out", async () => {
-    const response = await bootstrapRoute(new Request("http://localhost/api/admin/session/bootstrap", {
-      method: "POST",
-    }));
+    const response = await bootstrapRoute();
     expect(response.status).toBe(404);
   });
 });

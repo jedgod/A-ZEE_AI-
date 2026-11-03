@@ -21,7 +21,10 @@ export async function runDecomposition(
     }).strict()).min(1).max(8),
   }).strict();
   const result = await generateValidated(
-    model, "Decompose the task into actionable subtasks.", { task }, schema
+    model,
+    // State the exact shape: models otherwise guess (e.g. numeric ids), failing validation.
+    'Decompose the task into 2-8 actionable subtasks. Return {"subtasks":[{"id":"s1","objective":"..."}]} where every id is a unique string.',
+    { task }, schema
   );
   if (new Set(result.subtasks.map(t => t.id)).size !== result.subtasks.length) {
     throw new Error("Duplicate subtask IDs");

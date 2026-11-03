@@ -40,8 +40,10 @@ export function preflight(input:{
 
   const checks=[
     checkScope(request.capability,request.production),
+    // Attachment size is authorized under file_context below. Passing it here too meant every
+    // attachment failed conversation's own 0-byte attachment allowance.
     authorizeCapability(actor,request.capability,request.inputTokens,
-      request.requestedOutputTokens,request.attachmentBytes),
+      request.requestedOutputTokens,request.capability==="file_context"?request.attachmentBytes:0),
     evaluatePolicy(actor,request,input.policyContext,policy),
   ];
 

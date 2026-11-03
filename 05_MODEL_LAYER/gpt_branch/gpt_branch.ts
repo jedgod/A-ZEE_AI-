@@ -6,7 +6,7 @@
 import "server-only";
 import OpenAI from "openai";
 import {
-  Model, requiredEnv, validateRequest
+  Model, requiredEnv, turnsOf, validateRequest
 } from "../contracts";
 
 export const gptBranch: Model = {
@@ -15,13 +15,15 @@ export const gptBranch: Model = {
     const client = new OpenAI({
       apiKey: requiredEnv("OPENAI_API_KEY"),
       timeout: 60_000,
-      maxRetries: 2,
+      // 04_ROUTING/fallback_policy owns retries; nested SDK retries would multiply attempts.
+      maxRetries: 0,
     });
 
     const response = await client.responses.create({
       model: request.modelId,
-      input: request.prompt,
-      max_output_tokens: 2048,
+      ...(request.system ? { instructions: request.system } : {}),
+      input: turnsOf(request),
+      max_output_tokens: request.maxOutputTokens ?? 2048,
     }, { signal: request.signal });
 
     const text = response.output_text?.trim();

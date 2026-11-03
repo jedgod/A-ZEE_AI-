@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn/ui tokens (HSL channels). Light values match the workspace's stone/slate palette. */
+@layer base {
+  :root {
+    --background: 40 20% 97%;
+    --foreground: 217 33% 17%;
+    --card: 0 0% 100%;
+    --card-foreground: 217 33% 17%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 33% 17%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 40 20% 97%;
+    --secondary: 40 14% 93%;
+    --secondary-foreground: 217 33% 17%;
+    --muted: 40 14% 93%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 40 14% 93%;
+    --accent-foreground: 217 33% 17%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 160 84% 30%;
+    --radius: 0.625rem;
+  }
+  [data-theme="dark"] {
+    --background: 140 6% 8%;
+    --foreground: 150 8% 90%;
+    --card: 140 5% 14%;
+    --card-foreground: 150 8% 90%;
+    --popover: 140 5% 14%;
+    --popover-foreground: 150 8% 90%;
+    --primary: 150 8% 90%;
+    --primary-foreground: 140 6% 8%;
+    --secondary: 140 5% 18%;
+    --secondary-foreground: 150 8% 90%;
+    --muted: 140 5% 18%;
+    --muted-foreground: 150 5% 62%;
+    --accent: 140 5% 20%;
+    --accent-foreground: 150 8% 90%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 140 5% 19%;
+    --input: 140 5% 22%;
+    --ring: 158 64% 52%;
+  }
+  * { @apply border-border; }
+}
+
+body { margin: 0; font-family: system-ui, sans-serif; }
+button, input, textarea, select { font: inherit; }
+button:not(:disabled) { cursor: pointer; }

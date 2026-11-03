@@ -3,7 +3,7 @@
 This adds the missing runnable pieces:
 - middleware protection for /admin and /api/admin
 - /api/admin/me for session verification
-- /api/admin/session/bootstrap for local development only
+- /api/admin/session/bootstrap remains disabled (404)
 - a minimal admin landing route
 
 ## Assumptions
@@ -13,8 +13,9 @@ This adds the missing runnable pieces:
 - `az_session` is the compatibility cookie used by the route factory.
 
 ## Production note
-Replace the bootstrap endpoint with your real auth provider and remove
-the development session issuer before shipping.
+The HTTP bootstrap endpoint stays disabled. Connect a real host sign-in flow to
+the canonical session issuer before enabling interactive admin sign-in.
+Database credentials alone do not authenticate browser users.
 
 ## Host app wiring
 

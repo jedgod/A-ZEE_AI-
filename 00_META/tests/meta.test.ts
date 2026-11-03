@@ -47,7 +47,8 @@ describe("00_META",()=>{
   expect(preflight({...base,
    actor:{id:"guest-1",tenantId:null,role:"guest",authenticated:false},
    request:{...base.request,attachmentBytes:10},
-  })).toMatchObject({allowed:false,reasons:expect.arrayContaining(["ATTACHMENT_LIMIT"])})
+  // Denied by file_context's sign-in requirement (the size itself is within its limit).
+  })).toMatchObject({allowed:false,reasons:expect.arrayContaining(["AUTHENTICATION_REQUIRED"])})
  });
  it("does not turn admin_control into a model call",()=>{
   expect(preflight({...base,actor:{...base.actor,role:"owner"},
@@ -74,4 +75,21 @@ describe("00_META",()=>{
   });
   expect(event).toEqual({actorId:"u",capability:"conversation",modelId:"m"});
  });
+});
+
+describe("attachments for signed-in users", () => {
+  it("authorizes attachment size under file_context, not the requested capability", () => {
+    const signedIn = { id: "u1", tenantId: "t1", role: "user", authenticated: true };
+    const make = (attachmentBytes: number) => preflight({
+      actor: signedIn,
+      request: { capability: "conversation", classification: "public", requestedOutputTokens: 500, inputTokens: 1000, attachmentBytes, production: true },
+      policyContext: { externalProvider: true, protectedOperation: false, reviewerId: null, approvalValid: false },
+      registry: [{ id: "m1", provider: "openai-compatible", providerModel: "x", enabled: true, productionReady: true, external: true,
+        capabilities: ["conversation", "file_context"], classifications: ["public"], contextWindow: 32768, maxOutputTokens: 4000,
+        priority: 1, inputUsdPerMillion: 0, outputUsdPerMillion: 0 }],
+      options: { maxEstimatedUsd: 1 },
+    });
+    expect(make(1000).allowed).toBe(true);
+    expect(make(70000)).toMatchObject({ allowed: false, reasons: ["ATTACHMENT_LIMIT"] });
+  });
 });

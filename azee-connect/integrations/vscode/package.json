@@ -1,0 +1,42 @@
+{
+  "name": "azee-connect",
+  "displayName": "AZee Connect",
+  "description": "Explain, review, and ask about code using your AZ_AI server.",
+  "version": "0.2.0",
+  "publisher": "your-publisher",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      { "command": "azee.configure", "title": "Configure API access", "category": "AZee" },
+      { "command": "azee.status", "title": "Test connection", "category": "AZee" },
+      { "command": "azee.explain", "title": "Explain code", "category": "AZee" },
+      { "command": "azee.review", "title": "Review code for bugs", "category": "AZee" },
+      { "command": "azee.ask", "title": "Ask about this code…", "category": "AZee" },
+      { "command": "azee.forget", "title": "Forget token on this machine", "category": "AZee" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "azee.explain", "group": "azee@1" },
+        { "command": "azee.review", "group": "azee@2" },
+        { "command": "azee.ask", "group": "azee@3" }
+      ]
+    },
+    "keybindings": [
+      { "command": "azee.ask", "key": "ctrl+alt+a", "mac": "cmd+alt+a", "when": "editorTextFocus" }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "package": "npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "~1.90.0",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,82 +1,20 @@
-"use client";
+import { notFound } from "next/navigation";
+import { Approvals, Billing, Dashboard, Incidents, Policies, Registry, Roles, Tenants, Users } from "@/components/admin/sections";
+import { consoleActor } from "@/lib/admin/console";
 
-import { use, useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
 
-const validModules = [
-  "dashboard",
-  "tenants",
-  "users",
-  "roles",
-  "approvals",
-  "policies",
-  "registry",
-  "billing",
-  "incidents",
-] as const;
+const SECTIONS = { dashboard: Dashboard, tenants: Tenants, users: Users, roles: Roles, approvals: Approvals, policies: Policies, registry: Registry, billing: Billing, incidents: Incidents };
 
-type ValidModule = (typeof validModules)[number];
+export async function generateMetadata({ params }: { params: Promise<{ module: string }> }) {
+  const { module } = await params;
+  return { title: `${module[0]?.toUpperCase()}${module.slice(1)} · Admin · AZ_AI` };
+}
 
-export default function AdminModulePage({
-  params,
-}: {
-  params: Promise<{ module: string }>;
-}) {
-  const { module } = use(params);
-  const [data, setData] = useState<string>("Loading...");
-  const [busy, setBusy] = useState(false);
-
-  async function load() {
-    setBusy(true);
-    try {
-      const response = await fetch(`/api/admin/${module}`, {
-        cache: "no-store",
-      });
-      const text = await response.text();
-      setData(text);
-    } catch {
-      setData("Unable to load admin data.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    if ((validModules as readonly string[]).includes(module)) {
-      load();
-    } else {
-      setData("Unknown module.");
-    }
-  }, [module]);
-
-  if (!(validModules as readonly string[]).includes(module)) {
-    return (
-      <main className="p-6">
-        <h1 className="text-xl font-semibold">Unknown admin module</h1>
-      </main>
-    );
-  }
-
-  return (
-    <main className="mx-auto max-w-5xl space-y-4 p-6">
-      <header className="flex items-center justify-between gap-4 border-b pb-4">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            15_ADMIN
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold">{module}</h1>
-        </div>
-        <button
-          className="rounded border px-3 py-2 text-sm hover:bg-muted"
-          disabled={busy}
-          onClick={load}
-        >
-          {busy ? "Loading…" : "Refresh"}
-        </button>
-      </header>
-
-      <pre className="overflow-auto whitespace-pre-wrap rounded border p-4 text-xs">
-        {data}
-      </pre>
-    </main>
-  );
+export default async function AdminModulePage({ params }: { params: Promise<{ module: string }> }) {
+  const { module } = await params;
+  if (!Object.hasOwn(SECTIONS, module)) notFound();
+  const actor = await consoleActor();
+  const Section = SECTIONS[module as keyof typeof SECTIONS];
+  return <div className="mx-auto max-w-6xl"><Section actor={actor} /></div>;
 }

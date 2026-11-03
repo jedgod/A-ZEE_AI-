@@ -24,3 +24,22 @@ export async function runStyleControl(raw: unknown, model: ModelAdapter) {
 }
 
 // Style transfer can still change meaning. Revalidate factual claims.
+
+// ------------------------------------------------------------
+// Composer tone picker (wired into lib/pipeline/index.ts).
+// The validated enum selects a fixed instruction; no user text reaches the system prompt.
+// ------------------------------------------------------------
+import { ANSWER_STYLES, type AnswerStyle } from "../../lib/chat/contracts";
+
+const STYLE_INSTRUCTIONS: Record<Exclude<AnswerStyle, "default">, string> = {
+  concise: "Answer briefly. Prefer direct sentences; omit unnecessary preambles.",
+  professional: "Use a measured professional tone and a clear logical structure.",
+  friendly: "Be approachable and warm without sacrificing precision.",
+  technical: "Use precise technical language; explain assumptions and limitations.",
+};
+
+/** The style instruction for a tone, or null for "default" (no instruction added). */
+export function styleInstruction(style: AnswerStyle = "default"): string | null {
+  const parsed = z.enum(ANSWER_STYLES).parse(style);
+  return parsed === "default" ? null : `Answer style: ${STYLE_INSTRUCTIONS[parsed]}`;
+}

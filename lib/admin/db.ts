@@ -4,11 +4,14 @@
 import "server-only";
 import { Pool, type PoolClient } from "pg";
 
-export const pool = new Pool({
+const shared = globalThis as unknown as { adminPool?: Pool };
+export const pool = shared.adminPool ?? new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10,
+  connectionTimeoutMillis: 5000,
   ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: false } : undefined,
 });
+shared.adminPool = pool;
 
 export async function transaction<T>(
   run: (client: PoolClient) => Promise<T>

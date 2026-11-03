@@ -6,7 +6,7 @@
 import "server-only";
 import OpenAI from "openai";
 import {
-  Model, requiredEnv, validateRequest
+  Model, requiredEnv, turnsOf, validateRequest
 } from "../contracts";
 
 export const grokBranch: Model = {
@@ -16,12 +16,17 @@ export const grokBranch: Model = {
       apiKey: requiredEnv("XAI_API_KEY"),
       baseURL: "https://api.x.ai/v1",
       timeout: 60_000,
-      maxRetries: 2,
+      // 04_ROUTING/fallback_policy owns retries; nested SDK retries would multiply attempts.
+      maxRetries: 0,
     });
 
     const response = await client.chat.completions.create({
       model: request.modelId,
-      messages: [{ role: "user", content: request.prompt }],
+      messages: [
+        ...(request.system ? [{ role: "system" as const, content: request.system }] : []),
+        ...turnsOf(request),
+      ],
+      max_tokens: request.maxOutputTokens ?? 2048,
     }, { signal: request.signal });
 
     const text = response.choices[0]?.message.content?.trim();

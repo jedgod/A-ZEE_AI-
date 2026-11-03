@@ -3,12 +3,12 @@
 // ============================================================
 import "server-only";
 import type { Actor } from "./contracts";
+import { requireActor as requireSessionActor } from "@/lib/admin/security";
 
 export async function requireActor(): Promise<Actor> {
-  // Replace with your session provider (Auth.js, Clerk, or equivalent).
-  // Resolve tenant membership and permissions on the server.
-  // Never trust user/tenant/permissions headers from a browser.
-  throw new Error("Authentication adapter must be implemented");
+  const actor = await requireSessionActor();
+  return { userId: actor.userId, tenantId: actor.tenantId,
+    permissions: new Set(["owner", "admin"].includes(actor.role) ? ["extensions:admin"] : []) };
 }
 
 export function requireAdmin(actor: Actor) {

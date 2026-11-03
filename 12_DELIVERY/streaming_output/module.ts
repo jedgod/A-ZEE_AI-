@@ -10,6 +10,38 @@ import {
   requireAuth, artifactSchema, expiresIn
 } from "../../lib/operations/contracts";
 
+// ------------------------------------------------------------
+// Shared SSE helpers. /api/chat/stream (validated live answers) and runStreamingOutput
+// (stored, approved artifacts) both deliver through these.
+// ------------------------------------------------------------
+const encoder = new TextEncoder();
+
+/** One Server-Sent Events frame. Data is JSON, so it can never contain a raw blank line. */
+export function encodeSseEvent(event: string, data: unknown): Uint8Array {
+  if (!/^[a-z_]{1,32}$/.test(event)) throw new Error("Invalid SSE event name");
+  return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * Splits validated text into delivery chunks of at most `size` characters, preferring to cut
+ * after whitespace. Joining the chunks gives back the exact text (Unicode-safe).
+ */
+export function sseTextChunks(text: string, size = 500): string[] {
+  if (!Number.isInteger(size) || size < 16 || size > 4000) throw new Error("Invalid chunk size");
+  const chars = Array.from(text);
+  const chunks: string[] = [];
+  for (let i = 0; i < chars.length;) {
+    let end = Math.min(i + size, chars.length);
+    if (end < chars.length) {
+      const space = chars.slice(i, end).map(c => /\s/.test(c)).lastIndexOf(true);
+      if (space > 0) end = i + space + 1;
+    }
+    chunks.push(chars.slice(i, end).join(""));
+    i = end;
+  }
+  return chunks;
+}
+
 export async function runStreamingOutput(
   auth: Auth, artifactId: string, repository: ArtifactRepository
 ) {
@@ -18,22 +50,15 @@ export async function runStreamingOutput(
   const artifact = artifactSchema.parse(
     await repository.readApproved(auth, artifactId)
   );
-  const encoder = new TextEncoder();
-  const chunks = artifact.text.match(/[\s\S]{1,500}/gu) ?? [];
+  const chunks = sseTextChunks(artifact.text, 500);
   let index = 0;
 
   const stream = new ReadableStream<Uint8Array>({
     pull(controller) {
       if (index < chunks.length) {
-        controller.enqueue(encoder.encode(
-          "event: chunk\ndata: " +
-          JSON.stringify({ text: chunks[index++] }) + "\n\n"
-        ));
+        controller.enqueue(encodeSseEvent("chunk", { text: chunks[index++] }));
       } else {
-        controller.enqueue(encoder.encode(
-          "event: done\ndata: " +
-          JSON.stringify({ artifactId: artifact.id }) + "\n\n"
-        ));
+        controller.enqueue(encodeSseEvent("done", { artifactId: artifact.id }));
         controller.close();
       }
     },

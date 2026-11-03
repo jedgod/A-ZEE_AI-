@@ -1,0 +1,9 @@
+{
+  "name": "azee-connect-cli",
+  "version": "0.1.0",
+  "description": "Use an AZ_AI server from any editor or IDE.",
+  "type": "module",
+  "bin": { "azee": "./azee.mjs" },
+  "engines": { "node": ">=18" },
+  "private": true
+}

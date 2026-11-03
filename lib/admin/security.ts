@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { pool } from "./db";
 import { fail } from "./errors";
+import { getHostSession } from "./host-session";
 import type { Permission, Role } from "./contracts";
 
 export const roleSchema = z.enum([
@@ -49,39 +50,21 @@ const grants: Record<Role, readonly Permission[]> = {
   viewer: ["read"],
 };
 
-async function getSession() {
-  try {
-    const { auth } = await import("@/auth");
-    return await auth();
-  } catch {
-    return null;
-  }
-}
-
 export async function requireActor(): Promise<Actor> {
-  const session = await getSession();
-  const userId = session?.user?.id;
-  if (!userId) fail(401, "AUTHENTICATION_REQUIRED");
-
-  const result = await pool.query(
-    `SELECT u.id, u.platform_admin, m.tenant_id, m.role
-     FROM admin_identities u
-     JOIN admin_memberships m ON m.user_id = u.id AND m.tenant_id = u.active_tenant_id
-     JOIN admin_tenants t ON t.id = m.tenant_id
-     WHERE u.id = $1 AND m.status = 'active' AND t.status = 'active'`,
-    [userId]
-  );
-
-  const row = result.rows[0];
-  if (!row) fail(403, "ACTIVE_MEMBERSHIP_REQUIRED");
-
+  const session = await getHostSession();
+  if (!session) fail(401, "AUTHENTICATION_REQUIRED");
   return {
-    userId: row.id,
-    tenantId: row.tenant_id,
-    role: roleSchema.parse(row.role),
-    platformAdmin: Boolean(row.platform_admin),
+    userId: session.userId,
+    tenantId: session.tenantId,
+    role: roleSchema.parse(session.role),
+    platformAdmin: session.platform,
   };
 }
+
+/** The permission matrix enforced by authorize(); shown read-only in /admin/roles. */
+export const permissionsFor = (role: Role): readonly Permission[] => grants[role];
+export const ROLE_ORDER: readonly Role[] = ["owner", "admin", "reviewer", "operator", "viewer"];
+export const can = (actor: Actor, permission: Permission) => grants[actor.role].includes(permission);
 
 export function authorize(actor: Actor, permission: Permission | string) {
   if (!grants[actor.role].includes(permission as Permission)) {

@@ -17,7 +17,7 @@ export async function bootstrapAdminRuntime(raw: unknown) {
 
   const input = schema.parse(raw);
 
-  return tx(async db => {
+  const actor = await tx(async db => {
     const user = await db.query(
       "INSERT INTO admin_identities(id, email, platform_admin) " +
         "VALUES (gen_random_uuid(), $1, $2) " +
@@ -44,8 +44,8 @@ export async function bootstrapAdminRuntime(raw: unknown) {
       [tenantId, userId, input.role]
     );
 
-    const session = await issueSession(userId, tenantId, input.role, input.platform, 120);
-
-    return { token: session.token, userId, tenantId, role: input.role };
+    return { userId, tenantId, role: input.role };
   });
+  const session = await issueSession(actor.userId, actor.tenantId, actor.role, input.platform, 120);
+  return { ...actor, token: session.token };
 }

@@ -21,11 +21,12 @@ type Execute<T> = (
 export async function runFallbackPolicy<T>(
   approvedTargets: readonly Target[],
   execute: Execute<T>,
-  parentSignal?: AbortSignal
+  parentSignal?: AbortSignal,
+  deadlineMs = 30000
 ): Promise<{ value: T; modelId: string; attempts: number }> {
   if (!approvedTargets.length) throw new Error("No approved targets");
   const targets = approvedTargets.slice(0, 3);
-  const deadline = AbortSignal.timeout(30000);
+  const deadline = AbortSignal.timeout(deadlineMs);
   const signal = parentSignal
     ? AbortSignal.any([parentSignal, deadline]) : deadline;
 

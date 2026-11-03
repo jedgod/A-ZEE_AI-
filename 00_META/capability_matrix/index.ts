@@ -32,7 +32,8 @@ export const capabilityMatrix = matrixSchema.parse({
     ...normal,roles:[...signedIn],authenticationRequired:true,
     maxAttachmentBytes:65536,
   },
-  live_search:{...normal,roles:[...signedIn],authenticationRequired:true},
+  // Cited answers and research reports need more room than a chat turn.
+  live_search:{...normal,roles:[...signedIn],authenticationRequired:true,maxInputTokens:24000,maxOutputTokens:6000},
   code_execution:{
     ...normal,roles:["operator","admin","owner"],
     authenticationRequired:true,tenantRequired:true,

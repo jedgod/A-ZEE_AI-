@@ -6,24 +6,30 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import {
-  Model, requiredEnv, validateRequest
+  Model, requiredEnv, turnsOf, validateRequest
 } from "../contracts";
 
 export const geminiBranch: Model = {
   async run(request) {
     validateRequest(request);
     const client = new GoogleGenAI({
-      apiKey: requiredEnv("GOOGLE_API_KEY"),
+      // Accept the Google SDK's variable name or this app's GEMINI_API_KEY.
+      apiKey: process.env.GOOGLE_API_KEY || requiredEnv("GEMINI_API_KEY"),
     });
 
     const response = await client.models.generateContent({
       model: request.modelId,
-      contents: request.prompt,
+      contents: turnsOf(request).map(turn => ({
+        role: turn.role === "assistant" ? "model" : "user",
+        parts: [{ text: turn.content }],
+      })),
       config: {
-        maxOutputTokens: 2048,
+        ...(request.system ? { systemInstruction: request.system } : {}),
+        maxOutputTokens: request.maxOutputTokens ?? 2048,
+        // In @google/genai 2.x the abort signal is a request-config field, not an HTTP option.
+        abortSignal: request.signal,
         httpOptions: {
           timeout: 60_000,
-          abortSignal: request.signal,
         },
       },
     });

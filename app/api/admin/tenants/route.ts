@@ -47,8 +47,8 @@ export function POST(request: Request) {
     return json(await transaction(async (db) => {
       const id = randomUUID();
       await db.query(
-        `INSERT INTO admin_tenants (id, name) VALUES ($1, $2)`,
-        [id, input.name]
+        `INSERT INTO admin_tenants (id, name, owner_user_id) VALUES ($1, $2, $3)`,
+        [id, input.name, input.ownerUserId]
       );
       await db.query(
         `INSERT INTO admin_memberships (tenant_id, user_id, role, status)
