@@ -36,7 +36,7 @@ const group = (groups, id) => groups.find(g => g.id === id);
     assert.deepEqual(group(first.json.data, 'main').items.map(i => i.id), ['chat', 'azee-search', 'research', 'code', 'library']);
     assert.equal(group(first.json.data, 'main').items[1].href, '/search');
     assert.equal(group(first.json.data, 'bots').items.length, 0);
-    assert.equal(group(first.json.data, 'plugins').items[0].href, '/extensions');
+    assert.equal(group(first.json.data, 'plugins').items[0].href, '/connectors');
     assert.deepEqual(group(first.json.data, 'projects').actions, ['all', 'add']);
     console.log('PASS groups and items come from sidebar_groups/sidebar_items; disabled items hidden');
 

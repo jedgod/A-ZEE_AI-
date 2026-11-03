@@ -14,7 +14,7 @@ export type FeatureName = "connectors" | "codeAgent" | "codeExecution" | "search
 type Definition = { label: string; readiness: Readiness; experimental: boolean; env: string; blockedBy?: string };
 
 export const FEATURES: Record<FeatureName, Definition> = {
-  connectors: { label: "GitHub and Google Drive connectors", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_CONNECTORS" },
+  connectors: { label: "Gmail, Google Drive and GitHub connectors", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_CONNECTORS" },
   codeAgent: { label: "AI Code Agent (inspect, patch, review, rollback)", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_CODE_AGENT" },
   codeExecution: { label: "Sandboxed code execution", readiness: "infrastructure_blocked", experimental: true, env: "AZ_FEATURE_CODE_EXECUTION", blockedBy: "No container runtime (Docker) or remote sandbox service is configured." },
   searchIndex: { label: "A-Zee Search Index (PostgreSQL full-text)", readiness: "locally_tested", experimental: true, env: "AZ_FEATURE_SEARCH_INDEX" },

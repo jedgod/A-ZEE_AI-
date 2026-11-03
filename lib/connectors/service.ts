@@ -3,7 +3,9 @@ import { pool } from "@/lib/admin/db";
 import { featureEnabled } from "@/lib/features";
 import { decrypt, encrypt, pkceChallenge, randomToken, sha256, tokenKeyConfigured } from "./crypto";
 import { githubProvider } from "./github";
+import { gmailProvider } from "./gmail";
 import { googleDriveProvider } from "./google-drive";
+import { pluginEnabled } from "@/lib/plugins/store";
 import { ConnectorError, type ConnectorProvider, type ProviderId, type TokenSet } from "./types";
 
 // Connector lifecycle: start (single-use state + PKCE verifier) → callback (validate, exchange,
@@ -11,8 +13,8 @@ import { ConnectorError, type ConnectorProvider, type ProviderId, type TokenSet 
 
 const STATE_TTL_MINUTES = 10;
 
-export const providers = (fetchImpl: typeof fetch = fetch) => ({ github: githubProvider(fetchImpl), google_drive: googleDriveProvider(fetchImpl) });
-export const PROVIDER_IDS: ProviderId[] = ["github", "google_drive"];
+export const providers = (fetchImpl: typeof fetch = fetch) => ({ github: githubProvider(fetchImpl), google_drive: googleDriveProvider(fetchImpl), gmail: gmailProvider(fetchImpl) });
+export const PROVIDER_IDS: ProviderId[] = ["github", "google_drive", "gmail"];
 export const isProvider = (v: string): v is ProviderId => (PROVIDER_IDS as string[]).includes(v);
 
 const appOrigin = () => (process.env.APP_ORIGIN || "http://localhost:3000").replace(/\/+$/, "");
@@ -130,6 +132,11 @@ export async function disconnect(ownerId: string, id: ProviderId, fetchImpl: typ
 
 /** Runs a read with a fresh token; on 401 the token is refreshed once and the read retried. Audited. */
 export async function withToken<T>(ownerId: string, id: ProviderId, action: string, resource: string | null, work: (token: string) => Promise<T>, fetchImpl: typeof fetch = fetch): Promise<T> {
+  // A plugin the account switched off in the Plugins panel is unavailable everywhere (fails closed).
+  if (!(await pluginEnabled(ownerId, id))) {
+    await audit(ownerId, id, action, "denied", resource, "plugin disabled");
+    throw new ConnectorError(403, "PLUGIN_DISABLED");
+  }
   try {
     const result = await work(await accessToken(ownerId, id, fetchImpl));
     await audit(ownerId, id, action, "success", resource);

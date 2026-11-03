@@ -1,154 +1,163 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, FileText, Folder, GitBranch, HardDrive, Link2, Loader2, Lock, ShieldCheck, Unplug } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft, CalendarDays, GitBranch, HardDrive, Landmark, Loader2, Lock, Mail, Megaphone, Palette, Search,
+  ShieldCheck, ShoppingBag, Triangle, Unplug, type LucideIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { CATALOG, providerName, type CatalogDetail, type CatalogEntry } from "@/lib/connectors/catalog";
+import { PluginsPage } from "@/components/plugins-page";
+import type { Plugin } from "@/lib/plugins/service";
+import { api, DriveBrowser, GitHubBrowser, GmailBrowser, message, type AuditRow, type Status } from "./browsers";
 
-// Connectors: GitHub and Google Drive over /api/connectors (OAuth, read-only, audited).
+// Plugins: the sidebar's destination. Connectors tab = the catalog (row -> detail dialog -> Connect,
+// which runs the real OAuth flow in /api/connectors). Skills tab = the governed extensions (/extensions).
 
-type Status = {
-  id: "github" | "google_drive"; label: string; scopes: string[]; requiredEnv: string[];
-  keyConfigured: boolean; configured: boolean; enabled: boolean; connected: boolean; account: string | null; grantedScopes: string[]; connectedAt: string | null;
+const ICONS: Record<string, LucideIcon> = {
+  gmail: Mail, google_drive: HardDrive, github: GitBranch, finance: Landmark, google_calendar: CalendarDays,
+  canva: Palette, shopify: ShoppingBag, vercel: Triangle, x_ads: Megaphone,
 };
-type Repo = { fullName: string; private: boolean; defaultBranch: string; description: string | null; updatedAt: string };
-type DriveFile = { id: string; name: string; mimeType: string; modifiedTime: string | null; size: number | null; webViewLink: string | null; readable: boolean };
-type AuditRow = { provider: string; action: string; resource: string | null; outcome: string; created_at: string };
+const DETAIL_ICONS: Record<CatalogDetail["icon"], LucideIcon> = { search: Search, lock: Lock, shield: ShieldCheck };
 
-const ERRORS: Record<string, string> = {
-  CONNECTOR_KEY_MISSING: "Set CONNECTOR_TOKEN_KEY in .env.local first (see below).",
-  PROVIDER_NOT_CONFIGURED: "This provider's OAuth credentials aren't set in .env.local.",
-  INVALID_STATE: "That sign-in link expired or was already used. Connect again.",
-  AUTHORIZATION_DENIED: "Access wasn't granted on the provider's page.",
-  OAUTH_EXCHANGE_FAILED: "The provider rejected the sign-in. Check the OAuth app's callback URL and credentials.",
-  RECONNECT_REQUIRED: "The connection expired. Disconnect and connect again.",
-  NOT_CONNECTED: "Not connected.",
-  NOT_A_TEXT_FILE: "Only text files can be shown here.",
-  BINARY_FILE: "This is a binary file.",
-  FILE_TOO_LARGE: "This file is too large to show.",
-  PROVIDER_FORBIDDEN: "The provider refused access to this item.",
-  NOT_FOUND: "Not found.",
-};
-const message = (code?: string) => (code ? ERRORS[code] ?? code : "Request failed.");
-
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, { cache: "no-store", ...init });
-  if (r.status === 204) return undefined as T;
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(message(d.error));
-  return d.data as T;
+function Tile({ id, className }: { id: string; className?: string }) {
+  const Icon = ICONS[id] ?? Search;
+  return <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-background", className)}><Icon className="h-5 w-5" aria-hidden="true" /></span>;
 }
 
-function GitHubBrowser() {
-  const [repos, setRepos] = useState<Repo[] | null>(null);
-  const [repo, setRepo] = useState<Repo | null>(null);
-  const [files, setFiles] = useState<{ path: string; size: number }[]>([]);
-  const [filter, setFilter] = useState("");
-  const [file, setFile] = useState<{ path: string; content: string } | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const run = async (work: () => Promise<void>) => { setBusy(true); setError(""); try { await work(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } };
-  useEffect(() => { run(async () => setRepos(await api<Repo[]>("/api/connectors/github/repos"))); }, []);
-  const openRepo = (r: Repo) => run(async () => {
-    setRepo(r); setFile(null);
-    const [o, n] = r.fullName.split("/");
-    setFiles((await api<{ files: { path: string; size: number }[] }>(`/api/connectors/github/repos/${o}/${n}/tree?ref=${encodeURIComponent(r.defaultBranch)}`)).files);
-  });
-  const openFile = (path: string) => repo && run(async () => {
-    const [o, n] = repo.fullName.split("/");
-    setFile(await api(`/api/connectors/github/repos/${o}/${n}/file?path=${encodeURIComponent(path)}&ref=${encodeURIComponent(repo.defaultBranch)}`));
-  });
-  const shown = files.filter(f => f.path.toLowerCase().includes(filter.toLowerCase())).slice(0, 300);
+function Settings({ plugin, busy, onToggle, onSave }: {
+  plugin: Plugin; busy: boolean; onToggle: (enabled: boolean) => void; onSave: (values: Record<string, string | boolean | null>) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, string | boolean>>({});
+  const value = (k: string) => draft[k] ?? plugin.settings[k];
+  const dirty = Object.keys(draft).length > 0;
   return (
-    <div className="space-y-3">
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {!repo ? (
-        repos === null ? <p className="text-sm text-muted-foreground"><Loader2 className="mr-1 inline h-4 w-4 animate-spin" />Loading repositories…</p>
-          : <ul className="max-h-72 space-y-1 overflow-auto" aria-label="Repositories">{repos.map(r => (
-            <li key={r.fullName}><button onClick={() => openRepo(r)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
-              {r.private ? <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : <Folder className="h-3.5 w-3.5 text-muted-foreground" />}
-              <span className="font-medium">{r.fullName}</span><span className="truncate text-xs text-muted-foreground">{r.description}</span>
-            </button></li>
-          ))}{!repos.length && <li className="text-sm text-muted-foreground">No repositories.</li>}</ul>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm"><button className="text-muted-foreground hover:underline" onClick={() => { setRepo(null); setFile(null); }}>Repositories</button><span>/</span><span className="font-medium">{repo.fullName}</span><Badge variant="outline">{repo.defaultBranch}</Badge></div>
-          <div className="grid gap-3 md:grid-cols-[260px_1fr]">
-            <div className="space-y-2">
-              <Input aria-label="Filter files" placeholder="Filter files" value={filter} onChange={e => setFilter(e.target.value)} />
-              <ul className="max-h-80 overflow-auto text-xs" aria-label="Files">{shown.map(f => (
-                <li key={f.path}><button onClick={() => openFile(f.path)} className={cn("w-full truncate rounded px-2 py-1 text-left font-mono hover:bg-muted", file?.path === f.path && "bg-muted")}>{f.path}</button></li>
-              ))}</ul>
-            </div>
-            <div className="min-w-0 rounded-lg border bg-muted/20">
-              {busy && !file ? <p className="p-3 text-sm text-muted-foreground">Loading…</p>
-                : file ? <pre className="max-h-96 overflow-auto p-3 text-xs" aria-label={`Contents of ${file.path}`}>{file.content}</pre>
-                : <p className="p-3 text-sm text-muted-foreground">Select a file to read it.</p>}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <section aria-label={`${plugin.name} settings`} className="space-y-3 rounded-xl border p-4">
+      <label className="flex items-center justify-between gap-3 text-sm font-medium">
+        <span>Enabled<span className="block text-xs font-normal text-muted-foreground">When off, this plugin is hidden from Chat, Automations and project tools.</span></span>
+        <input type="checkbox" role="switch" className="h-5 w-9 accent-emerald-700" checked={plugin.enabled} disabled={busy} onChange={e => onToggle(e.target.checked)} />
+      </label>
+      {plugin.fields.map(f => (
+        <label key={f.key} className="block space-y-1 text-sm">
+          <span className="font-medium">{f.label}</span>
+          {f.type === "boolean"
+            ? <input type="checkbox" className="ml-2" checked={Boolean(value(f.key))} onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.checked }))} />
+            : f.type === "select"
+              ? <select className="block w-full rounded-md border bg-background p-2" value={String(value(f.key))} onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))}>{f.options?.map(o => <option key={o}>{o}</option>)}</select>
+              : <Input type={f.type === "secret" ? "password" : "text"} autoComplete="off" maxLength={f.max}
+                placeholder={f.type === "secret" && (plugin.settings[f.key] as { set?: boolean }).set ? "Saved. Type to replace." : undefined}
+                value={f.type === "secret" ? String(draft[f.key] ?? "") : String(value(f.key))} onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))} />}
+          {f.help && <span className="block text-xs text-muted-foreground">{f.help}</span>}
+        </label>
+      ))}
+      {plugin.fields.length > 0 && <Button size="sm" disabled={busy || !dirty} onClick={() => { onSave(draft); setDraft({}); }}>Save settings</Button>}
+    </section>
   );
 }
 
-function DriveBrowser() {
-  const [files, setFiles] = useState<DriveFile[] | null>(null);
-  const [q, setQ] = useState("");
-  const [doc, setDoc] = useState<{ name: string; content: string } | null>(null);
-  const [error, setError] = useState("");
-  const load = useCallback(async (query = "") => {
-    setError("");
-    try { setFiles((await api<{ files: DriveFile[] }>(`/api/connectors/google_drive/files${query ? `?q=${encodeURIComponent(query)}` : ""}`)).files); }
-    catch (e) { setError((e as Error).message); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const open = async (f: DriveFile) => { setError(""); try { setDoc(await api(`/api/connectors/google_drive/files/${f.id}`)); } catch (e) { setError((e as Error).message); } };
-  const search = (e: FormEvent) => { e.preventDefault(); load(q); };
+function ConnectorDialog({ entry, status, plugin, busy, onConnect, onDisconnect, onToggle, onSave, onClose }: {
+  entry: CatalogEntry; status?: Status; plugin?: Plugin; busy: boolean; onConnect: () => void; onDisconnect: () => void;
+  onToggle: (enabled: boolean) => void; onSave: (values: Record<string, string | boolean | null>) => void; onClose: () => void;
+}) {
+  const connected = !!status?.connected;
+  const unavailable = !entry.provider ? "Coming soon" : !status ? null
+    : !status.enabled ? "Connectors are switched off"
+    : !status.keyConfigured ? "Set CONNECTOR_TOKEN_KEY in .env.local"
+    : !status.configured ? "Set the OAuth credentials in .env.local" : null;
   return (
-    <div className="space-y-3">
-      <form onSubmit={search} className="flex gap-2"><Input aria-label="Search Drive" placeholder="Search file names" value={q} onChange={e => setQ(e.target.value)} /><Button type="submit" variant="outline">Search</Button></form>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      <div className="grid gap-3 md:grid-cols-[280px_1fr]">
-        <ul className="max-h-80 space-y-1 overflow-auto" aria-label="Drive files">
-          {files === null ? <li className="text-sm text-muted-foreground">Loading…</li> : files.map(f => (
-            <li key={f.id}><button disabled={!f.readable} onClick={() => open(f)} title={f.readable ? "Read" : "Only text documents can be read here"}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-50">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{f.name}</span></button></li>
-          ))}
-          {files?.length === 0 && <li className="text-sm text-muted-foreground">No files.</li>}
-        </ul>
-        <div className="min-w-0 rounded-lg border bg-muted/20">
-          {doc ? <pre className="max-h-96 overflow-auto whitespace-pre-wrap p-3 text-xs" aria-label={`Contents of ${doc.name}`}>{doc.content}</pre> : <p className="p-3 text-sm text-muted-foreground">Select a document to read it.</p>}
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className={cn("gap-5 rounded-2xl p-6", connected ? "w-[min(760px,calc(100vw-32px))]" : "w-[min(540px,calc(100vw-32px))]")}>
+        <div className="flex items-center justify-between gap-4 pr-8">
+          <div className="flex items-center gap-3">
+            <Tile id={entry.id} />
+            <div>
+              <DialogTitle>{entry.name}</DialogTitle>
+              <p className="mt-1 text-sm text-muted-foreground">{entry.category}</p>
+            </div>
+          </div>
+          {connected
+            ? <Button variant="outline" disabled={busy} onClick={onDisconnect}><Unplug className="h-4 w-4" />Disconnect</Button>
+            : <Button disabled={busy || !!unavailable || !status} onClick={onConnect} className="rounded-full px-5">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}{entry.provider ? "Connect" : "Coming soon"}
+            </Button>}
         </div>
-      </div>
-    </div>
+        <DialogDescription>{connected ? `Connected as ${status?.account}.` : entry.intro}</DialogDescription>
+
+        {connected && plugin && <Settings key={plugin.id} plugin={plugin} busy={busy} onToggle={onToggle} onSave={onSave} />}
+
+        {connected && entry.provider && plugin?.enabled !== false && (
+          <div className="min-w-0">
+            {entry.provider === "gmail" ? <GmailBrowser /> : entry.provider === "github" ? <GitHubBrowser /> : <DriveBrowser />}
+          </div>
+        )}
+
+        {entry.details && (
+          <section aria-label={`About ${entry.name}`} className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">About this Connector</h3>
+            <ul className="space-y-4 rounded-xl border bg-muted/30 p-4">
+              {entry.details.map(d => {
+                const Icon = DETAIL_ICONS[d.icon];
+                return (
+                  <li key={d.title} className="flex gap-3">
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <div><p className="text-sm font-medium">{d.title}</p><p className="mt-0.5 text-sm text-muted-foreground">{d.body}</p></div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {unavailable && entry.provider && status && (
+          <p role="status" className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+            {unavailable}.
+            {status.configured ? null : <> Needs {status.requiredEnv.map(v => <code key={v} className="mx-0.5 rounded bg-muted px-1">{v}</code>)}; the OAuth callback URL is <code className="rounded bg-muted px-1">{`${window.location.origin}/api/connectors/${status.id}/callback`}</code>.</>}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Third-party connectors are not built or maintained by AZ_AI. Use caution when granting access to external services. Review the permissions before connecting
+          {status ? <>: <span>{(connected && status.grantedScopes.length ? status.grantedScopes : status.scopes).map(s => s.replace("https://www.googleapis.com/auth/", "")).join(", ")}</span>.</> : "."}
+        </p>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function ConnectorsApp() {
+  const [tab, setTab] = useState<"connectors" | "skills">("connectors");
+  const [query, setQuery] = useState("");
   const [items, setItems] = useState<Status[] | null>(null);
+  const [plugins, setPlugins] = useState<Plugin[] | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
+  const [open, setOpen] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    api<Plugin[]>("/api/plugins").then(setPlugins).catch(() => setPlugins([]));
     try {
       setItems(await api<Status[]>("/api/connectors"));
       setAudit(await api<AuditRow[]>("/api/connectors/audit"));
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) { setError((e as Error).message); setItems(i => i ?? []); }
   }, []);
+  // Returning from a provider's consent page: reopen that connector's dialog with the result.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("connected")) setNotice(`Connected to ${params.get("connected") === "github" ? "GitHub" : "Google Drive"}.`);
-    if (params.get("error")) setError(message(params.get("error") ?? undefined));
+    const connected = params.get("connected"), provider = params.get("provider");
+    if (params.get("tab") === "skills") setTab("skills");
+    if (connected) { setNotice(`Connected to ${providerName(connected)}.`); setOpen(connected); }
+    if (params.get("error")) { setError(message(params.get("error") ?? undefined)); if (provider) setOpen(provider); }
     if (params.toString()) window.history.replaceState(null, "", "/connectors");
     refresh();
   }, [refresh]);
 
+  const statusOf = (e: CatalogEntry) => items?.find(s => s.id === e.provider);
+  const entry = CATALOG.find(c => c.id === open) ?? null;
   const connect = async (s: Status) => {
     setBusy(s.id); setError("");
     try { window.location.assign((await api<{ url: string }>(`/api/connectors/${s.id}/connect`, { method: "POST" })).url); }
@@ -161,63 +170,92 @@ export function ConnectorsApp() {
     catch (e) { setError((e as Error).message); } finally { setBusy(null); }
   };
 
-  const keyMissing = items?.some(i => !i.keyConfigured);
-  return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-6">
-      <header>
-        <a href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"><ArrowLeft className="h-3.5 w-3.5" />Workspace</a>
-        <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold tracking-tight"><Link2 className="h-7 w-7 text-emerald-700" />Connectors <Badge variant="outline">Experimental</Badge></h1>
-        <p className="mt-1 text-sm text-muted-foreground">Read-only access to your GitHub repositories and Google Drive documents. Tokens are encrypted on this server and never sent to the browser; every access is logged.</p>
-      </header>
-      {notice && <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
-      {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-      {keyMissing && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">Token encryption key not set.</p>
-          <p className="mt-1">Generate one with <code className="rounded bg-amber-100 px-1">node -e &quot;console.log(require(&apos;crypto&apos;).randomBytes(32).toString(&apos;base64&apos;))&quot;</code> and add <code className="rounded bg-amber-100 px-1">CONNECTOR_TOKEN_KEY=…</code> to <code className="rounded bg-amber-100 px-1">.env.local</code>, then restart.</p>
-        </div>
-      )}
+  const patchPlugin = async (id: string, change: { enabled?: boolean; settings?: Record<string, unknown> }, done: string) => {
+    setBusy(id); setError("");
+    try {
+      await api(`/api/plugins/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+      setNotice(done); await refresh();
+    } catch (e) { setError((e as Error).message); } finally { setBusy(null); }
+  };
+  const togglePlugin = (p: Plugin, enabled: boolean) => {
+    if (p.kind === "skill" && enabled && !confirm(`Approve ${p.name} v${p.version} with permissions: ${p.permissions?.join(", ") || "none"}?`)) return;
+    patchPlugin(p.id, { enabled }, `${p.name} ${enabled ? "enabled" : "disabled"}.`);
+  };
+  const pluginOf = (e: CatalogEntry) => plugins?.find(p => p.kind === "connector" && p.id === e.provider);
 
-      <div className="grid gap-4">
-        {(items ?? []).map(s => (
-          <section key={s.id} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm" aria-label={s.label}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {s.id === "github" ? <GitBranch className="h-6 w-6" /> : <HardDrive className="h-6 w-6" />}
-                <div>
-                  <h2 className="font-semibold">{s.label}</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {s.connected ? `Connected as ${s.account}` : !s.configured ? "Not configured" : "Not connected"}
-                  </p>
-                </div>
-              </div>
-              {s.connected
-                ? <Button variant="outline" disabled={busy === s.id} onClick={() => disconnect(s)}><Unplug className="h-4 w-4" />Disconnect</Button>
-                : <Button disabled={!s.configured || !s.keyConfigured || !s.enabled || busy === s.id} onClick={() => connect(s)}>{busy === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Connect</Button>}
-            </div>
-            {!s.configured && (
-              <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                Add {s.requiredEnv.map(v => <code key={v} className="mx-0.5 rounded bg-muted px-1">{v}</code>)} to .env.local. Callback URL for the OAuth app: <code className="rounded bg-muted px-1">{`${typeof window === "undefined" ? "" : window.location.origin}/api/connectors/${s.id}/callback`}</code>
-                {s.id === "github" && " (use a GitHub App with Contents: Read-only for read-only private repository access)."}
-              </p>
-            )}
-            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5" />{s.connected ? "Granted:" : "Requests:"} {(s.connected && s.grantedScopes.length ? s.grantedScopes : s.scopes).map(x => <code key={x} className="rounded bg-muted px-1">{x}</code>)}</p>
-            {s.connected && (s.id === "github" ? <GitHubBrowser /> : <DriveBrowser />)}
-          </section>
-        ))}
+  const sections = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const shown = CATALOG.filter(c => !q || `${c.name} ${c.summary} ${c.category}`.toLowerCase().includes(q));
+    return (["Featured", "Advertising"] as const).map(name => ({ name, entries: shown.filter(c => c.section === name) })).filter(s => s.entries.length);
+  }, [query]);
+
+  return (
+    <main className="mx-auto max-w-4xl space-y-6 px-4 py-8 md:px-6">
+      <a href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"><ArrowLeft className="h-3.5 w-3.5" />Workspace</a>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="tablist" aria-label="Plugins" className="flex gap-1 rounded-full bg-muted/60 p-1">
+          {(["connectors", "skills"] as const).map(t => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
+              className={cn("rounded-full px-4 py-1.5 text-sm font-medium capitalize text-muted-foreground", tab === t && "bg-background text-foreground shadow-sm")}>{t}</button>
+          ))}
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input aria-label={`Search ${tab}`} placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} className="rounded-full pl-9" />
+        </div>
       </div>
 
-      <section aria-label="Connector activity">
-        <h2 className="mb-2 text-sm font-semibold">Recent activity</h2>
-        {audit.length ? (
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/40 text-muted-foreground"><tr><th className="p-2">When</th><th className="p-2">Provider</th><th className="p-2">Action</th><th className="p-2">Item</th><th className="p-2">Outcome</th></tr></thead>
-              <tbody>{audit.map((a, i) => <tr key={i} className="border-t"><td className="p-2">{new Date(a.created_at).toLocaleString()}</td><td className="p-2">{a.provider}</td><td className="p-2 font-mono">{a.action}</td><td className="max-w-xs truncate p-2">{a.resource ?? "—"}</td><td className="p-2">{a.outcome}</td></tr>)}</tbody>
-            </table>
-          </div>
-        ) : <p className="text-xs text-muted-foreground">No connector activity yet.</p>}
-      </section>
+      {notice && <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
+      {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+
+      {tab === "skills" ? <PluginsPage plugins={(plugins ?? []).filter(p => p.kind !== "connector")} loaded={plugins !== null} query={query} busy={busy} onToggle={togglePlugin} /> : (
+        <>
+          {sections.map(section => (
+            <section key={section.name} aria-label={section.name}>
+              <h2 className="mb-2 text-lg font-semibold">{section.name}</h2>
+              <ul>
+                {section.entries.map(e => {
+                  const connected = !!statusOf(e)?.connected;
+                  const off = connected && pluginOf(e)?.enabled === false;
+                  return (
+                    <li key={e.id} className="flex items-center gap-4 rounded-xl py-3 hover:bg-muted/40">
+                      <button type="button" onClick={() => setOpen(e.id)} aria-label={`${e.name}: ${e.summary}`} className="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-2 text-left">
+                        <Tile id={e.id} />
+                        <span className="min-w-0"><span className="block font-medium">{e.name}</span><span className="block truncate text-sm text-muted-foreground">{e.summary}</span></span>
+                      </button>
+                      {connected
+                        ? <Badge variant="secondary" className="mr-2">{off ? "Disabled" : "Connected"}</Badge>
+                        : <Button variant="secondary" size="sm" className="mr-2" onClick={() => setOpen(e.id)} aria-label={`Add ${e.name}`}>Add</Button>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+          {!sections.length && <p className="text-sm text-muted-foreground">No connectors match “{query}”.</p>}
+
+          <section aria-label="Connector activity">
+            <h2 className="mb-2 text-sm font-semibold">Recent activity</h2>
+            {audit.length ? (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/40 text-muted-foreground"><tr><th className="p-2">When</th><th className="p-2">Provider</th><th className="p-2">Action</th><th className="p-2">Item</th><th className="p-2">Outcome</th></tr></thead>
+                  <tbody>{audit.map((a, i) => <tr key={i} className="border-t"><td className="p-2">{new Date(a.created_at).toLocaleString()}</td><td className="p-2">{a.provider}</td><td className="p-2 font-mono">{a.action}</td><td className="max-w-xs truncate p-2">{a.resource ?? "—"}</td><td className="p-2">{a.outcome}</td></tr>)}</tbody>
+                </table>
+              </div>
+            ) : <p className="text-xs text-muted-foreground">No connector activity yet.</p>}
+          </section>
+        </>
+      )}
+
+      {entry && (
+        <ConnectorDialog entry={entry} status={statusOf(entry)} plugin={pluginOf(entry)} busy={busy === entry.provider && !!entry.provider}
+          onConnect={() => { const s = statusOf(entry); if (s) connect(s); }}
+          onDisconnect={() => { const s = statusOf(entry); if (s) disconnect(s); }}
+          onToggle={enabled => patchPlugin(entry.provider!, { enabled }, `${entry.name} ${enabled ? "enabled" : "disabled"}.`)}
+          onSave={settings => patchPlugin(entry.provider!, { settings }, `${entry.name} settings saved.`)}
+          onClose={() => setOpen(null)} />
+      )}
     </main>
   );
 }

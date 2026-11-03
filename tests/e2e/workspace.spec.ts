@@ -415,8 +415,8 @@ test("sidebar groups: main, projects with More, chats, plugins; collapsed shows 
   await main.getByRole("button", { name: "Research" }).click();
   await expect(page.getByRole("button", { name: "Explore deeply" })).toHaveAttribute("aria-pressed", "true");
 
-  // Plugins links to the governed catalog, which explains staff sign-in to a local user.
-  await expect(sidebar.getByRole("link", { name: "Plugins" })).toHaveAttribute("href", "/extensions");
+  // Plugins opens the connectors catalog (Skills tab links on to the governed extensions).
+  await expect(sidebar.getByRole("link", { name: "Plugins" })).toHaveAttribute("href", "/connectors");
 
   // A long chat list scrolls between the main items and Plugins, fading out at the bottom.
   await page.evaluate(() => {

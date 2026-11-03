@@ -6,11 +6,11 @@ import { ConnectorError, readOnly, type ConnectorProvider, type TokenSet } from 
 // access (refresh tokens). GOOGLE_OAUTH_URL / GOOGLE_TOKEN_URL / GOOGLE_API_URL override the
 // endpoints (tests use a local fake).
 
-const authBase = () => (process.env.GOOGLE_OAUTH_URL || "https://accounts.google.com").replace(/\/+$/, "");
-const tokenUrl = () => process.env.GOOGLE_TOKEN_URL || "https://oauth2.googleapis.com/token";
-const revokeUrl = () => process.env.GOOGLE_REVOKE_URL || "https://oauth2.googleapis.com/revoke";
+export const authBase = () => (process.env.GOOGLE_OAUTH_URL || "https://accounts.google.com").replace(/\/+$/, "");
+export const tokenUrl = () => process.env.GOOGLE_TOKEN_URL || "https://oauth2.googleapis.com/token";
+export const revokeUrl = () => process.env.GOOGLE_REVOKE_URL || "https://oauth2.googleapis.com/revoke";
 const apiBase = () => (process.env.GOOGLE_API_URL || "https://www.googleapis.com").replace(/\/+$/, "");
-const userinfoUrl = () => process.env.GOOGLE_USERINFO_URL || "https://openidconnect.googleapis.com/v1/userinfo";
+export const userinfoUrl = () => process.env.GOOGLE_USERINFO_URL || "https://openidconnect.googleapis.com/v1/userinfo";
 const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/drive.readonly"];
 const GOOGLE_DOC_EXPORTS: Record<string, string> = {
   "application/vnd.google-apps.document": "text/plain",
@@ -19,7 +19,7 @@ const GOOGLE_DOC_EXPORTS: Record<string, string> = {
 };
 const TEXT_TYPES = /^(text\/|application\/(json|xml|javascript|x-yaml|yaml|x-sh|sql))/;
 
-async function tokenRequest(fetchImpl: typeof fetch, params: Record<string, string>, previousRefresh?: string): Promise<TokenSet> {
+export async function tokenRequest(fetchImpl: typeof fetch, params: Record<string, string>, previousRefresh?: string): Promise<TokenSet> {
   const response = await fetchImpl(tokenUrl(), {
     method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
     body: new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID!, client_secret: process.env.GOOGLE_CLIENT_SECRET!, ...params }),
@@ -34,6 +34,9 @@ async function tokenRequest(fetchImpl: typeof fetch, params: Record<string, stri
     scopes: (t.scope ?? "").split(" ").filter(Boolean),
   };
 }
+
+/** The Google token endpoint bound to a fetch, shared with the other Google provider (Gmail). */
+export const googleTokenRequest = (fetchImpl: typeof fetch) => (params: Record<string, string>, previousRefresh?: string) => tokenRequest(fetchImpl, params, previousRefresh);
 
 export type DriveFile = { id: string; name: string; mimeType: string; modifiedTime: string | null; size: number | null; webViewLink: string | null; readable: boolean };
 

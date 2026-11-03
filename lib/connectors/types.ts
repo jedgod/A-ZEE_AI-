@@ -1,7 +1,7 @@
 // Provider-neutral connector contracts. A provider handles OAuth (authorize URL, code exchange,
 // refresh, revoke) and exposes read-only resource operations through ReadClient.
 
-export type ProviderId = "github" | "google_drive";
+export type ProviderId = "github" | "google_drive" | "gmail";
 
 export type TokenSet = { accessToken: string; refreshToken?: string | null; expiresAt?: string | null; scopes: string[] };
 export type ExternalAccount = { id: string; login: string };

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decrypt, encrypt, pkceChallenge, tokenKeyConfigured } from "@/lib/connectors/crypto";
 import { githubProvider } from "@/lib/connectors/github";
+import { gmailProvider } from "@/lib/connectors/gmail";
 import { googleDriveProvider } from "@/lib/connectors/google-drive";
+import { CATALOG } from "@/lib/connectors/catalog";
 import { ConnectorError, readOnly } from "@/lib/connectors/types";
 import { featureEnabled, FEATURES } from "@/lib/features";
 
@@ -96,6 +98,35 @@ describe("read-only provider access", () => {
     expect(urls.at(-1)).toContain("/export?mimeType=text%2Fplain");
     await expect(drive.fileText("t", "img12345")).rejects.toBeInstanceOf(ConnectorError);
     await expect(drive.fileText("t", "../etc")).rejects.toMatchObject({ code: "INVALID_FILE_ID" });
+  });
+
+  it("Gmail: asks only for gmail.readonly, lists message headers, and never sends a non-GET", async () => {
+    Object.assign(process.env, { GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret" });
+    const url = new URL(gmailProvider().authorizeUrl({ state: "s", codeChallenge: "c", redirectUri: "http://localhost:3000/api/connectors/gmail/callback" }));
+    expect(url.searchParams.get("scope")).toBe("openid email https://www.googleapis.com/auth/gmail.readonly");
+    delete process.env.GOOGLE_CLIENT_ID; delete process.env.GOOGLE_CLIENT_SECRET;
+
+    const calls: { url: string; method?: string }[] = [];
+    const mail = gmailProvider(vi.fn(async (u: unknown, init?: RequestInit) => {
+      calls.push({ url: String(u), method: init?.method });
+      if (String(u).includes("/messages?")) return json({ messages: [{ id: "msg00001" }, { id: "msg00002" }] });
+      const unread = String(u).includes("msg00001");
+      return json({ id: unread ? "msg00001" : "msg00002", threadId: "thr00001", snippet: "Hi there", labelIds: unread ? ["INBOX", "UNREAD"] : ["INBOX"],
+        payload: { headers: unread ? [{ name: "From", value: "Ana <ana@example.com>" }, { name: "Subject", value: "Lunch?" }, { name: "Date", value: "Mon, 2 Nov 2026 10:00:00 +0000" }] : [] } });
+    }));
+    const { messages } = await mail.search("tok", "is:unread");
+    expect(new URL(calls[0].url).searchParams.get("q")).toBe("is:unread");
+    expect(messages).toMatchObject([{ from: "Ana <ana@example.com>", subject: "Lunch?", unread: true }, { from: "Unknown sender", subject: "(no subject)", unread: false }]);
+    expect(calls.every(c => c.method === "GET")).toBe(true);
+    await expect(gmailProvider(vi.fn(async (u: unknown) => String(u).includes("/messages?") ? json({ messages: [{ id: "../x" }] }) : json({}))).search("tok")).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
+  });
+});
+
+describe("plugins catalog", () => {
+  it("only entries backed by a real provider can connect; the rest are coming soon", () => {
+    expect(CATALOG.filter(c => c.provider).map(c => c.provider).sort()).toEqual(["github", "gmail", "google_drive"]);
+    expect(new Set(CATALOG.map(c => c.id)).size).toBe(CATALOG.length);
+    expect(CATALOG.find(c => c.id === "gmail")?.details?.map(d => d.title)).toContain("Search your emails");
   });
 });
 

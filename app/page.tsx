@@ -645,7 +645,7 @@ export default function WorkspacePage() {
         items: history.filter(item => projectOf(item, projects).id === DEFAULT_PROJECT.id)
           .map(item => ({ id: item.id, label: item.title, icon: "message", type: "chat" as const, actions: ["new-tab" as const, "rename" as const, "delete" as const] })),
       },
-      { id: "plugins", placement: "bottom", items: [{ id: "plugins", label: "Plugins", icon: "blocks", href: "/extensions" }] },
+      { id: "plugins", placement: "bottom", items: [{ id: "plugins", label: "Plugins", icon: "blocks", href: "/connectors" }] },
     ];
   const navActive = currentId ?? mode;
 
@@ -981,7 +981,7 @@ export default function WorkspacePage() {
             </div>
           </div>
           <div className={styles.settingsRow}>
-            <div><strong>Connectors</strong><small>Read-only GitHub and Google Drive access.</small></div>
+            <div><strong>Connectors</strong><small>Read-only Gmail, Google Drive and GitHub access.</small></div>
             <div className={styles.settingsActions}><a className={styles.outline} href="/connectors">Manage</a></div>
           </div>
           <div className={styles.settingsRow}>
