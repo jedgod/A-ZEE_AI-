@@ -3,13 +3,17 @@ import { randomUUID } from "node:crypto";
 import type { Actor } from "@/00_META/shared";
 import type { AuthContext } from "@/lib/execution/contracts";
 import type { Auth } from "@/lib/operations/contracts";
+import type { SessionUser } from "@/lib/users/types";
 
 /** One request's identity, shaped for each stage that needs it. */
 export type RequestActor = {
   meta: Actor;          // 00_META preflight
   execution: AuthContext; // 07_TOOLS permission checks
   auth: Auth;           // 13_FEEDBACK / 14_OBSERVABILITY ownership
+  /** True when signed in to a user account (the name is historical: it once meant "the machine's local user"). */
   local: boolean;
+  /** The signed-in account's id; null for guests and platform tokens. */
+  userId: string | null;
   channel: "web" | "platform"; // web chat (plan limits apply) or IDE/API token
 };
 
@@ -63,21 +67,28 @@ export function anonCookie(id: string): string {
   return `${ANON_COOKIE}=${id}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict`;
 }
 
-export function webActor(request: Request): { actor: RequestActor; newAnonId: string | null } {
+/**
+ * The actor for a browser request. `user` is the signed-in account from the session cookie (see
+ * lib/users/auth `actorFor`); without one the caller is a limited guest, on every host including
+ * localhost. Only the anonymous id cookie identifies a guest, and only for feedback and telemetry.
+ */
+export function webActor(request: Request, user: SessionUser | null): { actor: RequestActor; newAnonId: string | null } {
   const existing = readAnonId(request);
   const id = existing ?? randomUUID();
-  const local = isLocalRequest(request);
-  const tenantId = local ? "local" : "public";
+  const signedIn = !!user;
+  const subject = user?.id ?? id;
+  const tenantId = signedIn ? "local" : "public";
   return {
     newAnonId: existing ? null : id,
     actor: {
-      local,
+      local: signedIn,
+      userId: user?.id ?? null,
       channel: "web",
-      meta: local
-        ? { id, tenantId, role: "user", authenticated: true }
+      meta: signedIn
+        ? { id: subject, tenantId, role: "user", authenticated: true }
         : { id, tenantId: null, role: "guest", authenticated: false },
-      execution: { userId: id, tenantId, permissions: local ? SIGNED_IN_PERMISSIONS : GUEST_PERMISSIONS },
-      auth: { userId: id, tenantId },
+      execution: { userId: subject, tenantId, permissions: signedIn ? SIGNED_IN_PERMISSIONS : GUEST_PERMISSIONS },
+      auth: { userId: subject, tenantId },
     },
   };
 }
@@ -86,6 +97,7 @@ export function webActor(request: Request): { actor: RequestActor; newAnonId: st
 export function platformActor(key: { user_id: string; tenant_id: string }): RequestActor {
   return {
     local: false,
+    userId: null,
     channel: "platform",
     meta: { id: key.user_id, tenantId: key.tenant_id, role: "user", authenticated: true },
     execution: { userId: key.user_id, tenantId: key.tenant_id, permissions: SIGNED_IN_PERMISSIONS },

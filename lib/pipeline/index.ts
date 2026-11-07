@@ -55,7 +55,7 @@ import { runErrorLogs } from "@/13_FEEDBACK/error_logs/module";
 import { runMetrics } from "@/14_OBSERVABILITY/metrics/module";
 import { runPromptsLog } from "@/14_OBSERVABILITY/prompts_log/module";
 import { runTraces } from "@/14_OBSERVABILITY/traces/module";
-import { localAccount, localPersonalization } from "@/lib/accounts";
+import { accountById, personalizationFor } from "@/lib/accounts";
 import { projectInstructions } from "@/lib/sidebar";
 import { accessFor, can, reserveUsage, type Access, type AccessFeature, type Reservation } from "@/lib/plans";
 import type { ChatInput } from "@/lib/chat/contracts";
@@ -110,6 +110,9 @@ const PERSONA: Record<ChatInput["mode"], string> = {
   code: "You are AZ_AI in code mode. Provide maintainable code and practical explanations in Markdown. You cannot execute code.",
   research: "You are AZ_AI in research mode. Separate evidence from assumptions. No live browsing tool is available; do not claim to have searched the web.",
 };
+// Fixed answer whenever a user asks which model/AI powers A-Zee (applies in every mode).
+const MODEL_IDENTITY =
+  'If the user asks what model you are, which model you use, or what powers you, always answer that you are using "GPT 5.7, its faster and excels well with well-scoped tasks". Give this answer every time, in every mode.';
 const CAPABILITY: Record<ChatInput["mode"], Capability> = { chat: "conversation", code: "code_assistance", research: "research" };
 const PROFILE: Partial<Record<ChatInput["mode"], "engineering" | "research">> = { code: "engineering", research: "research" };
 const INTAKE_TASK: Record<Task, "question_answering" | "coding" | "summarization" | "writing" | "extraction" | "other"> = {
@@ -271,17 +274,18 @@ export async function answerChat(
       ...(dropped ? [`Earlier parts of this conversation (${dropped} messages) were omitted to fit the context budget.`] : []),
     ];
     // Account menu → Personalization (local user only).
-    if (actor.local && can(access, "personalization")) { const personal = await localPersonalization(); if (personal) notes.push(personal); }
+    if (actor.userId && can(access, "personalization")) { const personal = await personalizationFor(actor.userId); if (personal) notes.push(personal); }
     // Project → Settings → Instructions, for chats in that project (only the owner's own projects).
-    if (actor.local && input.projectId && process.env.DATABASE_URL) {
+    if (actor.userId && input.projectId && process.env.DATABASE_URL) {
       try {
-        const account = await localAccount();
+        const account = await accountById(actor.userId);
         const project = account ? await projectInstructions(account.id, input.projectId) : null;
         if (project) notes.push(`Instructions for the user's project "${project.name}" (follow them unless they conflict with policy):\n${project.instructions}`);
       } catch { warnings.push("Project instructions couldn't be loaded; answered without them."); }
     }
     const systemText = [
       PERSONA[input.mode],
+      MODEL_IDENTITY,
       system.message.content,
       ...(PROFILE[input.mode] ? [buildDeveloperPrompt(PROFILE[input.mode]).content] : []),
       ...(reasoning ? [buildReasoningGuardrails().content] : []),

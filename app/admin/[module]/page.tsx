@@ -1,3 +1,4 @@
+import type React from "react";
 import { notFound } from "next/navigation";
 import { Approvals, Billing, Dashboard, Incidents, Policies, Registry, Roles, Tenants, Users } from "@/components/admin/sections";
 import { consoleActor } from "@/lib/admin/console";
@@ -11,10 +12,11 @@ export async function generateMetadata({ params }: { params: Promise<{ module: s
   return { title: `${module[0]?.toUpperCase()}${module.slice(1)} · Admin · AZ_AI` };
 }
 
-export default async function AdminModulePage({ params }: { params: Promise<{ module: string }> }) {
+export default async function AdminModulePage({ params, searchParams }: { params: Promise<{ module: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { module } = await params;
+  const query = await searchParams;
   if (!Object.hasOwn(SECTIONS, module)) notFound();
   const actor = await consoleActor();
-  const Section = SECTIONS[module as keyof typeof SECTIONS];
-  return <div className="mx-auto max-w-6xl"><Section actor={actor} /></div>;
+  const Section = SECTIONS[module as keyof typeof SECTIONS] as (props: { actor: Awaited<ReturnType<typeof consoleActor>>; query: Record<string, string | string[] | undefined> }) => React.ReactNode | Promise<React.ReactNode>;
+  return <div className="mx-auto max-w-6xl"><Section actor={actor} query={query} /></div>;
 }

@@ -9,8 +9,8 @@ import type { ModelAdapter } from "@/lib/reliability/contracts";
 const PROVIDER_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "MISTRALAI_API_KEY", "OPENROUTERAI_API_KEY", "TOGETHERAI_API_KEY"];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const chatReply = (text: string) => json({ choices: [{ message: { content: text } }] });
-const local = (): RequestActor => webActor(new Request("http://localhost:3000/api/chat", { headers: { host: "localhost:3000" } })).actor;
-const guest = (): RequestActor => webActor(new Request("https://az.example.com/api/chat", { headers: { host: "az.example.com" } })).actor;
+const local = (): RequestActor => webActor(new Request("http://localhost:3000/api/chat", { headers: { host: "localhost:3000" } }), { id: "owner-1", name: "Owner", email: "o@example.com", verified: true }).actor;
+const guest = (): RequestActor => webActor(new Request("https://az.example.com/api/chat", { headers: { host: "az.example.com" } }), null).actor;
 const scripted = (...replies: unknown[]): ModelAdapter & { calls: number } => {
   const adapter = { calls: 0, generate: async () => JSON.stringify(replies[adapter.calls++] ?? { action: "done" }) };
   return adapter;
@@ -134,7 +134,8 @@ describe("POST /api/chat/stream", () => {
     const { ok, result } = await readChatResponse(new Response(text, { headers: { "content-type": "text/event-stream" } }), () => {});
     expect(ok).toBe(true);
     expect(result.data.answer).toBe("Streaming works.");
-    expect(result.data.pipeline).toMatchObject({ provider: "Groq", style: "concise" });
+    expect(result.data.pipeline).toMatchObject({ style: "concise" });
+    expect(result.data.pipeline).not.toHaveProperty("provider");
   });
 
   it("rejects invalid input as JSON before streaming, and streams provider failures as error events", async () => {

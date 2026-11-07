@@ -1,6 +1,6 @@
 // Activates a plan for this machine's local account (e.g. after payment is confirmed outside the
 // app, since no payment provider is connected). Trusted local use only.
-//   npm run plan:set -- --plan plus [--billing annual] [--paid 14.99]
+//   npm run plan:set -- --plan plus [--billing annual] [--paid 14.99] [--email user@example.com]
 const { randomUUID } = require('node:crypto');
 require('@next/env').loadEnvConfig(process.cwd());
 const { Client } = require('pg');
@@ -9,7 +9,7 @@ const { Client } = require('pg');
   const args = {};
   const argv = process.argv.slice(2);
   for (let i = 0; i < argv.length; i++) {
-    const m = /^--(plan|billing|paid)$/.exec(argv[i]);
+    const m = /^--(plan|billing|paid|email)$/.exec(argv[i]);
     if (!m || argv[i + 1] === undefined) throw new Error(`Unknown or incomplete option: ${argv[i]}`);
     args[m[1]] = argv[++i];
   }
@@ -23,8 +23,11 @@ const { Client } = require('pg');
     await db.query('BEGIN');
     const plan = (await db.query('SELECT id, name FROM plans WHERE id = $1 AND is_active', [args.plan])).rows[0];
     if (!plan) throw new Error(`Unknown plan "${args.plan}". Plans: ${(await db.query('SELECT id FROM plans ORDER BY sort_order')).rows.map(r => r.id).join(', ')}`);
-    const user = (await db.query('SELECT id, name, region FROM users WHERE is_local')).rows[0];
-    if (!user) throw new Error('No local account yet. Run: npm run account:seed -- --name "..." --email ...');
+    // --email picks any account (accounts claimed through sign-up are no longer "local").
+    const user = (args.email
+      ? await db.query('SELECT id, name, region FROM users WHERE lower(email) = lower($1)', [args.email])
+      : await db.query('SELECT id, name, region FROM users WHERE is_local')).rows[0];
+    if (!user) throw new Error(args.email ? `No account with email ${args.email}.` : 'No local account yet. Pass --email <account email>, or run: npm run account:seed -- --name "..." --email ...');
     await db.query("UPDATE subscriptions SET status = 'canceled', ends_at = now() WHERE user_id = $1 AND status IN ('active', 'pending')", [user.id]);
     await db.query("INSERT INTO subscriptions (id, user_id, plan_id, status, region, price_paid, billing) VALUES ($1, $2, $3, 'active', $4, $5, $6)", [randomUUID(), user.id, plan.id, user.region, paid, billing]);
     await db.query('UPDATE users SET plan = $2, updated_at = now() WHERE id = $1', [user.id, plan.id]);

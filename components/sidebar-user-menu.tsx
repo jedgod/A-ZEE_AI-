@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  BriefcaseBusiness, Bug, Check, ChevronRight, Download, FileText, HelpCircle, Keyboard, LifeBuoy, Lock,
+  BriefcaseBusiness, Bug, Check, ChevronRight, CreditCard, Download, FileText, HelpCircle, Keyboard, LifeBuoy, Lock,
   LogIn, LogOut, Mail, Plus, Settings, Shield, Sparkles, SlidersHorizontal, User,
 } from "lucide-react";
 import {
@@ -55,6 +55,13 @@ export function SidebarUserMenu({ collapsed = false, onOpenSettings, onOpenPriva
     setOpen(false);
     if (url) window.open(url, "_blank", "noopener,noreferrer"); else fallback();
   };
+
+  async function userSignOut() {
+    setOpen(false);
+    const response = await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    if (response?.ok) window.location.assign("/"); // reload so every part of the page drops the old session
+    else notify("Couldn't sign out. Try again.");
+  }
 
   async function signOut() {
     setOpen(false);
@@ -149,6 +156,8 @@ export function SidebarUserMenu({ collapsed = false, onOpenSettings, onOpenPriva
             {!can("personalization") && <span className="ml-auto rounded bg-muted px-1.5 text-[10px] text-muted-foreground">Plus</span>}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => show("profile")} disabled={!account}><User /> Profile</DropdownMenuItem>
+          {account && <DropdownMenuItem asChild><a href="/account/payment-methods"><CreditCard /> Payment methods</a></DropdownMenuItem>}
+          {account && <DropdownMenuItem asChild><a href="/account/security"><Shield /> Password and security</a></DropdownMenuItem>}
           <DropdownMenuItem onSelect={() => { setOpen(false); onOpenSettings(); }}><Settings /> Settings</DropdownMenuItem>
           {data?.staff && (
             <DropdownMenuItem asChild><a href="/operations"><BriefcaseBusiness /> Operations workspace</a></DropdownMenuItem>
@@ -175,8 +184,16 @@ export function SidebarUserMenu({ collapsed = false, onOpenSettings, onOpenPriva
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
+          {account ? (
+            <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={userSignOut}><LogOut /> Log out</DropdownMenuItem>
+          ) : (
+            <>
+              <DropdownMenuItem asChild><a href={`/signin?next=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`}><LogIn /> Sign in</a></DropdownMenuItem>
+              <DropdownMenuItem asChild><a href="/register"><Plus /> Create account</a></DropdownMenuItem>
+            </>
+          )}
           {data?.staff ? (
-            <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={signOut}><LogOut /> Log out</DropdownMenuItem>
+            <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={signOut}><LogOut /> Log out of staff account</DropdownMenuItem>
           ) : (
             <DropdownMenuItem asChild><a href="/login"><LogIn /> Staff sign-in</a></DropdownMenuItem>
           )}

@@ -1,7 +1,9 @@
+import { canSeeProviders, publicMeta } from "@/lib/admin/provider-access";
 import { chatRequestSchema } from "@/lib/chat/contracts";
 import { chatAllowed, chatError, sameOrigin } from "@/lib/chat/web";
 import { answerChat } from "@/lib/pipeline";
-import { anonCookie, webActor } from "@/lib/pipeline/actor";
+import { anonCookie } from "@/lib/pipeline/actor";
+import { actorFor } from "@/lib/users/auth";
 import { readJson } from "@/lib/http";
 import { encodeSseEvent, sseTextChunks } from "@/12_DELIVERY/streaming_output/module";
 
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
     return Response.json(body, { status, headers: json });
   }
 
-  const { actor, newAnonId } = webActor(request);
+  const { actor, newAnonId } = await actorFor(request);
   const abort = new AbortController();
   const signal = AbortSignal.any([request.signal, abort.signal]);
 
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
           if (signal.aborted) break;
           send("delta", { text });
         }
-        send("final", { pipeline: meta });
+        send("final", { pipeline: publicMeta(meta, await canSeeProviders()) });
       } catch (error) {
         if (!signal.aborted) send("error", chatError(error).body);
       } finally {

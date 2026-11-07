@@ -10,8 +10,8 @@ vi.mock("@/lib/plans", async importOriginal => ({
   reserveUsage: vi.fn(async () => ({ refund: async () => {} })),
 }));
 vi.mock("@/lib/accounts", () => ({
-  localAccount: vi.fn(async () => ({ id: "owner-1" })),
-  localPersonalization: vi.fn(async () => ""),
+  accountById: vi.fn(async () => ({ id: "owner-1" })),
+  personalizationFor: vi.fn(async () => ""),
 }));
 const owned = vi.hoisted(() => new Map<string, { name: string; instructions: string }>());
 vi.mock("@/lib/sidebar", () => ({
@@ -24,7 +24,7 @@ import { health } from "@/lib/pipeline/registry";
 import { decodeProjectShare, encodeProjectShare, MAX_PROJECT_LINK, PROJECT_SHARE_PREFIX, ShareTooLargeError, type SharedProjectBundle } from "@/lib/share";
 
 const PROVIDER_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "MISTRALAI_API_KEY", "OPENROUTERAI_API_KEY", "TOGETHERAI_API_KEY"];
-const local = () => webActor(new Request("http://localhost:3000/api/chat", { headers: { host: "localhost:3000" } })).actor;
+const local = () => webActor(new Request("http://localhost:3000/api/chat", { headers: { host: "localhost:3000" } }), { id: "owner-1", name: "Owner", email: "o@example.com", verified: true }).actor;
 const PROJECT = "3f2b8a1c-1d2e-4f5a-8b6c-7d8e9f0a1b2c";
 
 describe("project instructions reach the AI", () => {

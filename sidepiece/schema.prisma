@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // change to "postgresql" for production
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  role        String   @default("user") // admin | user | viewer
+  status      String   @default("active") // active | invited | suspended
+  plan        String   @default("free") // free | plus | enterprise
+  lastActive  DateTime @default(now())
+  tokenUsage  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tags        UserTag[]
+  notes       Note[]
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#6366f1")
+  createdAt DateTime  @default(now())
+
+  users     UserTag[]
+}
+
+model UserTag {
+  userId String
+  tagId  String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tagId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model SavedView {
+  id        String   @id @default(cuid())
+  name      String
+  filters   String   // JSON string of filter config
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

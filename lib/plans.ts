@@ -54,14 +54,11 @@ const monthStart = () => new Date(Date.UTC(new Date().getUTCFullYear(), new Date
 export type AccessFeature = Feature | "research_plans" | "personalization" | "attachments" | "translation";
 export type Entitlement = { enabled: boolean; monthlyLimit: number | null };
 
-/** Who usage is counted for: the machine's account, or a guest browser. */
+/** Who usage is counted for: the signed-in account, or a guest browser. */
 export type Subject = { key: string; accountId: string | null };
 
-export async function subjectFor(actor: { local: boolean; auth: { userId: string } }): Promise<Subject> {
-  if (actor.local) {
-    const account = (await pool.query("SELECT id FROM users WHERE is_local LIMIT 1")).rows[0];
-    if (account) return { key: `account:${account.id}`, accountId: account.id };
-  }
+export async function subjectFor(actor: { userId?: string | null; auth: { userId: string } }): Promise<Subject> {
+  if (actor.userId) return { key: `account:${actor.userId}`, accountId: actor.userId };
   return { key: `guest:${actor.auth.userId}`, accountId: null };
 }
 
@@ -92,7 +89,7 @@ export async function usageFor(subject: Subject): Promise<Record<string, number>
 
 export type Access = { subject: Subject; planId: string; planName: string; entitlements: Record<string, Entitlement> };
 
-export async function accessFor(actor: { local: boolean; auth: { userId: string } }): Promise<Access> {
+export async function accessFor(actor: { userId?: string | null; auth: { userId: string } }): Promise<Access> {
   const subject = await subjectFor(actor);
   const planId = await resolvePlan(subject);
   const [grants, plan] = await Promise.all([entitlements(planId), pool.query("SELECT name FROM plans WHERE id = $1", [planId])]);
@@ -175,13 +172,13 @@ export type SubscribeResult =
  * subscription because no payment provider is connected (an operator activates it with
  * `npm run plan:set`). Custom-priced plans are handled by sales.
  */
-export async function subscribe(planId: string, billing: "monthly" | "annual", region: string | null): Promise<SubscribeResult> {
+export async function subscribe(userId: string, planId: string, billing: "monthly" | "annual", region: string | null): Promise<SubscribeResult> {
   const plans = await listPlans(region);
   const plan = plans.find(p => p.id === planId);
   if (!plan) throw new Error("UNKNOWN_PLAN");
   if (plan.price === null) return { status: "contact_sales", planId };
-  const user = (await pool.query("SELECT id FROM users WHERE is_local LIMIT 1")).rows[0];
-  if (!user) throw new Error("NO_LOCAL_ACCOUNT");
+  const user = (await pool.query("SELECT id FROM users WHERE id = $1", [userId])).rows[0];
+  if (!user) throw new Error("NO_ACCOUNT");
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
@@ -208,15 +205,19 @@ export async function subscribe(planId: string, billing: "monthly" | "annual", r
   }
 }
 
-export async function currentSubscription() {
+export async function currentSubscription(userId: string) {
   const result = await pool.query(
-    `SELECT s.plan_id, s.status, s.billing, s.started_at, p.name FROM subscriptions s JOIN plans p ON p.id = s.plan_id
-     JOIN users u ON u.id = s.user_id WHERE u.is_local AND s.status IN ('active', 'pending') ORDER BY s.status`,
+    `SELECT s.plan_id, s.status, s.billing, s.started_at, s.current_period_end, s.cancel_at_period_end, s.provider, p.name FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+     WHERE s.user_id = $1 AND s.status IN ('active', 'pending') ORDER BY s.status`, [userId],
   );
   const active = result.rows.find(r => r.status === "active");
   const pending = result.rows.find(r => r.status === "pending");
   return {
-    active: active ? { planId: active.plan_id, name: active.name, billing: active.billing, since: new Date(active.started_at).toISOString() } : null,
+    active: active ? {
+      planId: active.plan_id, name: active.name, billing: active.billing, since: new Date(active.started_at).toISOString(),
+      renewsOn: active.current_period_end ? new Date(active.current_period_end).toISOString() : null,
+      cancelAtPeriodEnd: Boolean(active.cancel_at_period_end), charged: active.provider === "stripe",
+    } : null,
     pending: pending ? { planId: pending.plan_id, name: pending.name, billing: pending.billing } : null,
   };
 }

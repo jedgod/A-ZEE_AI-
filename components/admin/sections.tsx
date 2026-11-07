@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { CreateRecord, Decide, Remove, RequestApproval, UpdateField } from "@/components/admin/admin-actions";
 import { Metric, PageHeader, Section, Status, Table, when } from "@/components/admin/admin-ui";
+import { ActivityFeed } from "@/components/live/activity-feed";
+import { loadActivity } from "@/lib/admin/live";
+import { UsersConsole } from "@/components/admin/users-console";
+import { tagsByUser } from "@/lib/admin/user-tools";
 import { liveProviders, members, overview, records, tenants, usage } from "@/lib/admin/console";
 import type { PayloadMap } from "@/lib/admin/contracts";
 import { can, permissionsFor, ROLE_ORDER, type Actor } from "@/lib/admin/security";
@@ -12,7 +16,7 @@ import { can, permissionsFor, ROLE_ORDER, type Actor } from "@/lib/admin/securit
 const P = (payload: unknown) => payload as Record<string, unknown>;
 
 export async function Dashboard({ actor }: { actor: Actor }) {
-  const o = await overview(actor);
+  const [o, activity] = await Promise.all([overview(actor), loadActivity(actor, { kinds: ["admin", "pipeline", "feedback"], limit: 8 }).catch(() => null)]);
   return (
     <>
       <PageHeader eyebrow="15_ADMIN · dashboard" title="Governance dashboard"
@@ -32,9 +36,8 @@ export async function Dashboard({ actor }: { actor: Actor }) {
             <Metric label="Enabled policies" value={o.enabled_policies} />
             <Metric label="Paid plans" value={o.subscriptions.active} note={`${o.subscriptions.pending} awaiting payment`} />
           </div>
-          <Section title="Recent admin activity">
-            <Table head={["When", "Who", "Action"]} empty="No admin changes yet."
-              rows={o.audit.map(a => [when(a.at), a.actor, <code key="a" className="text-xs">{a.action}</code>])} />
+          <Section title="Live activity" note="admin changes, pipeline events, feedback">
+            <ActivityFeed compact initial={activity} />
           </Section>
         </Section>
         <Section title="Open incidents" note={`${o.open_incidents} open`}>
@@ -73,18 +76,50 @@ export async function Tenants({ actor }: { actor: Actor }) {
   );
 }
 
-export async function Users({ actor }: { actor: Actor }) {
-  const rows = await members(actor);
+const USER_VIEWS = [
+  { id: "all", name: "All users" },
+  { id: "active", name: "Active" },
+  { id: "suspended", name: "Suspended" },
+  { id: "admins", name: "Admins" },
+  { id: "online", name: "Signed in now" },
+] as const;
+
+export async function Users({ actor, query = {} }: { actor: Actor; query?: Record<string, string | string[] | undefined> }) {
+  const [all, tags] = await Promise.all([members(actor), tagsByUser(actor)]);
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const view = USER_VIEWS.some(v => v.id === one(query.view)) ? one(query.view) : "all";
+  const q = one(query.q).trim().toLowerCase().slice(0, 100);
+  const filters: Record<string, (u: (typeof all)[number]) => boolean> = {
+    all: () => true, active: u => u.status === "active", suspended: u => u.status === "suspended",
+    admins: u => u.role === "owner" || u.role === "admin", online: u => u.sessions > 0,
+  };
+  const rows = all.filter(filters[view]).filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  const href = (v: string) => `/admin/users?view=${v}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   return (
     <>
-      <PageHeader eyebrow="15_ADMIN · users" title="Access registry"
+      <PageHeader eyebrow="15_ADMIN · users" title="Users and clientele"
         description="Everyone with a membership in this tenant, with live sign-in sessions. Add or reset staff sign-ins in Operations → Team."
         actions={<Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted" href="/operations">Operations → Team</Link>} />
-      <Table head={["Person", "Email", "Role", "Status", "Active sessions"]}
-        rows={rows.map(u => [
-          <span key="n" className="font-medium">{u.name}{u.userId === actor.userId && <span className="ml-1 text-xs text-muted-foreground">(you)</span>}</span>,
-          u.email, <Status key="r" value={u.role} />, <Status key="s" value={u.status} />, u.sessions,
-        ])} />
+      <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Metric label="Total users" value={all.length} />
+        <Metric label="Active" value={all.filter(filters.active).length} />
+        <Metric label="Suspended" value={all.filter(filters.suspended).length} />
+        <Metric label="Signed in now" value={all.filter(filters.online).length} note="live sessions" />
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {USER_VIEWS.map(v => (
+          <Link key={v.id} href={href(v.id)} aria-current={view === v.id ? "page" : undefined}
+            className={`rounded-full border px-3 py-1 text-sm ${view === v.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{v.name}</Link>
+        ))}
+        <form action="/admin/users" className="ml-auto flex gap-2">
+          <input type="hidden" name="view" value={view} />
+          <input name="q" defaultValue={q} placeholder="Search name or email" aria-label="Search users" maxLength={100}
+            className="w-56 rounded-md border bg-background px-3 py-1.5 text-sm" />
+          <button className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">Search</button>
+        </form>
+      </div>
+      <UsersConsole canWrite={can(actor, "users.write")} isOwner={can(actor, "roles.write")} current={{ view, q }}
+        users={rows.map(u => ({ ...u, tags: tags.get(u.userId) ?? [], isSelf: u.userId === actor.userId }))} />
     </>
   );
 }

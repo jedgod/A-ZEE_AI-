@@ -16,7 +16,7 @@ import { health } from "@/lib/pipeline/registry";
 
 const PROVIDER_KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "MISTRALAI_API_KEY", "OPENROUTERAI_API_KEY", "TOGETHERAI_API_KEY"];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-const local = () => webActor(new Request("http://localhost:3000/api/v1/search/query", { headers: { host: "localhost:3000" } })).actor;
+const local = () => webActor(new Request("http://localhost:3000/api/v1/search/query", { headers: { host: "localhost:3000" } }), { id: "owner-1", name: "Owner", email: "o@example.com", verified: true }).actor;
 const PAGE = "The James Webb Space Telescope launched on 25 December 2021 aboard an Ariane 5 rocket from French Guiana.";
 
 describe("citation-span verification", () => {

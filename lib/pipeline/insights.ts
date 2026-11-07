@@ -17,6 +17,10 @@ export type Insights = {
   // 10 structural score vs 13 ratings for the same answers (descriptive; the rubric is uncalibrated).
   quality: { rubric: string; scored: number; buckets: ReturnType<typeof ratingBuckets> };
   styles: { style: string; count: number }[];
+  // Time series for the charts (hourly for a 24 h window, daily otherwise) and the period just before, for trends.
+  bucket: "hour" | "day";
+  series: { at: string; success: number; failure: number; p50Ms: number | null }[];
+  previous: { requests: number; failures: number; p50Ms: number | null };
 };
 
 /** Reporting periods offered by /insights and /api/insights (days). */
@@ -37,11 +41,15 @@ export async function canViewInsights(local: boolean): Promise<boolean> {
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v)));
 
-export async function loadInsights(windowHours = 24): Promise<Insights | null> {
+/** `providers` (admin detail: which AI provider served requests, and per-stage timings) is returned only to administrators. */
+export async function loadInsights(windowHours = 24, options: { providers?: boolean } = {}): Promise<Insights | null> {
   if (!process.env.DATABASE_URL) return null;
   const since = `now() - make_interval(hours => ${Math.max(1, Math.min(24 * 30, Math.floor(windowHours)))})`;
   const recent = `created_at > ${since} AND expires_at > now()`;
-  const [requests, durations, providers, stages, feedback, corrections, errors, tasks, attachments, scored, rated, styles] = await Promise.all([
+  const hours = Math.max(1, Math.min(24 * 30, Math.floor(windowHours)));
+  const bucket: "hour" | "day" = hours <= 24 ? "hour" : "day";
+  const earlier = `created_at > now() - make_interval(hours => ${hours * 2}) AND created_at <= ${since} AND expires_at > now()`;
+  const [requests, durations, providers, stages, feedback, corrections, errors, tasks, attachments, scored, rated, styles, counts, spans, before] = await Promise.all([
     pool.query(`SELECT payload->>'outcome' AS outcome, count(*)::int AS n FROM operations_records
                 WHERE module='metrics' AND payload->>'name'='request_count' AND ${recent} GROUP BY 1`),
     pool.query(`SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY (payload->>'value')::float) AS p50,
@@ -76,15 +84,33 @@ export async function loadInsights(windowHours = 24): Promise<Insights | null> {
                   AND (r.payload->>'rating')::int <> 3`, [STRUCTURE_RUBRIC]),
     pool.query(`SELECT payload->>'style' AS style, count(*)::int AS n FROM operations_records
                 WHERE module='request' AND payload ? 'style' AND ${recent} GROUP BY 1 ORDER BY 2 DESC`),
+    pool.query(`SELECT date_trunc('${bucket}', created_at) AS t, payload->>'outcome' AS outcome, count(*)::int AS n FROM operations_records
+                WHERE module='metrics' AND payload->>'name'='request_count' AND ${recent} GROUP BY 1, 2`),
+    pool.query(`SELECT date_trunc('${bucket}', created_at) AS t, percentile_cont(0.5) WITHIN GROUP (ORDER BY (payload->>'value')::float) AS p50
+                FROM operations_records WHERE module='metrics' AND payload->>'name'='request_duration_ms' AND ${recent} GROUP BY 1`),
+    pool.query(`SELECT count(*) FILTER (WHERE payload->>'name'='request_count')::int AS requests,
+                       count(*) FILTER (WHERE payload->>'name'='request_count' AND payload->>'outcome'='failure')::int AS failures,
+                       percentile_cont(0.5) WITHIN GROUP (ORDER BY (payload->>'value')::float) FILTER (WHERE payload->>'name'='request_duration_ms') AS p50
+                FROM operations_records WHERE module='metrics' AND ${earlier}`),
   ]);
+  // Fill empty buckets so charts show quiet periods as zero rather than skipping them.
+  const step = bucket === "hour" ? 3_600_000 : 86_400_000;
+  const end = Math.floor(Date.now() / step) * step;
+  const slots = bucket === "hour" ? hours : Math.ceil(hours / 24);
+  const key = (d: unknown) => Math.floor(new Date(d as string).getTime() / step) * step;
+  const series = Array.from({ length: slots }, (_, i) => {
+    const t = end - (slots - 1 - i) * step;
+    const n = (outcome: string) => counts.rows.filter(r => key(r.t) === t && r.outcome === outcome).reduce((a, r) => a + r.n, 0);
+    return { at: new Date(t).toISOString(), success: n("success"), failure: n("failure"), p50Ms: num(spans.rows.find(r => key(r.t) === t)?.p50) };
+  });
   const count = (outcome: string) => requests.rows.find(r => r.outcome === outcome)?.n ?? 0;
   const ratings = feedback.rows as { rating: number; n: number }[];
   const order = ["retrieve", "generate", "validate", "deliver"];
   return {
     windowHours,
     requests: { success: count("success"), failure: count("failure"), p50Ms: num(durations.rows[0]?.p50), p95Ms: num(durations.rows[0]?.p95) },
-    providers: providers.rows.map(r => ({ id: r.id, attempts: r.attempts, successes: r.successes, avgMs: num(r.avg), p95Ms: num(r.p95) })),
-    stages: stages.rows
+    providers: !options.providers ? [] : providers.rows.map(r => ({ id: r.id, attempts: r.attempts, successes: r.successes, avgMs: num(r.avg), p95Ms: num(r.p95) })),
+    stages: !options.providers ? [] : stages.rows
       .map(r => ({ operation: r.operation, count: r.n, avgMs: num(r.avg) ?? 0, errors: r.errors }))
       .sort((a, b) => order.indexOf(a.operation) - order.indexOf(b.operation)),
     feedback: {
@@ -101,5 +127,7 @@ export async function loadInsights(windowHours = 24): Promise<Insights | null> {
       buckets: ratingBuckets((rated.rows as { score: number; helpful: boolean }[]).filter(r => Number.isFinite(r.score))),
     },
     styles: styles.rows.map(r => ({ style: r.style, count: r.n })),
+    bucket, series,
+    previous: { requests: before.rows[0]?.requests ?? 0, failures: before.rows[0]?.failures ?? 0, p50Ms: num(before.rows[0]?.p50) },
   };
 }

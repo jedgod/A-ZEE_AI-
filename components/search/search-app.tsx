@@ -161,7 +161,7 @@ function SmartSearch({ onResearch }: { onResearch: (q: string) => void }) {
           )}
           {!!result.sources.length && <div><h3 className="mb-2 text-sm font-semibold">Sources</h3><Sources sources={result.sources} /></div>}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
-            <span>Retrieved {new Date(result.retrievedAt).toLocaleString()} via {result.provider}{result.model ? ` · answered by ${result.model}` : ""}</span>
+            <span>Retrieved {new Date(result.retrievedAt).toLocaleString()}</span>
             <Button variant="outline" size="sm" onClick={() => onResearch(result.query)}><Microscope className="h-3.5 w-3.5" />Deep research this</Button>
           </div>
         </Panel>
@@ -290,7 +290,7 @@ function DeepResearch({ seed }: { seed: string }) {
                 <li key={r.n} id={`ref-${r.n}`}><span className="font-semibold">[{r.n}]</span> <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{r.title}</a> — {r.domain}, {r.publishedAt ? `published ${day(r.publishedAt)}` : "date unknown"}, retrieved {day(r.retrievedAt)}</li>
               ))}</ol>
             </div>
-            <p className="border-t pt-3 text-xs text-muted-foreground">Generated {new Date(report.generatedAt).toLocaleString()} · sources via {report.provider}{report.model ? ` · ${report.model}` : ""}</p>
+            <p className="border-t pt-3 text-xs text-muted-foreground">Generated {new Date(report.generatedAt).toLocaleString()}</p>
           </Panel>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { accessFor, usageFor } from "@/lib/plans";
-import { webActor } from "@/lib/pipeline/actor";
+import { actorFor } from "@/lib/users/auth";
 import { errorResponse, NO_STORE } from "@/lib/staff/route";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request) {
   try {
-    const access = await accessFor(webActor(request).actor);
+    const access = await accessFor((await actorFor(request)).actor);
     const used = await usageFor(access.subject);
     return Response.json({
       data: {

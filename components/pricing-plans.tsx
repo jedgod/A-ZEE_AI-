@@ -45,16 +45,41 @@ export function PricingPlans() {
   async function choose(plan: Plan) {
     setBusy(plan.id); setMessage("");
     try {
+      const unitBilling = plan.annualPrice !== null ? billing : "monthly";
+      const shown = plan.price === null ? undefined : unitBilling === "annual" && plan.annualPrice !== null ? plan.annualPrice : plan.price;
+      // Paid plans charge the default saved payment method, so say so before doing it.
+      if (shown && shown > 0 && !window.confirm(`Subscribe to ${plan.name} for ${formatUsd(shown)}? This charges your default saved payment method now.`)) return;
       const response = await fetch("/api/subscriptions", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, billing: plan.annualPrice !== null ? billing : "monthly" }),
+        body: JSON.stringify({ planId: plan.id, billing: unitBilling, ...(shown && shown > 0 ? { expectedPrice: shown } : {}) }),
       });
       const json = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(json.error === "LOCAL_ONLY" ? "Plans can only be changed from the machine running AZ_AI." : "Couldn't change your plan. Try again.");
+      if (response.status === 401) { window.location.assign(`/signin?next=${encodeURIComponent("/pricing")}`); return; }
+      if (!response.ok && !json.data) {
+        setMessage(json.error === "RATE_LIMITED" ? "Too many attempts. Wait a minute." : "Couldn't change your plan. Try again.");
         return;
       }
       const r = json.data;
+      if (r.status === "payment_method_required") {
+        setMessage("Add a debit card, credit card or bank account first, then choose your plan again.");
+        window.setTimeout(() => window.location.assign("/account/payment-methods"), 1500);
+        return;
+      }
+      if (r.status === "price_changed") { setMessage(`The price is now ${formatUsd(r.price)}. Review it and try again.`); load(); return; }
+      if (r.status === "failed") {
+        setMessage(r.code === "insufficient_funds" ? "Your payment method has insufficient funds." : r.code === "expired_card" ? "That card has expired. Update your payment method." : "The payment didn't go through. Try another payment method.");
+        return;
+      }
+      if (r.status === "processing") { setMessage("Your payment is processing. Your plan activates as soon as it clears; bank debits can take a few days."); load(); return; }
+      if (r.status === "requires_action") {
+        // The bank wants an extra confirmation (3-D Secure). Stripe's script shows it; the webhook activates the plan.
+        const { loadStripe } = await import("@/components/user/payment-methods");
+        const stripe = (await loadStripe())(r.publishableKey);
+        const result = await stripe.handleNextAction({ clientSecret: r.clientSecret });
+        setMessage(result.error ? "Your bank couldn't confirm the payment. Try again or use another payment method." : "Payment confirmed. Your plan will activate in a moment.");
+        window.setTimeout(load, 3000);
+        return;
+      }
       setMessage(
         r.status === "active" ? `You're now on ${plan.name}.`
           : r.status === "contact_sales" ? (r.ticket ? `Thanks! Our team will contact you (request ${r.ticket}).` : "Thanks! Contact sales to set up Enterprise.")

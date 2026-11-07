@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { readJson } from "@/lib/http";
-import { localAccount } from "@/lib/accounts";
-import { anonCookie, isLocalRequest, readAnonId } from "@/lib/pipeline/actor";
+import { accountById } from "@/lib/accounts";
+import { anonCookie, readAnonId } from "@/lib/pipeline/actor";
+import { sessionUser } from "@/lib/users/auth";
 import { supportTenantId } from "@/lib/staff/auth";
 import { createComplaint, listForReporter } from "@/lib/support/complaints";
 import { errorResponse, NO_STORE, rateLimit, requireSameOrigin, uuid } from "@/lib/staff/route";
@@ -28,8 +29,9 @@ export async function POST(request: Request) {
     const reporter = existing ?? randomUUID();
     if (!await rateLimit("support", reporter, 5)) return Response.json({ error: "RATE_LIMITED" }, { status: 429, headers: { ...NO_STORE, "Retry-After": "60" } });
     const input = body.parse(await readJson(request, 20_000));
-    // On this machine the local account supplies the name and email; elsewhere the user may give them.
-    const account = isLocalRequest(request) ? await localAccount() : null;
+    // A signed-in user's account supplies the name and email; guests may give them.
+    const signedIn = await sessionUser(request);
+    const account = signedIn ? await accountById(signedIn.id) : null;
     const complaint = await createComplaint({
       tenantId, source: input.category === "feedback" ? "feedback" : "app", category: input.category, reporterRef: reporter,
       customerName: account?.name ?? (input.name || "App user"), customerContact: account?.email ?? input.contact ?? null,

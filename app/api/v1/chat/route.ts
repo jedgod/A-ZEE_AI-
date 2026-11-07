@@ -1,3 +1,4 @@
+import { canSeeProviders, publicMeta } from "@/lib/admin/provider-access";
 import { z } from "zod";
 import { authorize, PlatformError } from "@/lib/platform/auth";
 import { chatRequestSchema } from "@/lib/chat/contracts";
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     const key = await authorize(request, "chat:write");
     const input = chatRequestSchema.parse(await readJson(request, 2_000_000));
     const { answer, meta } = await answerChat(input, platformActor(key));
-    return Response.json({ data: { answer, pipeline: meta } }, { headers });
+    return Response.json({ data: { answer, pipeline: publicMeta(meta, await canSeeProviders()) } }, { headers });
   } catch (error) {
     if (error instanceof Response) return error;
     if (error instanceof InputBlockedError) return Response.json({ error: "INPUT_BLOCKED" }, { status: 422, headers });

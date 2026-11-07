@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { pool } from "@/lib/admin/db";
 
-// The sidebar account menu's data: the machine's local account (users.is_local) and its
+// The sidebar account menu's data: the signed-in user's account and its
 // workspaces, plus personalization the chat pipeline applies to answers.
 
 export const preferencesSchema = z.object({
@@ -28,9 +28,10 @@ export type Account = {
 export const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => [...w][0]).join("").toUpperCase() || "?";
 
-export async function localAccount(): Promise<Account | null> {
+/** The account menu data for one signed-in user. */
+export async function accountById(userId: string): Promise<Account | null> {
   if (!process.env.DATABASE_URL) return null;
-  const user = (await pool.query("SELECT u.id, u.name, u.email, u.avatar_initials, u.plan, u.region, u.preferences, coalesce(p.name, u.plan) AS plan_name FROM users u LEFT JOIN plans p ON p.id = u.plan WHERE u.is_local LIMIT 1")).rows[0];
+  const user = (await pool.query("SELECT u.id, u.name, u.email, u.avatar_initials, u.plan, u.region, u.preferences, coalesce(p.name, u.plan) AS plan_name FROM users u LEFT JOIN plans p ON p.id = u.plan WHERE u.id = $1", [userId])).rows[0];
   if (!user) return null;
   const workspaces = await pool.query(
     `SELECT w.id, w.name, w.is_personal, w.status, uw.role FROM workspaces w
@@ -46,28 +47,28 @@ export async function localAccount(): Promise<Account | null> {
   };
 }
 
-export async function updateLocalProfile(input: z.infer<typeof profileSchema>): Promise<Account | null> {
+export async function updateProfile(userId: string, input: z.infer<typeof profileSchema>): Promise<Account | null> {
   const result = await pool.query(
     `UPDATE users SET name = $1, email = $2, avatar_initials = $3,
        region = CASE WHEN $4::text IS NULL THEN region ELSE nullif($4, '') END, updated_at = now()
-     WHERE is_local RETURNING id`,
-    [input.name, input.email, input.avatarInitials?.toUpperCase() ?? null, input.region ?? null],
+     WHERE id = $5 RETURNING id`,
+    [input.name, input.email, input.avatarInitials?.toUpperCase() ?? null, input.region ?? null, userId],
   );
-  return result.rowCount ? localAccount() : null;
+  return result.rowCount ? accountById(userId) : null;
 }
 
-export async function updateLocalPreferences(preferences: Preferences): Promise<Account | null> {
+export async function updatePreferences(userId: string, preferences: Preferences): Promise<Account | null> {
   const result = await pool.query(
-    "UPDATE users SET preferences = $1::jsonb, updated_at = now() WHERE is_local RETURNING id",
-    [JSON.stringify(preferences)],
+    "UPDATE users SET preferences = $1::jsonb, updated_at = now() WHERE id = $2 RETURNING id",
+    [JSON.stringify(preferences), userId],
   );
-  return result.rowCount ? localAccount() : null;
+  return result.rowCount ? accountById(userId) : null;
 }
 
-/** Personalization text for the chat pipeline (local user only); empty when nothing is set. */
-export async function localPersonalization(): Promise<string> {
+/** Personalization text for the chat pipeline (signed-in users only); empty when nothing is set. */
+export async function personalizationFor(userId: string): Promise<string> {
   try {
-    const account = await localAccount();
+    const account = await accountById(userId);
     if (!account) return "";
     const { customInstructions, style } = account.preferences;
     const lines = [];

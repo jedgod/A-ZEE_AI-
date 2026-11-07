@@ -2,7 +2,8 @@ import { z } from "zod";
 import { runCorrectionCapture } from "@/13_FEEDBACK/correction_capture/module";
 import { runUserRating } from "@/13_FEEDBACK/user_rating/module";
 import { readJson } from "@/lib/http";
-import { readAnonId, webActor } from "@/lib/pipeline/actor";
+import { readAnonId } from "@/lib/pipeline/actor";
+import { actorFor } from "@/lib/users/auth";
 import { feedbackRepository, ownsRequest } from "@/lib/pipeline/operations";
 import { PiiVault } from "@/lib/pipeline/preprocess";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   if (!readAnonId(request)) return Response.json({ error: "UNKNOWN_REQUEST" }, { status: 404, headers });
   try {
     const body = bodySchema.parse(await readJson(request, 20_000));
-    const { auth } = webActor(request).actor;
+    const { auth } = (await actorFor(request)).actor;
     // Only the browser that received the answer may rate it; others get the same 404.
     if (!await ownsRequest(auth, body.requestId)) return Response.json({ error: "UNKNOWN_REQUEST" }, { status: 404, headers });
     if (body.rating !== undefined) await runUserRating(auth, { requestId: body.requestId, rating: body.rating }, feedbackRepository);

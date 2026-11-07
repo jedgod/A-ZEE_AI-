@@ -1,3 +1,4 @@
+import { canSeeProviders } from "@/lib/admin/provider-access";
 import { isLocalRequest } from "@/lib/pipeline/actor";
 import { canViewInsights, loadInsights, parseDays } from "@/lib/pipeline/insights";
 
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
   const days = parseDays(params.get("days") ?? 1);
   if (!days) return Response.json({ error: "INVALID_PERIOD", allowed: [1, 7, 30] }, { status: 422, headers });
   try {
-    const data = await loadInsights(days * 24);
+    const data = await loadInsights(days * 24, { providers: await canSeeProviders() });
     if (!data) return Response.json({ error: "INSIGHTS_UNAVAILABLE" }, { status: 503, headers });
     const body = { data: { periodDays: days, generatedAt: new Date().toISOString(), ...data } };
     if (params.get("download") !== "1") return Response.json(body, { headers });

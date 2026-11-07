@@ -93,7 +93,9 @@ describe("public chat route", () => {
       expect(response.status).toBe(200);
       const payload = await response.json();
       expect(payload.data.answer).toBe("Anthropic routed response");
-      expect(payload.data.pipeline).toMatchObject({ provider: "Anthropic", attempts: 2, task: "code" });
+      expect(payload.data.pipeline).toMatchObject({ task: "code" });
+      expect(payload.data.pipeline).not.toHaveProperty("provider");
+      expect(payload.data.pipeline).not.toHaveProperty("attempts");
       const modelCalls = fetchMock.mock.calls.map(([u]) => String(u instanceof Request ? u.url : u)).filter(u => !u.endsWith("/v1/moderations"));
       expect(modelCalls).toEqual(["https://api.openai.com/v1/responses", "https://api.anthropic.com/v1/messages"]);
     } finally {

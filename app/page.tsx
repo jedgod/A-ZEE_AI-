@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  ArrowUp, BarChart3, ChevronDown, FolderPlus, MessageSquarePlus, Clock, Code, File, FileText, Image as ImageIcon, Menu, Moon,
-  PanelLeftClose, PanelLeftOpen, Plus, Settings, Sparkles, Square, Sun, X,
+  ArrowUp, BarChart3, ChevronDown, FolderPlus, MessageSquarePlus, Code, File, FileText, Image as ImageIcon, Menu, Moon,
+  PanelLeftClose, PanelLeftOpen, Plus, Settings, Square, Sun, X,
 } from "lucide-react";
 import styles from "./workspace.module.css";
 import { AnswerFeedback } from "@/components/answer-feedback";
@@ -15,6 +15,8 @@ import { useAccess } from "@/components/use-access";
 import { MessageContent } from "@/components/message-content";
 import { DevCanvas } from "@/components/dev-canvas";
 import { MoreMenu } from "@/components/more-menu";
+import { UserIconRail } from "@/components/user/icon-rail";
+import { VerifyBanner } from "@/components/user/verify-banner";
 import { ShareMenu } from "@/components/share-menu";
 import { ANSWER_STYLES, MAX_MESSAGE_CHARACTERS, type AnswerStyle } from "@/lib/chat/contracts";
 import { readChatResponse } from "@/lib/chat/sse";
@@ -203,6 +205,8 @@ export default function WorkspacePage() {
     // "Open in new tab" from the sidebar: /?chat=<id> or /?project=<id>.
     const params = new URLSearchParams(window.location.search);
     const openChat = params.get("chat"), openProject = params.get("project");
+    const usePrompt = params.get("prompt");
+    if (usePrompt) { setInput(usePrompt.slice(0, 4000)); window.history.replaceState(null, "", window.location.pathname + window.location.hash); }
     if (openChat || openProject) {
       window.history.replaceState(null, "", window.location.pathname + window.location.hash);
       if (openProject) toggleProject(openProject, true);
@@ -1024,13 +1028,8 @@ export default function WorkspacePage() {
 
   return (
     <div className={styles.app} data-theme={theme}>
-      <nav className={styles.rail} aria-label="Quick actions">
-        <button className={styles.railButton} onClick={newChat} aria-label="Ask AZ_AI" title="Ask AZ_AI"><Sparkles size={20} /></button>
-        <button className={styles.railButton} onClick={showRecent} aria-label="Recent conversations" title="Recent conversations"><Clock size={20} /></button>
-        <a className={styles.railButton} href="/insights" aria-label="Insights" title="Insights: pipeline activity and feedback"><BarChart3 size={20} /></a>
-        <div className={styles.railSpacer} />
-        <button className={styles.railButton} onClick={() => setDialog("settings")} aria-label="Workspace settings" title="Settings"><Settings size={20} /></button>
-      </nav>
+      <UserIconRail styles={styles} onNewChat={newChat} onRecent={showRecent} />
+      <VerifyBanner />
 
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""} ${collapsed ? styles.collapsed : ""}`}>
         <div className={styles.sidebarHeader}>

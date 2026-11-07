@@ -1,8 +1,8 @@
 import "server-only";
 import { z } from "zod";
-import { localAccount } from "@/lib/accounts";
 import { readJson } from "@/lib/http";
-import { isLocalRequest } from "@/lib/pipeline/actor";
+import { sessionUser, strictOrigin } from "@/lib/users/auth";
+import { UserError } from "@/lib/users/types";
 import { SidebarError } from "@/lib/sidebar";
 
 // Shared by /api/sidebar, /api/projects and /api/chats.
@@ -10,19 +10,17 @@ import { SidebarError } from "@/lib/sidebar";
 export const NO_STORE = { "Cache-Control": "no-store" };
 
 /**
- * The account that owns the sidebar: this machine's signed-in local user (same rule as chat).
- * Anyone else gets 401 and the browser keeps its local-only sidebar.
+ * The signed-in account that owns the sidebar. Guests get 401 and the browser keeps its
+ * local-only sidebar. Writes also need a same-origin request.
  */
 export async function sidebarOwner(request: Request, mutation = false): Promise<string> {
   if (!process.env.DATABASE_URL) throw new SidebarError(503, "SIDEBAR_UNAVAILABLE");
   if (mutation) {
-    const origin = request.headers.get("origin");
-    if (origin && origin !== (process.env.APP_ORIGIN || "http://localhost:3000")) throw new SidebarError(403, "INVALID_ORIGIN");
+    try { strictOrigin(request); } catch (error) { if (error instanceof UserError) throw new SidebarError(error.status, error.code); throw error; }
   }
-  if (!isLocalRequest(request)) throw new SidebarError(401, "SIGN_IN_REQUIRED");
-  const account = await localAccount();
-  if (!account) throw new SidebarError(401, "ACCOUNT_REQUIRED");
-  return account.id;
+  const user = await sessionUser(request);
+  if (!user) throw new SidebarError(401, "SIGN_IN_REQUIRED");
+  return user.id;
 }
 
 /** JSON body; chats with messages need more room than metadata (default 64 KB). */

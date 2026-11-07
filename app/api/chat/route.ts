@@ -1,7 +1,9 @@
+import { canSeeProviders, publicMeta } from "@/lib/admin/provider-access";
 import { chatRequestSchema } from "@/lib/chat/contracts";
 import { chatAllowed, chatError, sameOrigin } from "@/lib/chat/web";
 import { answerChat } from "@/lib/pipeline";
-import { anonCookie, webActor } from "@/lib/pipeline/actor";
+import { anonCookie } from "@/lib/pipeline/actor";
+import { actorFor } from "@/lib/users/auth";
 import { readJson } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -15,9 +17,9 @@ export async function POST(request: Request) {
       status: 429, headers: { ...headers, "Retry-After": "60" },
     });
     const input = chatRequestSchema.parse(await readJson(request, 2_000_000));
-    const { actor, newAnonId } = webActor(request);
+    const { actor, newAnonId } = await actorFor(request);
     const { answer, meta } = await answerChat(input, actor);
-    return Response.json({ data: { answer, pipeline: meta } }, {
+    return Response.json({ data: { answer, pipeline: publicMeta(meta, await canSeeProviders()) } }, {
       headers: { ...headers, ...(newAnonId ? { "Set-Cookie": anonCookie(newAnonId) } : {}) },
     });
   } catch (error) {

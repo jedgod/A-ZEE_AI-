@@ -2,7 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DryRun } from "@/components/admin/dry-run";
 import { PageHeader, Section, Status, Table } from "@/components/admin/admin-ui";
+import { PipelineFlow } from "@/components/live/pipeline-flow";
 import { consoleActor } from "@/lib/admin/console";
+import { ProvidersPanel } from "@/components/live/providers-panel";
+import { loadProviders } from "@/lib/admin/providers";
+import { can } from "@/lib/admin/security";
+import { loadStageLive } from "@/lib/admin/live";
 import { configView, recordsView, type ViewBlock } from "@/lib/admin/pipeline";
 import { CATALOG, findModule, STAGE_NAMES } from "@/lib/admin/pipeline-catalog";
 
@@ -53,24 +58,17 @@ export async function PipelineModulePage({ slug }: { slug: string }) {
 }
 
 export async function PipelineIndexPage() {
-  await consoleActor();
-  const stages = [...new Set(CATALOG.map(m => m.stage))];
+  const actor = await consoleActor();
+  const initial = await loadStageLive(actor).catch(() => null);
+  const showProviders = can(actor, "users.write");
+  const providers = showProviders ? await loadProviders(actor, 1).catch(() => null) : null;
   const count = (s: string) => CATALOG.filter(m => m.status === s).length;
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader eyebrow="Pipeline · stage modules" title="Pipeline stages"
-        description={`${CATALOG.length} modules: ${count("connected")} connected, ${count("partial")} partly, ${count("not_connected")} not connected. Open a module for its live configuration, recent metadata, and a dry run where it's deterministic.`} />
-      {stages.map(stage => (
-        <Section key={stage} title={`${stage} · ${STAGE_NAMES[stage]}`}>
-          <Table head={["Module", "Status", "In the app", "Try it"]}
-            rows={CATALOG.filter(m => m.stage === stage).map(m => [
-              <Link key="l" href={`/admin/pipeline/${m.slug}`} className="font-medium underline-offset-4 hover:underline">{m.title}</Link>,
-              <Status key="s" value={m.status} />,
-              <span key="u" className="text-muted-foreground">{m.status === "connected" ? m.summary : m.needs ?? m.summary}</span>,
-              m.dryRun ? "yes" : "—",
-            ])} />
-        </Section>
-      ))}
+        description={`${CATALOG.length} modules: ${count("connected")} connected, ${count("partial")} partly, ${count("not_connected")} not connected. Each stage shows its last 24 hours live; open a stage to reach its modules, live configuration, recent metadata and dry runs.`} />
+      {showProviders && <ProvidersPanel initial={providers} />}
+      <PipelineFlow initial={initial} />
     </div>
   );
 }

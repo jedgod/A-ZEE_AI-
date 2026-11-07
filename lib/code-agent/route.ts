@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import { chatError } from "@/lib/chat/web";
-import { webActor, type RequestActor } from "@/lib/pipeline/actor";
+import type { RequestActor } from "@/lib/pipeline/actor";
+import { actorFor } from "@/lib/users/auth";
 import { SidebarError } from "@/lib/sidebar";
 import { NO_STORE, sidebarOwner } from "@/lib/sidebar-route";
 import { CodeAgentError } from "./paths";
@@ -17,7 +18,7 @@ export async function codeAgentRoute(request: Request, mutation: boolean, work: 
   try {
     if (mutation && request.headers.get(CSRF_HEADER) !== "1") return reply(403, { error: "CSRF_HEADER_REQUIRED" });
     const owner = await sidebarOwner(request, mutation);
-    return await work({ owner, actor: webActor(request).actor });
+    return await work({ owner, actor: (await actorFor(request)).actor });
   } catch (error) {
     if (error instanceof CodeAgentError) return reply(error.status, { error: error.code, ...(error.detail !== undefined ? { detail: error.detail } : {}) });
     if (error instanceof SidebarError) return reply(error.status, { error: error.code });

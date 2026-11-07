@@ -4,6 +4,7 @@ import { requireHostActor } from "@/lib/admin/host-auth";
 
 const ADMIN_SECTIONS = [
   ["dashboard", "Dashboard"],
+  ["activity", "Activity"],
   ["tenants", "Tenants"],
   ["users", "Users"],
   ["roles", "Roles"],

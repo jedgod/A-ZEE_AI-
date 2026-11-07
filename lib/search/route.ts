@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import { chatError } from "@/lib/chat/web";
-import { webActor, type RequestActor } from "@/lib/pipeline/actor";
+import type { RequestActor } from "@/lib/pipeline/actor";
+import { actorFor } from "@/lib/users/auth";
 import { ResearchError } from "@/lib/research/jobs";
 import { SidebarError } from "@/lib/sidebar";
 import { NO_STORE, sidebarOwner } from "@/lib/sidebar-route";
@@ -13,7 +14,7 @@ import { SearchNotConfiguredError, SearchUnavailableError } from "./tavily";
 export async function searchRoute(request: Request, mutation: boolean, work: (ctx: { owner: string; actor: RequestActor }) => Promise<Response>) {
   try {
     const owner = await sidebarOwner(request, mutation);
-    return await work({ owner, actor: webActor(request).actor });
+    return await work({ owner, actor: (await actorFor(request)).actor });
   } catch (error) {
     const reply = (status: number, body: Record<string, unknown>) => Response.json(body, { status, headers: NO_STORE });
     if (error instanceof SearchNotConfiguredError) {

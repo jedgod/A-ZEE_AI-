@@ -13,8 +13,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const chatReply = (text: string) => json({ choices: [{ message: { content: text } }] });
 const urlOf = (u: unknown) => String(u instanceof Request ? u.url : u);
 
-const local = (): RequestActor => webActor(new Request("http://localhost:3000/api/chat", { headers: { host: "localhost:3000" } })).actor;
-const guest = (): RequestActor => webActor(new Request("https://az.example.com/api/chat", { headers: { host: "az.example.com" } })).actor;
+const local = (): RequestActor => webActor(new Request("http://localhost:3000/api/chat", { headers: { host: "localhost:3000" } }), { id: "owner-1", name: "Owner", email: "o@example.com", verified: true }).actor;
+const guest = (): RequestActor => webActor(new Request("https://az.example.com/api/chat", { headers: { host: "az.example.com" } }), null).actor;
 
 describe("02 preprocess (TypeScript port)", () => {
   it("normalizes without touching case, indentation, or inner spacing", () => {
@@ -74,7 +74,7 @@ describe("actors (00_META identities)", () => {
     const id = "6f1c2b8a-3d4e-4f5a-9b6c-7d8e9f0a1b2c";
     const request = new Request("http://localhost/x", { headers: { cookie: `a=1; az_uid=${id}` } });
     expect(readAnonId(request)).toBe(id);
-    expect(webActor(request).newAnonId).toBeNull();
+    expect(webActor(request, null).newAnonId).toBeNull();
     expect(readAnonId(new Request("http://localhost/x", { headers: { cookie: "az_uid=../../etc" } }))).toBeNull();
   });
 });
