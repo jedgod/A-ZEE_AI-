@@ -1,10 +1,10 @@
 import { trackAuth } from "@/lib/abuse/signals";
 import { readJson } from "@/lib/http";
-import { register, sessionCookie, userFailure } from "@/lib/users/auth";
+import { isMobileClient, MOBILE_SESSION_DAYS, register, sessionCookie, userFailure } from "@/lib/users/auth";
 
 export const runtime = "nodejs";
 
-/** POST /api/auth/register { name, email, password, fingerprint? }: creates the account and signs it in. */
+/** POST /api/auth/register { name, email, password, fingerprint? }: creates the account and signs it in. The mobile app also gets its token in the body. */
 export async function POST(request: Request) {
   try {
     const body = await readJson(request, 4_000);
@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     const headers = new Headers({ "Cache-Control": "no-store" });
     headers.append("Set-Cookie", sessionCookie(token));
     if (device) headers.append("Set-Cookie", device);
-    return Response.json({ data: { user } }, { status: 201, headers });
+    const mobile = isMobileClient(request);
+    return Response.json({ data: { user, ...(mobile ? { token, expiresInDays: MOBILE_SESSION_DAYS } : {}) } }, { status: 201, headers });
   } catch (error) { return userFailure(error); }
 }

@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { pool, transaction } from "@/lib/admin/db";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/staff/password";
-import { allow, clientKey, requireUser, sessionUser, sha, strictOrigin, USER_COOKIE } from "./auth";
+import { allow, clientKey, requireUser, sessionUser, sha, strictOrigin, tokenFrom } from "./auth";
 import { sendResetEmail, sendVerificationEmail } from "./mail";
 import { consumeToken, createToken } from "./tokens";
 import { UserError } from "./types";
@@ -81,7 +81,7 @@ export async function changePassword(request: Request, raw: unknown) {
   if (!row || !await verifyPassword(current, row.password_hash)) throw new UserError(403, "WRONG_PASSWORD");
   if (current === next) throw new UserError(422, "SAME_PASSWORD");
   const hash = await hashPassword(next);
-  const cookie = request.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${USER_COOKIE}=([a-f0-9]{64})(?:;|$)`))?.[1];
+  const cookie = tokenFrom(request); // this device's session (cookie or Bearer) stays signed in
   await transaction(async db => {
     await db.query(`UPDATE user_credentials SET password_hash = $2, failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE user_id = $1`, [user.id, hash]);
     await revokeAll(db as never, user.id, cookie ? sha(cookie) : undefined);

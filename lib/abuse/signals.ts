@@ -37,6 +37,9 @@ export function clientInfo(request: Request) {
 
 /** The browser's long-lived device id. The server issues it, so a client can't choose its own. */
 export function deviceCookie(request: Request): { id: string; setCookie: string | null } {
+  // The mobile app has no cookie jar to rely on: it keeps its own random install id and sends it.
+  const installId = request.headers.get("x-az-client") === "mobile" ? request.headers.get("x-az-device")?.match(/^[a-f0-9]{32}$/)?.[0] : undefined;
+  if (installId) return { id: installId, setCookie: null };
   const existing = request.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${DEVICE_COOKIE}=([a-f0-9]{32})(?:;|$)`))?.[1];
   if (existing) return { id: existing, setCookie: null };
   const id = randomBytes(16).toString("hex");
@@ -110,8 +113,8 @@ export async function evaluateUser(userId: string): Promise<{ walled: boolean; l
   const links = await linkedFor(userId);
   const exhausted = links.filter(l => l.exhausted).length;
   const r = await pool.query(
-    `INSERT INTO abuse_flags (user_id, walled, linked_accounts, exhausted_linked) VALUES ($1, $2 >= $3, $4, $2)
-     ON CONFLICT (user_id) DO UPDATE SET walled = (NOT abuse_flags.allowed) AND EXCLUDED.exhausted_linked >= $3,
+    `INSERT INTO abuse_flags (user_id, walled, linked_accounts, exhausted_linked) VALUES ($1, $2::int >= $3::int, $4::int, $2::int)
+     ON CONFLICT (user_id) DO UPDATE SET walled = (NOT abuse_flags.allowed) AND EXCLUDED.exhausted_linked >= $3::int,
        linked_accounts = EXCLUDED.linked_accounts, exhausted_linked = EXCLUDED.exhausted_linked, evaluated_at = now()
      RETURNING walled`, [userId, exhausted, clusterLimit(), links.length]);
   return { walled: Boolean(r.rows[0].walled), linked: links.length, exhausted };
@@ -156,7 +159,7 @@ export async function listFlagged(q = "") {
     rows.push({
       userId: row.user_id as string, email: row.email as string, name: row.name as string, walled: row.walled as boolean, allowed: row.allowed as boolean,
       note: (row.note as string | null) ?? null, linked: row.linked_accounts as number, exhaustedLinked: row.exhausted_linked as number, evaluatedAt: new Date(row.evaluated_at).toISOString(),
-      links: links.map(l => ({ email: names.find(n => n.id === l.userId)?.email ?? "unknown", reasons: l.reasons, exhausted: l.exhausted })),
+      links: links.map(l => ({ email: names.find(n => n.id === l.userId)?.email ?? (l.userId.startsWith("deleted:") ? "deleted account" : "unknown"), reasons: l.reasons, exhausted: l.exhausted })),
     });
   }
   return rows;

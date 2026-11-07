@@ -83,6 +83,8 @@ export const getPaymentIntent = (id: string) => call<StripePaymentIntent>("GET",
 
 export const getPaymentMethod = (id: string) => call<StripePaymentMethod>("GET", `/payment_methods/${encodeURIComponent(id)}`);
 export const getSetupIntent = (id: string) => call<StripeSetupIntent>("GET", `/setup_intents/${encodeURIComponent(id)}`);
+/** Deletes the Stripe customer, which also detaches every saved card and bank account. */
+export const deleteCustomer = (id: string) => call("DELETE", `/customers/${encodeURIComponent(id)}`);
 export const detachPaymentMethod = (id: string) => call("POST", `/payment_methods/${encodeURIComponent(id)}/detach`);
 export const setDefaultPaymentMethod = (customer: string, paymentMethod: string) =>
   call("POST", `/customers/${encodeURIComponent(customer)}`, { invoice_settings: { default_payment_method: paymentMethod } });

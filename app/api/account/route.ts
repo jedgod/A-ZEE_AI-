@@ -1,6 +1,7 @@
 import { readJson } from "@/lib/http";
 import { accountById, profileSchema, updateProfile } from "@/lib/accounts";
-import { requireUser, sessionUser, userFailure } from "@/lib/users/auth";
+import { clearedCookie, requireUser, sessionUser, userFailure } from "@/lib/users/auth";
+import { deleteAccount } from "@/lib/users/deletion";
 import { currentStaff } from "@/lib/staff/auth";
 import { errorResponse, NO_STORE, requireSameOrigin } from "@/lib/staff/route";
 
@@ -18,9 +19,22 @@ export async function GET(request: Request) {
         account,
         staff: staff && { name: staff.name, email: staff.email, role: staff.role },
         links: { terms: process.env.TERMS_URL || null, privacy: process.env.PRIVACY_URL || null, help: process.env.HELP_URL || null },
+        apps: { ios: process.env.APP_STORE_URL || null, android: process.env.PLAY_STORE_URL || null },
       },
     }, { headers: NO_STORE });
   } catch (error) { return errorResponse(error); }
+}
+
+/**
+ * DELETE { password, confirm: "DELETE" }: permanently deletes the signed-in account and its data
+ * (see lib/users/deletion.ts for what is removed and what is kept, unlinked, for accounting and
+ * abuse prevention). Used by the web page /account/delete and the mobile app.
+ */
+export async function DELETE(request: Request) {
+  try {
+    await deleteAccount(request, await readJson(request, 1_000));
+    return Response.json({ data: { ok: true } }, { headers: { ...NO_STORE, "Set-Cookie": clearedCookie() } });
+  } catch (error) { return userFailure(error); }
 }
 
 /** Edit the signed-in account's profile (Profile in the account menu). */

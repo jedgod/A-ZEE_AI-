@@ -37,10 +37,22 @@ export const signInSchema = z.object({
 const appOrigin = () => process.env.APP_ORIGIN || "http://localhost:3000";
 const secure = () => appOrigin().startsWith("https://");
 
-/** Writes must come from this app's own pages. A missing Origin is accepted only for same-origin fetches. */
+/**
+ * The A-Zee mobile app sends `X-AZ-Client: mobile`. A native app has no Origin header, and a web
+ * page can't add that custom header to a cross-site request (the browser would need a CORS
+ * preflight, and this API never allows one), so it works as the app's proof of origin. Sessions
+ * for the app travel as `Authorization: Bearer <token>`, not cookies, so there is nothing for a
+ * cross-site request to ride on either.
+ */
+export const isMobileClient = (request: Request) => request.headers.get("x-az-client") === "mobile";
+export const MOBILE_SESSION_DAYS = 60;
+const sessionDaysFor = (request: Request) => (isMobileClient(request) ? MOBILE_SESSION_DAYS : SESSION_DAYS);
+
+/** Writes must come from this app's own pages (or the mobile app). A missing Origin is accepted only for same-origin fetches. */
 export function strictOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (origin) { if (origin !== appOrigin()) throw new UserError(403, "INVALID_ORIGIN"); return; }
+  if (isMobileClient(request)) return;
   const site = request.headers.get("sec-fetch-site");
   if (site !== "same-origin" && site !== "none") throw new UserError(403, "INVALID_ORIGIN");
 }
@@ -66,14 +78,17 @@ export function sessionCookie(token: string) {
 }
 export const clearedCookie = () => `${USER_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure() ? "; Secure" : ""}`;
 
-function tokenFrom(request: Request): string | null {
+/** The session token this request carries: a Bearer token (the mobile app) or the session cookie (browsers). */
+export function tokenFrom(request: Request): string | null {
+  const bearer = request.headers.get("authorization")?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
+  if (bearer) return bearer;
   const match = request.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${USER_COOKIE}=([a-f0-9]{64})(?:;|$)`));
   return match ? match[1] : null;
 }
 
-export async function createSession(userId: string, db: { query: (text: string, values?: unknown[]) => Promise<unknown> } = pool): Promise<string> {
+export async function createSession(userId: string, db: { query: (text: string, values?: unknown[]) => Promise<unknown> } = pool, days = SESSION_DAYS): Promise<string> {
   const token = randomBytes(32).toString("hex");
-  await db.query(`INSERT INTO user_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, now() + make_interval(days => $3))`, [sha(token), userId, SESSION_DAYS]);
+  await db.query(`INSERT INTO user_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, now() + make_interval(days => $3))`, [sha(token), userId, days]);
   // Keep only the newest sessions per user, so a leaked-and-forgotten login can't pile up.
   await db.query(
     `DELETE FROM user_sessions WHERE user_id = $1 AND token_hash NOT IN
@@ -145,7 +160,7 @@ export async function register(request: Request, raw: unknown): Promise<{ token:
     }
     await db.query(`INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)`, [id, hash]);
     await db.query(`INSERT INTO notifications (user_id, title, body) VALUES ($1, 'Welcome to AZ_AI', 'Your account is ready. Chats, favorites, projects and your prompt library are saved to it.')`, [id]);
-    const token = await createSession(id, db);
+    const token = await createSession(id, db, sessionDaysFor(request));
     const claimed = Boolean(existing);
     const verifyToken = claimed ? null : await createToken(db, id, "verify");
     return { token, user: { id, name: input.name, email: input.email, verified: claimed }, verifyToken };
@@ -172,7 +187,7 @@ export async function signIn(request: Request, raw: unknown): Promise<{ token: s
     throw new UserError(401, "INVALID_CREDENTIALS");
   }
   await pool.query(`UPDATE user_credentials SET failed_attempts = 0, locked_until = NULL WHERE user_id = $1`, [row.id]);
-  return { token: await createSession(row.id), user: { id: row.id, name: row.name, email: row.email, verified: Boolean(row.verified) } };
+  return { token: await createSession(row.id, pool, sessionDaysFor(request)), user: { id: row.id, name: row.name, email: row.email, verified: Boolean(row.verified) } };
 }
 
 export async function signOut(request: Request) {

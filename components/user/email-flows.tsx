@@ -138,6 +138,7 @@ export function Security() {
         <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Change password"}</Button>
       </Card></form>
       <Card title="Sign out everywhere" intro="Ends every session on every device, including this one."><Button variant="outline" onClick={everywhere}>Sign out of all devices</Button></Card>
+      <Card title="Delete account" intro="Permanently delete your account and its data. This can't be undone."><Button asChild variant="outline"><Link href="/account/delete">Delete my account…</Link></Button></Card>
     </div>
   );
 }
