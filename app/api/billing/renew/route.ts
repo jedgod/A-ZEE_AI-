@@ -1,3 +1,4 @@
+import { purgeOldSignals } from "@/lib/abuse/signals";
 import { cronAuthorized, renewDue } from "@/lib/payments/checkout";
 
 export const runtime = "nodejs";
@@ -14,7 +15,10 @@ export async function POST(request: Request) {
   if (!process.env.BILLING_CRON_SECRET) return Response.json({ error: "BILLING_NOT_CONFIGURED" }, { status: 503, headers });
   if (!cronAuthorized(request.headers.get("authorization"))) return Response.json({ error: "UNAUTHORIZED" }, { status: 401, headers });
   try {
-    return Response.json({ data: await renewDue() }, { headers });
+    const renewals = await renewDue();
+    // Same scheduler run: abuse-prevention signals are deleted after 90 days.
+    const purged = await purgeOldSignals().catch(() => 0);
+    return Response.json({ data: { ...renewals, signalsPurged: purged } }, { headers });
   } catch (error) {
     console.error("renewal run failed:", (error as Error).message);
     return Response.json({ error: "SERVICE_UNAVAILABLE" }, { status: 503, headers });

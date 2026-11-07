@@ -7,6 +7,7 @@ const ADMIN_SECTIONS = [
   ["activity", "Activity"],
   ["tenants", "Tenants"],
   ["users", "Users"],
+  ["linked-accounts", "Linked accounts"],
   ["roles", "Roles"],
   ["approvals", "Approvals"],
   ["policies", "Policies"],

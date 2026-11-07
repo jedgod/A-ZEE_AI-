@@ -24,10 +24,12 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1).max(100),
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().max(200),
+  fingerprint: z.string().max(64).optional(), // a browser hash; used only for abuse prevention (lib/abuse)
 }).strict();
 export const signInSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(200),
+  fingerprint: z.string().max(64).optional(),
 }).strict();
 
 // ---- request hygiene ----

@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { browserFingerprint } from "@/lib/users/fingerprint";
 
 const MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: "Email or password is incorrect.",
@@ -31,11 +32,12 @@ export function AuthForm({ mode, next }: { mode: "signin" | "register"; next: st
     const form = new FormData(event.currentTarget);
     setBusy(true); setError("");
     try {
+      const fingerprint = await browserFingerprint(); // an abuse-prevention hint; see the privacy notice
       const res = await fetch(register ? "/api/auth/register" : "/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(register
-          ? { name: form.get("name"), email: form.get("email"), password: form.get("password") }
-          : { email: form.get("email"), password: form.get("password") }),
+          ? { name: form.get("name"), email: form.get("email"), password: form.get("password"), fingerprint }
+          : { email: form.get("email"), password: form.get("password"), fingerprint }),
       });
       if (!res.ok) { const data = await res.json().catch(() => ({})); setError(MESSAGES[data.error] ?? "Something went wrong. Try again."); return; }
       const body = await res.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { pool } from "@/lib/admin/db";
+import { isWalled, markQuotaExhausted } from "@/lib/abuse/signals";
 import { getRegionalPrice, normalizeRegion } from "@/lib/pricing";
 
 // Plans, subscriptions, and monthly usage limits (migration 008).
@@ -87,13 +88,17 @@ export async function usageFor(subject: Subject): Promise<Record<string, number>
   return Object.fromEntries(result.rows.map(r => [r.feature, r.used]));
 }
 
-export type Access = { subject: Subject; planId: string; planName: string; entitlements: Record<string, Entitlement> };
+/** `walled`: this free account is linked to others that already used their free allowance (lib/abuse/signals). */
+export type Access = { subject: Subject; planId: string; planName: string; entitlements: Record<string, Entitlement>; walled?: boolean };
 
 export async function accessFor(actor: { userId?: string | null; auth: { userId: string } }): Promise<Access> {
   const subject = await subjectFor(actor);
   const planId = await resolvePlan(subject);
-  const [grants, plan] = await Promise.all([entitlements(planId), pool.query("SELECT name FROM plans WHERE id = $1", [planId])]);
-  return { subject, planId, planName: plan.rows[0]?.name ?? planId, entitlements: grants };
+  const [grants, plan, walled] = await Promise.all([
+    entitlements(planId), pool.query("SELECT name FROM plans WHERE id = $1", [planId]),
+    subject.accountId && planId === "free" ? isWalled(subject.accountId) : Promise.resolve(false),
+  ]);
+  return { subject, planId, planName: plan.rows[0]?.name ?? planId, entitlements: grants, walled };
 }
 
 export const can = (access: Access | null, feature: AccessFeature) => !access || access.entitlements[feature]?.enabled === true;
@@ -117,6 +122,12 @@ export type Reservation = { refund(): Promise<void> };
  * UpgradeRequiredError (403) or PlanLimitError (429). Call refund() if the request then fails.
  */
 export async function reserveUsage(access: Access, features: AccessFeature[]): Promise<Reservation> {
+  // The free-plan upgrade wall: a soft limit (never a ban) for accounts linked to others that
+  // already used their free allowance. Paid plans and administrator-cleared accounts skip it.
+  if (access.walled && access.planId === "free" && features.length) {
+    await audit(access.subject, features[0], "upgrade_required", access.planId);
+    throw new UpgradeRequiredError(features[0], access.planName);
+  }
   const counted: string[] = [];
   const db = await pool.connect();
   try {
@@ -140,6 +151,7 @@ export async function reserveUsage(access: Access, features: AccessFeature[]): P
       if (!admitted) {
         await db.query("ROLLBACK");
         await audit(access.subject, feature, "quota_exceeded", access.planId);
+        if (access.subject.accountId && access.planId === "free") await markQuotaExhausted(access.subject.accountId, feature).catch(() => undefined);
         throw new PlanLimitError(feature, grant.monthlyLimit, access.planName);
       }
       counted.push(feature);

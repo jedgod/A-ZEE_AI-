@@ -16,6 +16,7 @@ import { MessageContent } from "@/components/message-content";
 import { DevCanvas } from "@/components/dev-canvas";
 import { MoreMenu } from "@/components/more-menu";
 import { UserIconRail } from "@/components/user/icon-rail";
+import { SignalPing } from "@/components/user/signal-ping";
 import { VerifyBanner } from "@/components/user/verify-banner";
 import { ShareMenu } from "@/components/share-menu";
 import { ANSWER_STYLES, MAX_MESSAGE_CHARACTERS, type AnswerStyle } from "@/lib/chat/contracts";
@@ -1006,6 +1007,13 @@ export default function WorkspacePage() {
         <>
           <p>{serverSidebar ? "Chats (with their messages) and projects are saved to your account on this computer; this browser also keeps copies of recent chats. Deleting a chat from the sidebar deletes it from your account." : "History is saved in this browser."} Messages and attachments are sent to the configured AI provider to generate answers.</p>
           {serverSidebar && <p>“Clear local history” removes this browser’s copies only.</p>}
+          <p><strong>Preventing abuse of the free plan.</strong> When you sign up, sign in or use the app we keep a small amount of technical information:</p>
+          <ul style={{ margin: "6px 0 6px 18px", listStyle: "disc" }}>
+            <li><strong>Device cookie:</strong> a random id in an HttpOnly cookie, so we can recognize the same browser.</li>
+            <li><strong>Browser fingerprint:</strong> a hash of basic properties (browser, language, screen size, time zone). It isn’t used to identify you across the internet.</li>
+            <li><strong>IP address:</strong> recorded only when a trusted proxy reports it, and never used on its own to link accounts.</li>
+          </ul>
+          <p>This is used only to spot several free accounts on one device after the free allowance has been used, in which case we may ask you to upgrade. Paying customers are never affected, and no one is banned for this. We don’t sell this information or use it for advertising. It is deleted after 90 days.</p>
           <button disabled={busy} className={styles.outline} onClick={() => {
             try { localStorage.removeItem("az-user-conversations"); setHistory([]); newChat(); notify("History cleared"); setDialog(null); }
             catch { notify("Storage unavailable"); }
@@ -1030,6 +1038,7 @@ export default function WorkspacePage() {
     <div className={styles.app} data-theme={theme}>
       <UserIconRail styles={styles} onNewChat={newChat} onRecent={showRecent} />
       <VerifyBanner />
+      <SignalPing />
 
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""} ${collapsed ? styles.collapsed : ""}`}>
         <div className={styles.sidebarHeader}>
