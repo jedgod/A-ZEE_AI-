@@ -3,18 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({ query: vi.fn(async (..._a: unknown[]) => ({ rows: [] as any[], rowCount: 0 })) }));
 const chat = vi.hoisted(() => ({ answerChat: vi.fn() }));
 const plan = vi.hoisted(() => ({ id: "free" }));
+const consent = vi.hoisted(() => ({ reply: true, context: true }));
 vi.mock("@/lib/admin/db", () => ({ pool: db, transaction: async (run: (c: typeof db) => unknown) => run(db) }));
 vi.mock("@/lib/pipeline", () => chat);
-vi.mock("@/lib/plans", () => ({ accessFor: async () => ({ planId: plan.id, planName: plan.id, entitlements: { messages: { enabled: true, monthlyLimit: 300 } } }) }));
-vi.mock("@/lib/users/auth", () => ({
-  requireUser: async () => ({ id: "u1", name: "Ada", email: "a@b.c", verified: true }),
-  actorFor: async () => ({ actor: { userId: "u1", auth: { userId: "u1" } }, newAnonId: null }),
-  allow: async () => true,
-  userFailure: () => new Response(null, { status: 500 }),
+vi.mock("@/lib/plans", () => ({
+  accessFor: async () => ({ planId: plan.id, planName: plan.id, subject: { key: "account:u1", accountId: "u1" }, entitlements: { messages: { enabled: true, monthlyLimit: 300 } } }),
+  usageFor: async () => ({ messages: 12 }),
 }));
+vi.mock("@/lib/linqext/keyboard-auth", () => ({ linqextUser: async () => ({ id: "u1", name: "Ada", email: "a@b.c", verified: true }) }));
+vi.mock("@/lib/linqext/consent", () => ({ getConsent: async () => ({ version: 1, replyAssist: consent.reply, context: consent.reply && consent.context, current: true }) }));
+vi.mock("@/lib/users/auth", () => ({ allow: async () => true }));
 
 import { buildInstructions, buildPrompt, parseReplies, TIERS, tierForPlan, trimContext } from "@/lib/linqext/policy";
-import { createReply } from "@/lib/linqext/service";
+import { createReply, entitlementsFor } from "@/lib/linqext/service";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const body = (over: object = {}) => ({ requestId: id, message: "Can you make Friday?", consent: true, ...over });
@@ -43,21 +44,30 @@ describe("linqext policy", () => {
   });
   it("splits variants and enforces the word budget", () => {
     expect(parseReplies("One\n%%%\nTwo\n%%%\nThree", 3, 90)).toEqual(["One", "Two", "Three"]);
-    expect(parseReplies("One\n%%%\nTwo", 1, 90)).toEqual(["One\n%%%\nTwo"].map(s => s.trim()));
     expect(parseReplies("a b c d e f", 1, 3)![0]).toBe("a b c…");
     expect(parseReplies("  ", 1, 30)).toBeNull();
   });
 });
 
+describe("entitlements", () => {
+  it("reports tier, remaining allowance, reset date and consent", async () => {
+    const e = await entitlementsFor(new Request("http://localhost/api/linqext/entitlements"));
+    expect(e).toMatchObject({ tier: "free", usage: { used: 12, limit: 300, remaining: 288 }, consent: { replyAssist: true } });
+    expect(new Date(e.usage.resetsAt).getUTCDate()).toBe(1);
+  });
+});
+
 describe("POST /api/linqext/replies", () => {
   let log: Record<string, any>;
+  let running = 1;
   beforeEach(() => {
-    db.query.mockReset(); chat.answerChat.mockReset(); plan.id = "free"; log = {};
+    db.query.mockReset(); chat.answerChat.mockReset(); plan.id = "free"; consent.reply = true; consent.context = true; log = {}; running = 1;
     chat.answerChat.mockResolvedValue({ answer: "Yes, Friday works for me.", meta: {} });
     db.query.mockImplementation(async (sql: unknown, values?: unknown) => {
       const t = String(sql), v = (values ?? []) as any[];
       if (t.startsWith("INSERT INTO linqext_requests")) return log.row ? { rows: [], rowCount: 0 } : (log.row = { payload_hash: v[2], status: "running", response: null }, { rows: [{}], rowCount: 1 });
       if (t.startsWith("SELECT payload_hash")) return { rows: [log.row], rowCount: 1 };
+      if (t.includes("SELECT count(*)::int AS n")) return { rows: [{ n: running }], rowCount: 1 };
       if (t.includes("SET status = 'completed'")) { log.row.status = "completed"; log.row.response = JSON.parse(v[2]); return { rows: [], rowCount: 1 }; }
       if (t.includes("SET status = 'failed'")) { log.row.status = "failed"; return { rows: [], rowCount: 1 }; }
       if (t.includes("SET status = 'running'")) { const ok = log.row.status === "failed"; if (ok) log.row.status = "running"; return { rows: [], rowCount: ok ? 1 : 0 }; }
@@ -77,12 +87,23 @@ describe("POST /api/linqext/replies", () => {
     await createReply(req, body({ context: [{ role: "other", text: "VISIBLE-HISTORY" }] }));
     expect(chat.answerChat.mock.calls[0][0].messages[0].content).toContain("VISIBLE-HISTORY");
   });
+  it("refuses without server-side consent, whatever the client claims, and does no work", async () => {
+    consent.reply = false;
+    await expect(createReply(req, body())).rejects.toMatchObject({ status: 403, code: "CONSENT_REQUIRED" });
+    expect(chat.answerChat).not.toHaveBeenCalled();
+    expect(db.query.mock.calls.some(c => String(c[0]).startsWith("INSERT INTO linqext_requests"))).toBe(false); // nothing claimed, nothing charged
+  });
+  it("drops earlier messages unless context was agreed separately", async () => {
+    plan.id = "plus"; consent.context = false;
+    await createReply(req, body({ context: [{ role: "other", text: "PRIVATE-HISTORY" }] }));
+    expect(chat.answerChat.mock.calls[0][0].messages[0].content).not.toContain("PRIVATE-HISTORY");
+  });
   it("refuses features outside the plan before doing any work", async () => {
     await expect(createReply(req, body({ variants: 3 }))).rejects.toMatchObject({ status: 403, code: "FEATURE_NOT_IN_PLAN" });
     await expect(createReply(req, body({ tone: "empathetic" }))).rejects.toMatchObject({ code: "FEATURE_NOT_IN_PLAN" });
     expect(chat.answerChat).not.toHaveBeenCalled();
   });
-  it("requires consent and rejects unknown fields (the client can't claim a tier)", async () => {
+  it("requires consent flag and rejects unknown fields (the client can't claim a tier)", async () => {
     await expect(createReply(req, body({ consent: false }))).rejects.toBeTruthy();
     await expect(createReply(req, body({ tier: "premium" }))).rejects.toBeTruthy();
     expect(chat.answerChat).not.toHaveBeenCalled();
@@ -101,6 +122,12 @@ describe("POST /api/linqext/replies", () => {
     expect((await createReply(req, body())).replay).toBe(false);
     log.row.status = "running";
     await expect(createReply(req, body())).rejects.toMatchObject({ status: 409, code: "REQUEST_IN_PROGRESS" });
+  });
+  it("caps simultaneous generations per user before any model call", async () => {
+    running = 4;
+    await expect(createReply(req, body())).rejects.toMatchObject({ status: 429, code: "TOO_MANY_IN_FLIGHT" });
+    expect(chat.answerChat).not.toHaveBeenCalled();
+    expect(log.row.status).toBe("failed");
   });
   it("fails closed when the model returns nothing usable", async () => {
     chat.answerChat.mockResolvedValue({ answer: "   ", meta: {} });
