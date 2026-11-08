@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({ query: vi.fn(async (..._a: unknown[]) => ({ rows: [] as any[], rowCount: 0 })) }));
 const chat = vi.hoisted(() => ({ answerChat: vi.fn() }));
 const plan = vi.hoisted(() => ({ id: "free" }));
-const consent = vi.hoisted(() => ({ reply: true, context: true }));
+const consent = vi.hoisted(() => ({ reply: true, context: true, typing: true }));
+const typingStats = vi.hoisted(() => ({ day: 0, recent: false }));
 vi.mock("@/lib/admin/db", () => ({ pool: db, transaction: async (run: (c: typeof db) => unknown) => run(db) }));
 vi.mock("@/lib/pipeline", () => chat);
 vi.mock("@/lib/plans", () => ({
@@ -11,7 +12,7 @@ vi.mock("@/lib/plans", () => ({
   usageFor: async () => ({ messages: 12 }),
 }));
 vi.mock("@/lib/linqext/keyboard-auth", () => ({ linqextUser: async () => ({ id: "u1", name: "Ada", email: "a@b.c", verified: true }) }));
-vi.mock("@/lib/linqext/consent", () => ({ getConsent: async () => ({ version: 1, replyAssist: consent.reply, context: consent.reply && consent.context, current: true }) }));
+vi.mock("@/lib/linqext/consent", () => ({ getConsent: async () => ({ version: 1, replyAssist: consent.reply, context: consent.reply && consent.context, typing: consent.reply && consent.typing, current: true }) }));
 vi.mock("@/lib/users/auth", () => ({ allow: async () => true }));
 
 import { buildInstructions, buildPrompt, parseReplies, TIERS, tierForPlan, trimContext } from "@/lib/linqext/policy";
@@ -52,7 +53,7 @@ describe("linqext policy", () => {
 describe("entitlements", () => {
   it("reports tier, remaining allowance, reset date and consent", async () => {
     const e = await entitlementsFor(new Request("http://localhost/api/linqext/entitlements"));
-    expect(e).toMatchObject({ tier: "free", usage: { used: 12, limit: 300, remaining: 288 }, consent: { replyAssist: true } });
+    expect(e).toMatchObject({ typing: { minIntervalSeconds: 10, dailyCap: 20 }, tier: "free", usage: { used: 12, limit: 300, remaining: 288 }, consent: { replyAssist: true } });
     expect(new Date(e.usage.resetsAt).getUTCDate()).toBe(1);
   });
 });
@@ -61,12 +62,13 @@ describe("POST /api/linqext/replies", () => {
   let log: Record<string, any>;
   let running = 1;
   beforeEach(() => {
-    db.query.mockReset(); chat.answerChat.mockReset(); plan.id = "free"; consent.reply = true; consent.context = true; log = {}; running = 1;
+    db.query.mockReset(); chat.answerChat.mockReset(); plan.id = "free"; consent.reply = true; consent.context = true; consent.typing = true; typingStats.day = 0; typingStats.recent = false; log = {}; running = 1;
     chat.answerChat.mockResolvedValue({ answer: "Yes, Friday works for me.", meta: {} });
     db.query.mockImplementation(async (sql: unknown, values?: unknown) => {
       const t = String(sql), v = (values ?? []) as any[];
       if (t.startsWith("INSERT INTO linqext_requests")) return log.row ? { rows: [], rowCount: 0 } : (log.row = { payload_hash: v[2], status: "running", response: null }, { rows: [{}], rowCount: 1 });
       if (t.startsWith("SELECT payload_hash")) return { rows: [log.row], rowCount: 1 };
+      if (t.includes("FILTER (WHERE created_at")) return { rows: [{ day: typingStats.day, recent: typingStats.recent }], rowCount: 1 };
       if (t.includes("SELECT count(*)::int AS n")) return { rows: [{ n: running }], rowCount: 1 };
       if (t.includes("SET status = 'completed'")) { log.row.status = "completed"; log.row.response = JSON.parse(v[2]); return { rows: [], rowCount: 1 }; }
       if (t.includes("SET status = 'failed'")) { log.row.status = "failed"; return { rows: [], rowCount: 1 }; }
@@ -128,6 +130,29 @@ describe("POST /api/linqext/replies", () => {
     await expect(createReply(req, body())).rejects.toMatchObject({ status: 429, code: "TOO_MANY_IN_FLIGHT" });
     expect(chat.answerChat).not.toHaveBeenCalled();
     expect(log.row.status).toBe("failed");
+  });
+  it("typing-triggered suggestions need their own consent, separate from replying", async () => {
+    consent.typing = false;
+    await expect(createReply(req, body({ trigger: "typing" }))).rejects.toMatchObject({ status: 403, code: "CONSENT_REQUIRED", extra: { scope: "typing" } });
+    expect(chat.answerChat).not.toHaveBeenCalled();
+    expect((await createReply(req, body({ requestId: "22222222-2222-4222-8222-222222222222" }))).replay).toBe(false); // tapping Suggest still works without it
+  });
+  it("typing suggestions are one reply and use the draft wording, tap ones use the reply wording", async () => {
+    await expect(createReply(req, body({ trigger: "typing", variants: 2 }))).rejects.toBeTruthy();
+    await createReply(req, body({ trigger: "typing" }));
+    expect(chat.answerChat.mock.calls[0][0].messages[0].content).toMatch(/unfinished message/);
+    log = {}; chat.answerChat.mockClear(); await createReply(req, body());
+    expect(chat.answerChat.mock.calls[0][0].messages[0].content).toMatch(/drafting a reply/);
+  });
+  it("the server paces typing suggestions and caps them per day, before any model call or charge", async () => {
+    typingStats.recent = true;
+    await expect(createReply(req, body({ trigger: "typing" }))).rejects.toMatchObject({ status: 429, code: "TOO_SOON" });
+    expect(log.row.status).toBe("failed"); expect(chat.answerChat).not.toHaveBeenCalled();
+    typingStats.recent = false; typingStats.day = 20; log = {};                                  // Free allows 20 a day
+    await expect(createReply(req, body({ trigger: "typing" }))).rejects.toMatchObject({ status: 429, code: "TYPING_LIMIT_REACHED" });
+    expect(chat.answerChat).not.toHaveBeenCalled();
+    typingStats.day = 19; log = {};
+    expect((await createReply(req, body({ trigger: "typing" }))).replay).toBe(false);
   });
   it("fails closed when the model returns nothing usable", async () => {
     chat.answerChat.mockResolvedValue({ answer: "   ", meta: {} });

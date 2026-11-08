@@ -25,11 +25,16 @@ export const replySchema = z.object({
   customTone: z.string().max(120).optional(),
   variants: z.number().int().min(1).max(5).default(1),
   consent: z.literal(true),
-}).strict();
+  // tap: the user pressed Suggest. typing: the keyboard asked after a pause in typing (needs its own consent).
+  trigger: z.enum(["tap", "typing"]).default("tap"),
+}).strict().refine(r => r.trigger === "tap" || r.variants === 1, { message: "typing suggestions are one reply", path: ["variants"] });
 
 const STALE_RUNNING_SECONDS = 60;
 const RETENTION_DAYS = 7;
 const MAX_IN_FLIGHT = 3; // generations one user may have running at once
+// Typing-triggered suggestions each cost a reply, so the server paces and caps them itself (the keyboard also debounces).
+export const TYPING_MIN_INTERVAL_SECONDS = 10;
+export const TYPING_DAILY_CAP: Record<"free" | "plus" | "premium", number> = { free: 20, plus: 100, premium: 300 };
 
 export class LinqextError extends Error {
   constructor(public status: number, public code: string, public extra: Record<string, unknown> = {}) { super(code); }
@@ -47,6 +52,7 @@ export async function entitlementsFor(request: Request) {
   const consent = await getConsent(user.id);
   return {
     tier, plan: access.planName, features: TIERS[tier], consent,
+    typing: { minIntervalSeconds: TYPING_MIN_INTERVAL_SECONDS, dailyCap: TYPING_DAILY_CAP[tier] },
     usage: { used, limit, remaining: limit === null ? null : Math.max(limit - used, 0), resetsAt: monthReset() },
   };
 }
@@ -65,6 +71,7 @@ export async function createReply(request: Request, raw: unknown) {
   // Server-side consent: the client's `consent: true` is not enough. Earlier messages are used only if agreed separately.
   const consent = await getConsent(user.id);
   if (!consent.replyAssist) throw new LinqextError(403, "CONSENT_REQUIRED", { version: consent.version });
+  if (input.trigger === "typing" && !consent.typing) throw new LinqextError(403, "CONSENT_REQUIRED", { version: consent.version, scope: "typing" });
   const context = consent.context ? trimContext(input.context, tier) : [];
 
   // Claim the request id. A retry of a finished request replays its answer; a different body under
@@ -72,8 +79,8 @@ export async function createReply(request: Request, raw: unknown) {
   // is the table's primary key, so two simultaneous requests can never both claim it.
   await pool.query(`DELETE FROM linqext_requests WHERE created_at < now() - make_interval(days => $1)`, [RETENTION_DAYS]).catch(() => undefined);
   const claimed = await pool.query(
-    `INSERT INTO linqext_requests (user_id, request_id, payload_hash, status) VALUES ($1, $2, $3, 'running') ON CONFLICT DO NOTHING RETURNING 1`,
-    [user.id, input.requestId, hash]);
+    `INSERT INTO linqext_requests (user_id, request_id, payload_hash, status, trigger) VALUES ($1, $2, $3, 'running', $4) ON CONFLICT DO NOTHING RETURNING 1`,
+    [user.id, input.requestId, hash, input.trigger]);
   if (!claimed.rowCount) {
     const row = (await pool.query(`SELECT payload_hash, status, response FROM linqext_requests WHERE user_id = $1 AND request_id = $2`, [user.id, input.requestId])).rows[0];
     if (row?.payload_hash !== hash) throw new LinqextError(409, "IDEMPOTENCY_CONFLICT");
@@ -92,8 +99,18 @@ export async function createReply(request: Request, raw: unknown) {
     [user.id, STALE_RUNNING_SECONDS])).rows[0].n;
   if (running > MAX_IN_FLIGHT) { await fail(); throw new LinqextError(429, "TOO_MANY_IN_FLIGHT"); }
 
+  // Typing-triggered suggestions: the server enforces the pace and the daily cap, whatever the client does.
+  if (input.trigger === "typing") {
+    const t = (await pool.query(
+      `SELECT count(*) FILTER (WHERE created_at > now() - interval '1 day')::int AS day, coalesce(bool_or(created_at > now() - make_interval(secs => $3)), false) AS recent
+       FROM linqext_requests WHERE user_id = $1 AND trigger = 'typing' AND request_id <> $2 AND status <> 'failed'`,
+      [user.id, input.requestId, TYPING_MIN_INTERVAL_SECONDS])).rows[0];
+    if (t.recent) { await fail(); throw new LinqextError(429, "TOO_SOON", { retryAfterSeconds: TYPING_MIN_INTERVAL_SECONDS }); }
+    if (t.day >= TYPING_DAILY_CAP[tier]) { await fail(); throw new LinqextError(429, "TYPING_LIMIT_REACHED", { dailyCap: TYPING_DAILY_CAP[tier] }); }
+  }
+
   try {
-    const prompt = buildPrompt(tier, input.tone, input.customTone, input.variants, input.message, context);
+    const prompt = buildPrompt(tier, input.tone, input.customTone, input.variants, input.message, context, input.trigger === "typing" ? "draft" : "reply");
     const { answer } = await answerChat({ mode: "chat", model: "auto", messages: [{ role: "user", content: prompt }] }, actor);
     const replies = parseReplies(answer, input.variants, policy.maxWords);
     if (!replies) throw new LinqextError(503, "REPLY_GENERATION_UNAVAILABLE");
