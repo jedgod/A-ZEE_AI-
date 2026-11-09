@@ -118,6 +118,15 @@ export async function refundRequest(userId: string, requestId: string): Promise<
   } catch { await db.query("ROLLBACK").catch(() => undefined); } finally { db.release(); }
 }
 
+/** This month's AZTrade AI allowance for a user: the plan's monthly message limit (null = unlimited) and what AZTrade has used. */
+export async function aiAllowance(userId: string) {
+  const { actor } = webActor(new Request("http://aztrade.internal/"), { id: userId, name: "", email: "", verified: true });
+  const access = await accessFor(actor);
+  const limit = access.entitlements.messages?.monthlyLimit ?? null;
+  const row = (await pool.query(`SELECT used FROM aztrade_ai_usage WHERE user_id = $1 AND period_start = $2`, [userId, periodStart()])).rows[0];
+  return { plan: access.planId, planName: access.planName, limit, used: (row?.used as number | undefined) ?? 0 };
+}
+
 // ---- the bridge ----
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });

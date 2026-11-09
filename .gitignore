@@ -17,3 +17,7 @@ __pycache__/
 pipeline-api/.venv/
 .pytest_cache/
 .mirror/
+
+aztrade-*.json
+test-results/
+playwright-report/
