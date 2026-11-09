@@ -135,3 +135,20 @@ class KeyboardLogicTest {
         for (layer in Layer.values()) KeyboardLogic.rows(KeyboardState(layer), "Go").flatten().forEach { assertTrue("missing description on ${it.label}", it.description.isNotBlank()) }
     }
 }
+
+/** The AI bar appears only in the supported messaging apps. */
+class SupportedAppsTest {
+    @Test fun theMessagingAppsAreSupported() {
+        listOf("com.whatsapp", "com.whatsapp.w4b", "com.linkedin.android", "org.telegram.messenger", "org.thoughtcrime.securesms")
+            .forEach { assertTrue(it, expo.modules.azlinqext.ai.SupportedApps.supports(it)) }
+    }
+    @Test fun everythingElseIsNot_includingA_ZeeItself() {
+        listOf("com.azee.app", "com.android.chrome", "com.google.android.gm", "com.samsung.android.messaging", "android", "")
+            .forEach { assertFalse(it, expo.modules.azlinqext.ai.SupportedApps.supports(it)) }
+        assertFalse(expo.modules.azlinqext.ai.SupportedApps.supports(null))
+    }
+    @Test fun lookAlikePackagesNeverQualify() {
+        listOf("com.whatsapp.fake", "com.whatsapp ", "COM.WHATSAPP", "evil.com.whatsapp", "com.linkedin.android.evil")
+            .forEach { assertFalse(it, expo.modules.azlinqext.ai.SupportedApps.supports(it)) }
+    }
+}

@@ -66,13 +66,14 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     private val replyScroll = HorizontalScrollView(context).apply { isHorizontalScrollBarEnabled = false; visibility = GONE; addView(replyRow) }
     private val keys = LinearLayout(context).apply { orientation = VERTICAL }
     private var aiEnabled = true
+    private var appSupported = true
+    private val header = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, dp(4), 0) }
     private var barHidden = false
 
     init {
         orientation = VERTICAL
         setBackgroundColor(p.bg)
         setPadding(dp(4), dp(4), dp(4), dp(4))
-        val header = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, dp(4), 0) }
         header.addView(tierText, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         header.addView(connect)
         header.addView(hideButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6), 0, 0, 0) })
@@ -149,6 +150,7 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     /** Collapses the AI bar to a single "Show AI" button, leaving the typing keys. */
     fun setBarHidden(hidden: Boolean) {
         barHidden = hidden
+        if (!appSupported) return // not a supported app: the whole AI panel stays away
         hideButton.text = if (hidden) "Show AI" else "Hide AI"
         hideButton.contentDescription = if (hidden) "Show the AI suggestion bar" else "Hide the AI suggestion bar"
         val shown = if (hidden) GONE else VISIBLE
@@ -180,10 +182,18 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         variantButton.contentDescription = "Number of replies: $variants. Tap to change"
     }
 
+    /** Outside the supported messaging apps the keyboard is only keys: no bar, no buttons, no messages. */
+    fun setAppSupported(supported: Boolean) {
+        appSupported = supported
+        if (supported) { header.visibility = VISIBLE; setBarHidden(barHidden); return }
+        listOf<View>(header, optionsRow, actionsRow, status, replyScroll).forEach { it.visibility = GONE }
+        replyRow.removeAllViews()
+    }
+
     override fun status(message: String?, isError: Boolean) {
         status.text = message ?: ""
         status.setTextColor(if (isError) p.error else p.muted)
-        status.visibility = if (message.isNullOrEmpty()) GONE else VISIBLE
+        status.visibility = if (message.isNullOrEmpty() || !appSupported) GONE else VISIBLE
     }
 
     override fun busy(busy: Boolean) {
@@ -194,7 +204,7 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
 
     override fun replies(items: List<String>) {
         replyRow.removeAllViews()
-        replyScroll.visibility = if (items.isEmpty()) GONE else VISIBLE
+        replyScroll.visibility = if (items.isEmpty() || !appSupported) GONE else VISIBLE
         items.forEachIndexed { i, reply ->
             val card = text(15f, p.text).apply {
                 text = reply

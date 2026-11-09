@@ -14,6 +14,7 @@ import expo.modules.azlinqext.ai.ApiClient
 import expo.modules.azlinqext.ai.EditorPort
 import expo.modules.azlinqext.ai.Entitlements
 import expo.modules.azlinqext.ai.FieldPolicy
+import expo.modules.azlinqext.ai.SupportedApps
 import expo.modules.azlinqext.ai.SuggestionFlow
 import expo.modules.azlinqext.ai.SuggestionUi
 import expo.modules.azlinqext.store.KeyboardStore
@@ -41,6 +42,7 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
     private var state = KeyboardState()
     private var fieldInputType = 0
     private var fieldAllowed = false
+    private var appSupported = false
     private var autoCapitalize = false
     private var tone = "professional"
     private var variants = 1
@@ -71,6 +73,7 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
         v.setOptions(mode, tone, variants, language)
         v.setAiEnabled(fieldAllowed)
         v.setBarHidden(prefs.barHidden)
+        v.setAppSupported(appSupported)
         features?.let { v.entitlements(it) }
     }
 
@@ -82,7 +85,8 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
         flow.reset()
         fieldInputType = info?.inputType ?: 0
         val cls = fieldInputType and InputType.TYPE_MASK_CLASS
-        fieldAllowed = FieldPolicy.aiAllowed(fieldInputType, info?.imeOptions ?: 0)
+        appSupported = SupportedApps.supports(info?.packageName)
+        fieldAllowed = appSupported && FieldPolicy.aiAllowed(fieldInputType, info?.imeOptions ?: 0)
         autoCapitalize = cls == InputType.TYPE_CLASS_TEXT && fieldInputType and InputType.TYPE_MASK_FLAGS and
             (InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or InputType.TYPE_TEXT_FLAG_CAP_WORDS or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS) != 0
         state = KeyboardState(layer = if (cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE) Layer.NUMBERS else Layer.LETTERS)
@@ -92,6 +96,7 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
             setAiEnabled(fieldAllowed, if (FieldPolicy.isSecret(fieldInputType)) "AI replies are off in password fields" else null)
         }
         view?.setBarHidden(prefs.barHidden)
+        view?.setAppSupported(appSupported)
         if (fieldAllowed && !prefs.barHidden) flow.refreshEntitlements()
     }
 
