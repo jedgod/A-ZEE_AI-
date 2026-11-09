@@ -169,7 +169,8 @@ export async function handleBridge(request: Request): Promise<Response> {
     const result = { reply, allowance: ALLOWANCE };
     await pool.query(`UPDATE aztrade_ai_requests SET status = 'completed', response = $3 WHERE user_id = $1 AND request_id = $2`, [user.id, body.requestId, JSON.stringify(result)]);
     return json({ ...result, replay: false });
-  } catch {
+  } catch (error) {
+    console.error("aztrade ai model call failed:", (error as Error).message);
     await refundRequest(user.id, body.requestId);
     await fail();
     return json({ error: "AI_UNAVAILABLE" }, 503);
