@@ -44,10 +44,10 @@ class KeyboardStoreTest {
 }
 
 class ApiClientTest {
-    private fun client(vararg script: () -> expo.modules.azlinqext.ai.HttpResult, now: Long = 1_000_000, setup: (expo.modules.azlinqext.store.KeyboardStore) -> Unit = { it.saveLink(link(accessExpiresAt = now + 600_000)) }): Triple<ApiClient, FakeTransport, expo.modules.azlinqext.store.KeyboardStore> {
+    private fun client(vararg script: () -> expo.modules.azlinqext.ai.HttpResult, now: Long = 1_000_000, polls: Int = 0, setup: (expo.modules.azlinqext.store.KeyboardStore) -> Unit = { it.saveLink(link(accessExpiresAt = now + 600_000)) }): Triple<ApiClient, FakeTransport, expo.modules.azlinqext.store.KeyboardStore> {
         val (store, _) = tempStore(); setup(store); store.saveInstallId("d".repeat(32))
         val transport = FakeTransport(script.toMutableList())
-        return Triple(ApiClient(store, transport, { now }, retryDelayMs = 0), transport, store)
+        return Triple(ApiClient(store, transport, { now }, retryDelayMs = 0, inProgressPolls = polls, pollDelayMs = 0), transport, store)
     }
     private val refreshOk = """{"data":{"accessToken":"azk_new","accessExpiresInSeconds":900,"refreshToken":"azr_new","refreshExpiresAt":"2030-01-01T00:00:00.000Z"}}"""
     private val replyOk = """{"data":{"requestId":"r","tier":"plus","replies":["Sure, see you then.","Works for me."],"insertRequiresUserAction":true}}"""
@@ -107,6 +107,20 @@ class ApiClientTest {
         assertTrue(failure(429, "TOO_MANY_IN_FLIGHT") is ApiFailure.TooMany)
         assertTrue(failure(422, "INPUT_BLOCKED") is ApiFailure.Blocked)
         assertTrue(failure(503, "REPLY_GENERATION_UNAVAILABLE") is ApiFailure.Server)
+    }
+    @Test fun aSlowRequestIsPolledUntilItsFinishedAnswerIsReplayed() {
+        val inProgress = status(409, """{"error":"REQUEST_IN_PROGRESS"}""")
+        val (api, t, _) = client(inProgress, inProgress, ok(replyOk), polls = 5)
+        val result = api.reply(ReplyRequest("same-id", "hi", "casual", 1))
+        assertEquals(2, result.replies.size)
+        assertEquals(3, t.calls.size)
+        assertTrue(t.calls.all { it.body!!.contains("\"requestId\":\"same-id\"") })   // always the same id: answered once, charged once
+    }
+    @Test fun aRequestThatNeverFinishesEventuallyReportsInProgress() {
+        val inProgress = status(409, """{"error":"REQUEST_IN_PROGRESS"}""")
+        val (api, t, _) = client(inProgress, inProgress, inProgress, polls = 2)
+        try { api.reply(ReplyRequest("id", "hi", "casual", 1)); fail() } catch (e: ApiFailure.InProgress) { }
+        assertEquals(3, t.calls.size)                                                  // the first try plus two polls, then it stops
     }
     @Test fun parsesEntitlementsAndCachesThemForOfflineDisplay() {
         val (api, _, store) = client(ok("""{"data":$ENTITLEMENTS_JSON}"""))

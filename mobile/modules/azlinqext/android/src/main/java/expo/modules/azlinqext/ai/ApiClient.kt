@@ -13,6 +13,9 @@ class ApiClient(
     private val transport: HttpTransport = UrlConnectionTransport(),
     private val now: () -> Long = System::currentTimeMillis,
     private val retryDelayMs: Long = 400,
+    /** How often (and how many times) to ask again when the server says the same request is still being written. */
+    private val inProgressPolls: Int = 30,
+    private val pollDelayMs: Long = 3_000,
 ) {
     private val refreshLock = Any()
 
@@ -23,16 +26,30 @@ class ApiClient(
         return parsed
     }
 
-    /** Asks for a reply. One retry after a network failure reuses the same requestId, so the server answers it once and charges once. */
+    /**
+     * Asks for a result. Every retry reuses the same requestId, so the server answers it once and charges once.
+     * A network failure is retried once. If the server says the request is still being written (its AI providers can
+     * take 20 seconds or more when one is down), this keeps asking until the finished answer is replayed, rather than
+     * showing an error for work that is succeeding.
+     */
     fun reply(request: ReplyRequest): ReplyResult {
         val body = JSONObject()
             .put("requestId", request.requestId).put("message", request.message).put("tone", request.tone)
             .put("variants", request.variants).put("consent", true).put("trigger", request.trigger).put("mode", request.mode).apply { request.language?.let { put("language", it) } }.toString()
-        val json = try {
-            authorized("POST", "/api/linqext/replies", body, 20_000)
-        } catch (e: ApiFailure.Offline) {
-            Thread.sleep(retryDelayMs)
-            authorized("POST", "/api/linqext/replies", body, 20_000)
+        var json: JSONObject? = null
+        var offlineRetried = false
+        var polls = 0
+        while (json == null) {
+            try {
+                json = authorized("POST", "/api/linqext/replies", body, REPLY_TIMEOUT_MS)
+            } catch (e: ApiFailure.Offline) {
+                if (offlineRetried) throw e
+                offlineRetried = true
+                Thread.sleep(retryDelayMs)
+            } catch (e: ApiFailure.InProgress) {
+                if (polls++ >= inProgressPolls) throw e
+                Thread.sleep(pollDelayMs)
+            }
         }
         val replies = json.getJSONArray("replies")
         return ReplyResult(json.getString("tier"), (0 until replies.length()).map { replies.getString(it) }.filter { it.isNotBlank() })
@@ -105,6 +122,7 @@ class ApiClient(
 
     companion object {
         private const val EXPIRY_MARGIN_MS = 60_000L
+        private const val REPLY_TIMEOUT_MS = 60_000
 
         /** Parses the server's `2026-01-31T12:00:00.000Z` timestamps (java.time needs Android 8; this works on 7). */
         fun parseIsoMillis(value: String): Long {
