@@ -70,7 +70,7 @@ describe("entitlements", () => {
     expect(e).toMatchObject({ typing: { minIntervalSeconds: 10, dailyCap: 20 }, tier: "free", usage: { used: 12, limit: 300, remaining: 288, separateFromChat: true }, consent: { replyAssist: true } });
     expect(e.features.modes).toEqual(["reply", "rewrite", "grammar", "tone"]);
     expect(e.languages).toEqual(LANGUAGES);
-    expect(e.disclosure).toMatch(/third-party AI providers/);
+    expect(e.disclosure).toMatch(/external AI services/);
     expect(new Date(e.usage.resetsAt).getUTCDate()).toBe(1);
   });
 });

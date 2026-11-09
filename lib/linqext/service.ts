@@ -25,7 +25,7 @@ export { TYPING_DAILY_CAP, TYPING_MIN_INTERVAL_SECONDS };
 
 /** Shown wherever the user is asked to agree, and returned with the entitlements so every client can show it. */
 export const DISCLOSURE =
-  "When you ask for a suggestion, the text you chose (and, only if you allow it, earlier messages) is sent to A-Zee and processed by third-party AI providers, which may include Google Gemini, OpenAI and xAI, to write the result. Passwords and private fields are never sent. Nothing is sent or inserted unless you ask for it.";
+  "When you ask for a suggestion, the text you chose (and, only if you allow it, earlier messages) is sent to A-Zee and processed by the external AI services A-Zee uses to write the result. Passwords and private fields are never sent. Nothing is sent or inserted unless you ask for it.";
 
 export const replySchema = z.object({
   requestId: z.string().uuid(),
