@@ -97,12 +97,16 @@ export function buildPrompt(job: Job, message: string, context: ContextLine[]): 
 const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 /**
- * The most words a result may have. Replies and summaries use the tier's budget. Grammar, rewrite,
- * tone and translation work on the user's own text, so their budget follows its length: cutting a
- * corrected message short would silently delete part of what the user wrote.
+ * The most words a result may have. Replies use the tier's budget. A summary must be shorter than what it
+ * summarises, so it gets about half the input's length, never more than the tier's budget (a summary as long
+ * as the original is not a summary). Grammar, rewrite, tone and translation work on the user's own text, so
+ * their budget follows its length: cutting a corrected message short would silently delete part of what the
+ * user wrote.
  */
 export function wordBudget(mode: Mode, tierMaxWords: number, input: string): number {
-  return mode === "reply" || mode === "summarize" ? tierMaxWords : Math.max(tierMaxWords, wordCount(input) * 2 + 20);
+  if (mode === "reply") return tierMaxWords;
+  if (mode === "summarize") return Math.min(tierMaxWords, Math.max(15, Math.round(wordCount(input) / 2)));
+  return Math.max(tierMaxWords, wordCount(input) * 2 + 20);
 }
 
 /** Splits the model's answer into the requested number of results; null when it doesn't have them. */

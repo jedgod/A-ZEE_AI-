@@ -253,7 +253,9 @@ describe("entitlement resolution", () => {
   it("sizes results on the user's own text by its length, so a correction is never cut short", () => {
     const long = Array.from({ length: 120 }, () => "word").join(" ");
     expect(wordBudget("reply", 30, long)).toBe(30);
-    expect(wordBudget("summarize", 90, long)).toBe(90);
+    expect(wordBudget("summarize", 90, long)).toBe(60);                          // half of 120 words, under the tier's 90
+    expect(wordBudget("summarize", 30, long)).toBe(30);                          // never above the tier's budget
+    expect(wordBudget("summarize", 180, "a short note of just six words")).toBe(15); // a floor, so tiny inputs still get a usable summary
     expect(wordBudget("grammar", 30, long)).toBeGreaterThanOrEqual(120);
   });
 });
