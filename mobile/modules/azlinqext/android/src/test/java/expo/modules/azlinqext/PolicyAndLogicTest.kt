@@ -119,6 +119,13 @@ class KeyboardLogicTest {
         assertEquals(Layer.LETTERS, KeyboardLogic.press(numbers, Key.ToLetters).first.layer)
         assertEquals(Layer.SYMBOLS, KeyboardLogic.press(numbers, Key.ToSymbols).first.layer)
     }
+    @Test fun everyLayerHasAKeyToSwitchToAnotherKeyboard() {
+        for (layer in Layer.values()) {
+            val bottom = KeyboardLogic.rows(KeyboardState(layer), "Send").last()
+            assertTrue("no switch-keyboard key on $layer", bottom.any { it.key == Key.Globe && it.description == "Switch keyboard" })
+            assertTrue("Send/Enter must stay on the bottom row on $layer", bottom.any { it.key == Key.Enter })
+        }
+    }
     @Test fun backspaceEnterAndGlobeProduceTheirActions() {
         assertEquals(Output.DeleteBackward, KeyboardLogic.press(KeyboardState(), Key.Backspace).second)
         assertEquals(Output.Enter, KeyboardLogic.press(KeyboardState(), Key.Enter).second)

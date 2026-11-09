@@ -38,6 +38,8 @@ object KeyboardLogic {
     fun rows(state: KeyboardState, enterLabel: String): List<List<KeySpec>> {
         val chars = { row: String, upper: Boolean -> row.map { c -> val s = if (upper) c.uppercaseChar().toString() else c.toString(); KeySpec(s, s, Key.Char(s)) } }
         val bottom = listOf(
+            // Every keyboard must let people leave it: this key shows the next keyboard (or the picker) on every layer.
+            KeySpec("\uD83C\uDF10", "Switch keyboard", Key.Globe, 1f),
             KeySpec(if (state.layer == Layer.LETTERS) "?123" else "ABC", if (state.layer == Layer.LETTERS) "Switch to numbers and symbols" else "Switch to letters",
                 if (state.layer == Layer.LETTERS) Key.ToNumbers else Key.ToLetters, 1.4f),
             KeySpec(",", "Comma", Key.Char(",")),
