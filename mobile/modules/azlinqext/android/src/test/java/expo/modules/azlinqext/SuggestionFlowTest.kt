@@ -215,3 +215,89 @@ class TypingSuggestionTest {
         assertEquals(2, t.calls.size)
     }
 }
+
+/** The texting-assistant modes: which text each may use, plan gating, one result for single-result modes, and no stale insertion. */
+class ModesTest {
+    private val allModes = ENTITLEMENTS_JSON.replace("\"personalized\":true}", "\"personalized\":true,\"modes\":[\"reply\",\"rewrite\",\"grammar\",\"tone\",\"translate\",\"summarize\"],\"maxInputChars\":2000}")
+    private val freeModes = ENTITLEMENTS_JSON.replace("\"personalized\":true}", "\"personalized\":false,\"modes\":[\"reply\",\"rewrite\",\"grammar\",\"tone\"],\"maxInputChars\":600}")
+    private fun result(text: String) = """{"data":{"requestId":"r","mode":"x","tier":"plus","replies":["$text"],"insertRequiresUserAction":true}}"""
+
+    private fun setup(entitlements: String, vararg script: () -> expo.modules.azlinqext.ai.HttpResult): Triple<SuggestionFlow, RecordingUi, FakeTransport> {
+        val (store, _) = tempStore(); store.saveLink(link()); store.saveInstallId("d".repeat(32))
+        val transport = FakeTransport((listOf(ok("""{"data":$entitlements}""")) + script).toMutableList())
+        val ui = RecordingUi()
+        val flow = SuggestionFlow(ApiClient(store, transport, { 1_000_000 }, 0), { it() }, { it() }, { "id-mode" }, ui)
+        flow.refreshEntitlements()
+        return Triple(flow, ui, transport)
+    }
+
+    @Test fun sendsTheModeAndTheLanguageToTheServer() {
+        val (flow, _, t) = setup(allModes, ok(result("Hola")), ok("""{"data":$allModes}"""))
+        flow.suggest(FakeEditor("see you tomorrow", 4, 16), null, true, "casual", 3, "translate", "Spanish")
+        val body = t.calls[1].body!!
+        assertTrue(body, body.contains("\"mode\":\"translate\"")); assertTrue(body, body.contains("\"language\":\"Spanish\"")); assertTrue(body, body.contains("\"variants\":1"))
+    }
+    @Test fun aReplyDoesNotCarryALanguage() {
+        val (flow, _, t) = setup(allModes, ok(result("Sure")), ok("""{"data":$allModes}"""))
+        flow.suggest(FakeEditor("can you come?"), null, true, "casual", 1, "reply", "Spanish")
+        assertFalse(t.calls[1].body!!, t.calls[1].body!!.contains("language"))
+    }
+    @Test fun translateNeedsALanguageAndSendsNothingWithout() {
+        val (flow, ui, t) = setup(allModes)
+        flow.suggest(FakeEditor("see you tomorrow"), null, true, "casual", 1, "translate", null)
+        assertEquals(1, t.calls.size); assertEquals("Choose a language first", ui.status)
+    }
+    @Test fun editingModesUseTheSelectionOrTypedTextButNeverTheClipboard() {
+        val (flow, _, t) = setup(allModes, ok(result("Fixed.")), ok("""{"data":$allModes}"""))
+        flow.suggest(FakeEditor("i dont no"), "SECRET COPIED TEXT", true, "casual", 1, "grammar")
+        val body = t.calls[1].body!!
+        assertTrue(body, body.contains("i dont no")); assertFalse(body, body.contains("SECRET COPIED TEXT"))
+    }
+    @Test fun summarizeUsesOnlyASelectionOrCopiedTextNeverWhatIsMerelyTyped() {
+        val (flow, ui, t) = setup(allModes)
+        flow.suggest(FakeEditor("some long text that is only typed"), null, true, "casual", 1, "summarize")
+        assertEquals(1, t.calls.size)                                              // nothing was sent
+        assertEquals("Select or copy the text you want summarised", ui.status)
+        val (flow2, _, t2) = setup(allModes, ok(result("Short.")), ok("""{"data":$allModes}"""))
+        flow2.suggest(FakeEditor("typed text"), "copied article text", true, "casual", 1, "summarize")
+        assertTrue(t2.calls[1].body!!.contains("copied article text")); assertFalse(t2.calls[1].body!!.contains("typed text"))
+    }
+    @Test fun aModeOutsideThePlanIsRefusedWithoutAnyNetworkCall() {
+        val (flow, ui, t) = setup(freeModes)
+        flow.suggest(FakeEditor("hola amigo"), null, true, "casual", 1, "translate", "English")
+        flow.suggest(FakeEditor("some text"), "copied", true, "casual", 1, "summarize")
+        assertEquals(1, t.calls.size); assertTrue(ui.isError)
+    }
+    @Test fun textLongerThanThePlanAllowsIsRefusedLocally() {
+        val (flow, ui, t) = setup(freeModes)
+        flow.suggest(FakeEditor("x".repeat(601)), null, true, "casual", 1, "grammar")
+        assertEquals(1, t.calls.size); assertTrue(ui.status!!, ui.status!!.contains("600")); assertTrue(ui.isError)
+    }
+    @Test fun singleResultModesAskForOneEvenIfSeveralWereChosen() {
+        val (flow, _, t) = setup(allModes, ok(result("Fixed.")), ok("""{"data":$allModes}"""))
+        flow.suggest(FakeEditor("fix thsi"), null, true, "casual", 3, "grammar")
+        assertTrue(t.calls[1].body!!, t.calls[1].body!!.contains("\"variants\":1"))
+        val (flow2, _, t2) = setup(allModes, ok(result("A")), ok("""{"data":$allModes}"""))
+        flow2.suggest(FakeEditor("make this clearer please"), null, true, "casual", 3, "rewrite")
+        assertTrue(t2.calls[1].body!!, t2.calls[1].body!!.contains("\"variants\":3"))
+    }
+    @Test fun aRewriteReplacesTheSelectionOnlyWhileItIsUnchangedAndNeverSends() {
+        val (flow, _, _) = setup(allModes, ok(result("Could you please send the file?")), ok("""{"data":$allModes}"""))
+        val e = FakeEditor("hey send me that file", 0, 21)
+        flow.suggest(e, null, true, "casual", 1, "rewrite")
+        flow.insert(0, e)
+        assertEquals("Could you please send the file?", e.text)
+        val (flow2, _, _) = setup(allModes, ok(result("Could you please send the file?")), ok("""{"data":$allModes}"""))
+        val e2 = FakeEditor("hey send me that file", 0, 21)
+        flow2.suggest(e2, null, true, "casual", 1, "rewrite")
+        e2.selStart = 4                                                            // the user changed the selection
+        flow2.insert(0, e2)
+        assertEquals(0, e2.writes); assertEquals("hey send me that file", e2.text)
+    }
+    @Test fun anOverLongOrOutOfPlanAnswerFromTheServerIsShownAsAnErrorNotInserted() {
+        val (flow, ui, _) = setup(allModes, status(413, """{"error":"INPUT_TOO_LONG","limit":2000}"""))
+        val e = FakeEditor("some text to fix")
+        flow.suggest(e, null, true, "casual", 1, "grammar")
+        assertTrue(ui.isError); assertTrue(ui.replies.isEmpty()); assertEquals(0, e.writes)
+    }
+}

@@ -3,12 +3,12 @@ package expo.modules.azlinqext.ai
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class Features(val context: Int, val variants: Int, val maxWords: Int, val tones: List<String>, val personalized: Boolean)
+data class Features(val context: Int, val variants: Int, val maxWords: Int, val tones: List<String>, val personalized: Boolean, val modes: List<String> = listOf("reply"), val maxInputChars: Int = 4000)
 data class Usage(val used: Int, val limit: Int?, val remaining: Int?, val resetsAt: String?)
 data class ConsentState(val version: Int, val replyAssist: Boolean, val context: Boolean, val current: Boolean, val typing: Boolean = false)
 
 /** What the server says this account may do, from its real A-Zee plan. The keyboard never decides a tier itself. */
-data class Entitlements(val tier: String, val plan: String, val features: Features, val usage: Usage, val consent: ConsentState) {
+data class Entitlements(val tier: String, val plan: String, val features: Features, val usage: Usage, val consent: ConsentState, val languages: List<String> = emptyList(), val disclosure: String = "") {
     companion object {
         fun parse(data: JSONObject): Entitlements {
             val f = data.getJSONObject("features")
@@ -17,7 +17,8 @@ data class Entitlements(val tier: String, val plan: String, val features: Featur
             return Entitlements(
                 tier = data.getString("tier"),
                 plan = data.optString("plan", data.getString("tier")),
-                features = Features(f.getInt("context"), f.getInt("variants"), f.getInt("maxWords"), f.getJSONArray("tones").strings(), f.optBoolean("personalized")),
+                features = Features(f.getInt("context"), f.getInt("variants"), f.getInt("maxWords"), f.getJSONArray("tones").strings(), f.optBoolean("personalized"),
+                    f.optJSONArray("modes")?.strings() ?: listOf("reply"), f.optInt("maxInputChars", 4000)),
                 usage = Usage(
                     u.getInt("used"),
                     if (u.isNull("limit")) null else u.getInt("limit"),
@@ -25,6 +26,8 @@ data class Entitlements(val tier: String, val plan: String, val features: Featur
                     u.optString("resetsAt").ifEmpty { null },
                 ),
                 consent = ConsentState(c.getInt("version"), c.getBoolean("replyAssist"), c.getBoolean("context"), c.getBoolean("current"), c.optBoolean("typing")),
+                languages = data.optJSONArray("languages")?.strings() ?: emptyList(),
+                disclosure = data.optString("disclosure"),
             )
         }
     }
@@ -33,7 +36,7 @@ data class Entitlements(val tier: String, val plan: String, val features: Featur
 private fun JSONArray.strings(): List<String> = (0 until length()).map { getString(it) }
 
 /** [trigger] is "tap" (the user pressed Suggest) or "typing" (asked after a pause; needs its own consent). */
-data class ReplyRequest(val requestId: String, val message: String, val tone: String, val variants: Int, val trigger: String = "tap")
+data class ReplyRequest(val requestId: String, val message: String, val tone: String, val variants: Int, val trigger: String = "tap", val mode: String = "reply", val language: String? = null)
 data class ReplyResult(val tier: String, val replies: List<String>)
 
 /** Every way a call can fail, with a message that is safe and useful to show on the keyboard. */
@@ -46,6 +49,7 @@ sealed class ApiFailure(val code: String, message: String) : Exception(message) 
     class TooMany : ApiFailure("RATE_LIMITED", "Too many requests. Wait a moment")
     /** Typing-triggered suggestions the server held back (too soon, or the daily cap). Shown quietly, if at all. */
     class Paced : ApiFailure("PACED", "Suggestions are paused for a moment")
+    class InputTooLong(val limit: Int) : ApiFailure("INPUT_TOO_LONG", "That text is too long for your plan ($limit characters). Select less")
     class Blocked : ApiFailure("BLOCKED", "I can't help with that message")
     class Offline : ApiFailure("OFFLINE", "Can't reach A-Zee. Check your connection")
     class Server(val status: Int) : ApiFailure("SERVER", "A-Zee is unavailable right now. Try again")

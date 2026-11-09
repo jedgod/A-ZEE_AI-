@@ -55,15 +55,20 @@ class SuggestionFlow(
         }
     }
 
-    fun suggest(editor: EditorPort, clipboard: String?, fieldAllowed: Boolean, tone: String, variants: Int) {
+    fun suggest(editor: EditorPort, clipboard: String?, fieldAllowed: Boolean, tone: String, variants: Int, mode: String = "reply", language: String? = null) {
         if (!fieldAllowed) { ui.status("AI replies are off in this kind of field", false); return }
-        known?.let { if (!it.consent.replyAssist) { ui.status(ApiFailure.ConsentRequired().message, true); return } }
+        known?.let {
+            if (!it.consent.replyAssist) { ui.status(ApiFailure.ConsentRequired().message, true); return }
+            if (mode !in it.features.modes) { ui.status(ApiFailure.NotInPlan(it.tier).message, true); return }
+        }
+        if (mode == "translate" && language == null) { ui.status("Choose a language first", false); return }
 
-        val source = chooseSource(editor, clipboard) ?: run { ui.status("Select or type the message you want a reply to", false); return }
+        val source = chooseSource(editor, clipboard, mode) ?: run { ui.status(hintFor(mode), false); return }
         if (source.text.length > MAX_MESSAGE_CHARS) { ui.status("That message is too long. Select up to $MAX_MESSAGE_CHARS characters", true); return }
 
         val features = known?.features
-        val useVariants = if (features == null) variants.coerceIn(1, 5) else variants.coerceIn(1, features.variants)
+        if (mode != "reply" && features != null && source.text.length > features.maxInputChars) { ui.status(ApiFailure.InputTooLong(features.maxInputChars).message, true); return }
+        val useVariants = if (mode !in MULTI_VARIANT_MODES) 1 else if (features == null) variants.coerceIn(1, 5) else variants.coerceIn(1, features.variants)
         val gen = ++generation
         typingShown = false
         typingInFlight = false
@@ -71,8 +76,9 @@ class SuggestionFlow(
         shown = emptyList()
         ui.replies(emptyList())
         ui.busy(true)
-        ui.status("Writing a reply…", false)
-        val request = ReplyRequest(newId(), source.text, clampTone(tone), useVariants)
+        // Said plainly at the moment it happens: the text leaves the phone for A-Zee and its AI providers.
+        ui.status("Sending your text to A-Zee's AI to write a suggestion…", false)
+        val request = ReplyRequest(newId(), source.text, clampTone(tone), useVariants, "tap", mode, if (mode == "translate") language else null)
         background {
             try {
                 val result = api.reply(request)
@@ -82,7 +88,7 @@ class SuggestionFlow(
                     if (result.replies.isEmpty()) { ui.status("No reply came back. Try again", true); return@onMain }
                     shown = result.replies
                     ui.replies(shown)
-                    ui.status("Tap a reply to use it. Nothing is sent until you send it", false)
+                    ui.status("Tap a result to use it. Nothing is sent until you send it", false)
                 }
                 refreshEntitlements()
             } catch (e: ApiFailure) {
@@ -112,7 +118,7 @@ class SuggestionFlow(
         typingInFlight = true
         shown = emptyList()
         ui.replies(emptyList())
-        val request = ReplyRequest(newId(), text, clampTone(tone), 1, trigger = "typing")
+        val request = ReplyRequest(newId(), text, clampTone(tone), 1, trigger = "typing", mode = "rewrite")
         background {
             try {
                 val result = api.reply(request)
@@ -170,15 +176,27 @@ class SuggestionFlow(
         return if (tone in tones) tone else tones.firstOrNull() ?: "professional"
     }
 
-    private fun chooseSource(editor: EditorPort, clipboard: String?): Draft? {
-        clipboard?.takeIf { it.isNotBlank() }?.let { return Draft(SourceKind.CLIPBOARD, it) }
+    /**
+     * Which text a mode works on. A reply answers a message (copied, selected or typed). Summarising works only on text the
+     * user explicitly copied or selected, never on whatever happens to be before the cursor. The editing modes work on the
+     * user's own text: the selection, or else what they typed.
+     */
+    private fun chooseSource(editor: EditorPort, clipboard: String?, mode: String): Draft? {
+        if (mode == "reply" || mode == "summarize") clipboard?.takeIf { it.isNotBlank() }?.let { return Draft(SourceKind.CLIPBOARD, it) }
         editor.selectedText()?.takeIf { it.isNotBlank() }?.let { return Draft(SourceKind.SELECTION, it) }
-        editor.textBeforeCursor(MAX_MESSAGE_CHARS + 1)?.takeIf { it.isNotBlank() }?.let { return Draft(SourceKind.BEFORE_CURSOR, it) }
+        if (mode != "summarize") editor.textBeforeCursor(MAX_MESSAGE_CHARS + 1)?.takeIf { it.isNotBlank() }?.let { return Draft(SourceKind.BEFORE_CURSOR, it) }
         return null
+    }
+
+    private fun hintFor(mode: String) = when (mode) {
+        "reply" -> "Select or type the message you want a reply to"
+        "summarize" -> "Select or copy the text you want summarised"
+        else -> "Select or type your text first"
     }
 
     companion object {
         const val MAX_MESSAGE_CHARS = 4000
+        val MULTI_VARIANT_MODES = setOf("reply", "rewrite", "tone")
         const val TYPING_MIN_CHARS = 15   // shorter than this isn't worth a suggestion
         const val TYPING_MAX_CHARS = 1000 // long drafts are suggested only on tap
     }

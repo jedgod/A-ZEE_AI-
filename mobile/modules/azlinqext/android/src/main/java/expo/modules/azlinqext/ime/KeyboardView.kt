@@ -28,6 +28,8 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         fun onKey(key: Key)
         fun onSuggest()
         fun onClipboard()
+        fun onMode()
+        fun onLanguage()
         fun onTone()
         fun onVariants()
         fun onOpenApp()
@@ -53,6 +55,11 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     private val status = text(13f, p.muted).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE; maxLines = 3 }
     private val suggest = chip("Suggest", filled = true)
     private val clipboard = chip("Clipboard", filled = false)
+    private val modeButton = chip("Reply", filled = false)
+    private val languageButton = chip("Spanish", filled = false)
+    private val optionsRow = LinearLayout(context).apply { orientation = HORIZONTAL; setPadding(0, dp(2), 0, dp(2)) }
+    private var runLabel = "Suggest"
+    private var idleHint = "Select or type a message, then tap Suggest"
     private val toneButton = chip("Professional", filled = false)
     private val variantButton = chip("1 reply", filled = false)
     private val replyRow = LinearLayout(context).apply { orientation = HORIZONTAL }
@@ -71,20 +78,24 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         header.addView(hideButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6), 0, 0, 0) })
         addView(header)
         addView(status, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { setMargins(dp(8), dp(2), dp(8), dp(2)) })
-        listOf(suggest, clipboard, toneButton, variantButton).forEach { actionsRow.addView(it, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(2), 0, dp(2), 0) }) }
+        listOf(modeButton, languageButton, toneButton, variantButton).forEach { optionsRow.addView(it, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(2), 0, dp(2), 0) }) }
+        listOf(suggest, clipboard).forEach { actionsRow.addView(it, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(2), 0, dp(2), 0) }) }
+        addView(optionsRow)
         addView(actionsRow)
         addView(replyScroll, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         addView(keys)
 
         suggest.setOnClickListener { listener.onSuggest() }
         clipboard.setOnClickListener { listener.onClipboard() }
+        modeButton.setOnClickListener { listener.onMode() }
+        languageButton.setOnClickListener { listener.onLanguage() }
         toneButton.setOnClickListener { listener.onTone() }
         variantButton.setOnClickListener { listener.onVariants() }
         connect.setOnClickListener { listener.onOpenApp() }
         hideButton.setOnClickListener { listener.onToggleBar() }
         suggest.contentDescription = "Suggest a reply to the selected or typed message"
         clipboard.contentDescription = "Suggest a reply to the copied message"
-        status("Select or type a message, then tap Suggest")
+        status(idleHint)
     }
 
     // ---- typing keys ----
@@ -130,9 +141,9 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
 
     fun setAiEnabled(enabled: Boolean, reason: String? = null) {
         aiEnabled = enabled
-        listOf(suggest, clipboard, toneButton, variantButton).forEach { it.isEnabled = enabled; it.alpha = if (enabled) 1f else 0.4f }
+        listOf(suggest, clipboard, modeButton, languageButton, toneButton, variantButton).forEach { it.isEnabled = enabled; it.alpha = if (enabled) 1f else 0.4f }
         if (!enabled) { replies(emptyList()); status(reason ?: "AI replies are off in this field", false) }
-        else status("Select or type a message, then tap Suggest")
+        else status(idleHint)
     }
 
     /** Collapses the AI bar to a single "Show AI" button, leaving the typing keys. */
@@ -141,11 +152,28 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         hideButton.text = if (hidden) "Show AI" else "Hide AI"
         hideButton.contentDescription = if (hidden) "Show the AI suggestion bar" else "Hide the AI suggestion bar"
         val shown = if (hidden) GONE else VISIBLE
-        tierText.visibility = shown; actionsRow.visibility = shown
+        tierText.visibility = shown; actionsRow.visibility = shown; optionsRow.visibility = shown
         if (hidden) { connect.visibility = GONE; status.visibility = GONE; replyScroll.visibility = GONE; replyRow.removeAllViews() } else if (status.text.isNotEmpty()) status.visibility = VISIBLE
     }
 
-    fun setOptions(tone: String, variants: Int) {
+    private fun modeLabel(mode: String) = when (mode) { "rewrite" -> "Rewrite"; "grammar" -> "Grammar"; "tone" -> "Tone"; "translate" -> "Translate"; "summarize" -> "Summarize"; else -> "Reply" }
+
+    /** Shows only the options that matter for the chosen mode, and labels the main button with what it will do. */
+    fun setOptions(mode: String, tone: String, variants: Int, language: String?) {
+        modeButton.text = modeLabel(mode)
+        modeButton.contentDescription = "Mode: ${modeLabel(mode)}. Tap to change"
+        languageButton.visibility = if (mode == "translate") VISIBLE else GONE
+        languageButton.text = language ?: "Language"
+        languageButton.contentDescription = "Translate into ${language ?: "a language"}. Tap to change"
+        toneButton.visibility = if (mode == "reply" || mode == "tone") VISIBLE else GONE
+        variantButton.visibility = if (mode == "reply" || mode == "rewrite" || mode == "tone") VISIBLE else GONE
+        clipboard.visibility = if (mode == "reply" || mode == "summarize") VISIBLE else GONE
+        runLabel = when (mode) { "reply" -> "Suggest"; "rewrite" -> "Rewrite"; "grammar" -> "Fix grammar"; "tone" -> "Change tone"; "translate" -> "Translate"; else -> "Summarize" }
+        suggest.text = runLabel
+        suggest.contentDescription = when (mode) { "reply" -> "Suggest a reply to the selected or typed message"; "summarize" -> "Summarize the selected text"; else -> "$runLabel the selected or typed text" }
+        clipboard.contentDescription = if (mode == "summarize") "Summarize the copied text" else "Suggest a reply to the copied message"
+        idleHint = when (mode) { "reply" -> "Select or type a message, then tap Suggest"; "summarize" -> "Select or copy the text, then tap Summarize"; else -> "Select or type your text, then tap $runLabel" }
+        if (aiEnabled && status.text.isNotEmpty() && replyRow.childCount == 0) status(idleHint)
         toneButton.text = tone.replaceFirstChar { it.uppercase() }
         toneButton.contentDescription = "Tone: $tone. Tap to change"
         variantButton.text = if (variants == 1) "1 reply" else "$variants replies"
@@ -161,7 +189,7 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     override fun busy(busy: Boolean) {
         suggest.isEnabled = !busy && aiEnabled
         clipboard.isEnabled = !busy && aiEnabled
-        suggest.text = if (busy) "Writing…" else "Suggest"
+        suggest.text = if (busy) "Working…" else runLabel
     }
 
     override fun replies(items: List<String>) {

@@ -26,7 +26,11 @@ import java.util.concurrent.Executors
  * put it in the box and then sends it themselves.
  */
 class AzKeyboardService : InputMethodService(), KeyboardView.Listener, SuggestionUi {
-    private companion object { const val TYPING_PAUSE_MS = 1500L }
+    private companion object {
+        const val TYPING_PAUSE_MS = 1500L
+        val ALL_MODES = listOf("reply", "rewrite", "grammar", "tone", "translate", "summarize")
+        val DEFAULT_MODES = listOf("reply", "rewrite", "grammar", "tone")
+    }
 
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(2)
@@ -40,6 +44,8 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
     private var autoCapitalize = false
     private var tone = "professional"
     private var variants = 1
+    private var mode = "reply"
+    private var language: String? = null
     private var features: Entitlements? = null
     private lateinit var prefs: KeyboardPrefs
     private val typingRunnable = Runnable { flow.suggestWhileTyping(editor, fieldAllowed && !prefs.barHidden, tone) }
@@ -62,7 +68,7 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
     override fun onCreateInputView(): View = KeyboardView(this, this).also { v ->
         view = v
         v.renderKeys(state, enterLabel())
-        v.setOptions(tone, variants)
+        v.setOptions(mode, tone, variants, language)
         v.setAiEnabled(fieldAllowed)
         v.setBarHidden(prefs.barHidden)
         features?.let { v.entitlements(it) }
@@ -163,24 +169,41 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
 
     // ---- AI bar ----
 
-    override fun onSuggest() = flow.suggest(editor, null, fieldAllowed, tone, variants)
+    override fun onSuggest() = flow.suggest(editor, null, fieldAllowed, tone, variants, mode, language)
 
     override fun onClipboard() {
         val clip = getSystemService(ClipboardManager::class.java)?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
         if (clip.isNullOrBlank()) status("Nothing copied yet. Copy a message first", false)
-        else flow.suggest(editor, clip, fieldAllowed, tone, variants)
+        else flow.suggest(editor, clip, fieldAllowed, tone, variants, mode, language)
     }
+
+    override fun onMode() {
+        val allowed = ALL_MODES.filter { it in (features?.features?.modes ?: DEFAULT_MODES) }
+        mode = allowed[(allowed.indexOf(mode) + 1).mod(allowed.size)]
+        if (mode == "translate" && language == null) language = languageChoices().first()
+        flow.reset() // a result shown for another mode must not be insertable
+        view?.setOptions(mode, tone, variants, language)
+        if (features != null && ALL_MODES.any { it !in features!!.features.modes }) status("Translate and Summarize need the Plus plan", false)
+    }
+
+    override fun onLanguage() {
+        val languages = languageChoices()
+        language = languages[(languages.indexOf(language) + 1).mod(languages.size)]
+        view?.setOptions(mode, tone, variants, language)
+    }
+
+    private fun languageChoices() = features?.languages?.takeIf { it.isNotEmpty() } ?: listOf("Spanish", "French", "German", "Portuguese", "Italian", "English")
 
     override fun onTone() {
         val tones = features?.features?.tones ?: listOf("casual", "professional")
         tone = tones[(tones.indexOf(tone) + 1).mod(tones.size)]
-        view?.setOptions(tone, variants)
+        view?.setOptions(mode, tone, variants, language)
     }
 
     override fun onVariants() {
         val max = features?.features?.variants ?: 1
         variants = if (variants >= max) 1 else variants + 1
-        view?.setOptions(tone, variants)
+        view?.setOptions(mode, tone, variants, language)
         if (max == 1) status("More than one reply needs the Plus plan", false)
     }
 
@@ -208,8 +231,10 @@ class AzKeyboardService : InputMethodService(), KeyboardView.Listener, Suggestio
         entitlements?.let {
             if (tone !in it.features.tones) tone = it.features.tones.firstOrNull() ?: "professional"
             variants = variants.coerceIn(1, it.features.variants)
+            if (mode !in it.features.modes) mode = "reply"
+            if (mode == "translate" && language == null) language = languageChoices().first()
         }
-        view?.setOptions(tone, variants)
+        view?.setOptions(mode, tone, variants, language)
         view?.entitlements(entitlements)
     }
 }

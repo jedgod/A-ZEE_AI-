@@ -27,7 +27,7 @@ class ApiClient(
     fun reply(request: ReplyRequest): ReplyResult {
         val body = JSONObject()
             .put("requestId", request.requestId).put("message", request.message).put("tone", request.tone)
-            .put("variants", request.variants).put("consent", true).put("trigger", request.trigger).toString()
+            .put("variants", request.variants).put("consent", true).put("trigger", request.trigger).put("mode", request.mode).apply { request.language?.let { put("language", it) } }.toString()
         val json = try {
             authorized("POST", "/api/linqext/replies", body, 20_000)
         } catch (e: ApiFailure.Offline) {
@@ -92,7 +92,8 @@ class ApiClient(
         if (result.status in 200..299) return json.optJSONObject("data") ?: throw ApiFailure.Server(result.status)
         throw when (json.optString("error")) {
             "CONSENT_REQUIRED" -> ApiFailure.ConsentRequired()
-            "FEATURE_NOT_IN_PLAN" -> ApiFailure.NotInPlan(json.optString("tier"))
+            "FEATURE_NOT_IN_PLAN", "UPGRADE_REQUIRED" -> ApiFailure.NotInPlan(json.optString("tier"))
+            "INPUT_TOO_LONG" -> ApiFailure.InputTooLong(json.optInt("limit"))
             "PLAN_LIMIT_REACHED" -> ApiFailure.LimitReached()
             "REQUEST_IN_PROGRESS" -> ApiFailure.InProgress()
             "TOO_SOON", "TYPING_LIMIT_REACHED" -> ApiFailure.Paced()
