@@ -82,7 +82,11 @@ export class NotPermittedError extends Error {
 /** Progress events for streaming delivery (12): stage changes and 07 tool calls. No content. */
 export type PipelineStage = "preprocess" | "search" | "tools" | "plan" | "generate" | "validate" | "deliver";
 export type PipelineEvent = { type: "status"; stage: PipelineStage } | ({ type: "tool" } & ToolEvent);
-export type AnswerOptions = { signal?: AbortSignal; onEvent?: (event: PipelineEvent) => void };
+export type AnswerOptions = {
+  signal?: AbortSignal; onEvent?: (event: PipelineEvent) => void;
+  /** The caller meters this request against its own allowance (AZLinqext), so the shared chat allowance is not charged. */
+  skipUsage?: boolean;
+};
 
 export type PipelineMeta = {
   requestId: string;
@@ -248,7 +252,7 @@ export async function answerChat(
       if (input.model === "reasoning") needed.push("reasoning");
       if (input.mode === "research") needed.push("research");
       if (attachmentBytes) needed.push("attachments");
-      reservation = await reserveUsage(access, needed);
+      if (!options.skipUsage) reservation = await reserveUsage(access, needed);
     }
 
     // 04 routing: eligibility, budget, fresh latency data, then health-aware fallback order.

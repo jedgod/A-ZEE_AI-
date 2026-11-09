@@ -4,7 +4,7 @@ import { pool } from "@/lib/admin/db";
 
 // What the user agreed to for AZLinqext. Enforced on the server: no consent, no processing.
 // Bump CONSENT_VERSION whenever what is sent, or why, changes, so everyone is asked again.
-export const CONSENT_VERSION = 1;
+export const CONSENT_VERSION = 2; // 2: more modes (rewrite, grammar, tone, translate, summarize) and explicit disclosure of third-party AI providers
 
 export const consentSchema = z.object({
   version: z.literal(CONSENT_VERSION),
