@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <application>
+    <!-- The AZLinqext keyboard. Android shows it in Settings > Languages & input > On-screen keyboard. -->
+    <service
+      android:name="expo.modules.azlinqext.ime.AzKeyboardService"
+      android:label="@string/azlinqext_ime_label"
+      android:permission="android.permission.BIND_INPUT_METHOD"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.view.InputMethod" />
+      </intent-filter>
+      <meta-data android:name="android.view.im" android:resource="@xml/azlinqext_method" />
+    </service>
+  </application>
+</manifest>
