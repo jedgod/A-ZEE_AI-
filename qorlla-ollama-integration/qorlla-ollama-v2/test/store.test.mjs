@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {createStore} from '../src/store.mjs';
+import {randomUUID} from 'node:crypto';
+const schema=readFileSync(new URL('../deploy/sqlite.sql',import.meta.url),'utf8');
+async function fixture(){const path=`file:fixture-${randomUUID()}?mode=memory&cache=shared`;const admin=new DatabaseSync(path);admin.exec(schema);admin.exec(`INSERT INTO ai_provider_registry(provider_id,kind,enabled,private_only) VALUES('ollama','ollama',1,1); INSERT INTO ai_model_registry(model_id,provider_id,upstream_model,enabled,max_output_tokens) VALUES('small','ollama','tinyllama',1,1024); INSERT INTO ai_tenant_model_entitlements VALUES('t1','small',2,10000)`);return {admin,store:await createStore({sqlitePath:path})}}
+test('atomic reservation, quota, duplicate and conflict',async()=>{const {admin,store}=await fixture();try{const req={tenant:'t1',subject:'u1',model:'small',hash:'a',estimatedTokens:200};const a=await store.reserve({...req,requestId:randomUUID()});assert.equal(a.kind,'reserved');assert.equal((await store.reserve({...req,requestId:randomUUID()})).kind,'reserved');assert.equal((await store.reserve({...req,requestId:randomUUID()})).kind,'quota');await store.finish({tenant:'t1',model:'small',requestId:'nonexistent',day:a.day,estimatedTokens:200,error:'failure'});assert.equal((await store.usage('t1'))[0].requests,2)}finally{await store.close();admin.close()}});
+test('refund failure and idempotency',async()=>{const {admin,store}=await fixture();try{const id=randomUUID(),req={tenant:'t1',subject:'u1',model:'small',requestId:id,hash:'abc',estimatedTokens:500};const r=await store.reserve(req);assert.equal(r.kind,'reserved');assert.equal((await store.reserve(req)).kind,'duplicate');assert.equal((await store.reserve({...req,hash:'changed'})).kind,'conflict');assert.equal(await store.finish({...req,day:r.day,error:'failed'}),true);assert.equal(await store.finish({...req,day:r.day,error:'failed'}),false);assert.equal((await store.usage('t1'))[0].requests,0)}finally{await store.close();admin.close()}});

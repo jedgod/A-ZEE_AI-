@@ -250,6 +250,12 @@ its plan lists the tests to run by hand. Turn it off with `AZ_FEATURE_CODE_AGENT
 
 ## AI providers
 
+Ollama is available through the native Qorlla provider pipeline. See
+[Ollama setup](qorlla-ollama-integration/README.md) and the
+[integration report and gaps](docs/qorlla-ollama-integration-report.md).
+It is opt-in and requires an installed model; `AZ_PROVIDER_MODE=ollama-only`
+excludes cloud inference and cloud moderation from this pipeline.
+
 Configure one or more of `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`,
 `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRALAI_API_KEY`, `OPENROUTERAI_API_KEY`,
 `TOGETHERAI_API_KEY` (Gemini also accepts `GOOGLE_API_KEY`). That order is the default

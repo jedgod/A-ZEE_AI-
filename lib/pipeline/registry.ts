@@ -7,6 +7,7 @@ import { compatibleBranch } from "@/05_MODEL_LAYER/compatible_branch/compatible_
 import { geminiBranch } from "@/05_MODEL_LAYER/gemini_branch/gemini_branch";
 import { gptBranch } from "@/05_MODEL_LAYER/gpt_branch/gpt_branch";
 import { grokBranch } from "@/05_MODEL_LAYER/grok_branch/grok_branch";
+import { ollamaBranch, ollamaConfig } from "@/05_MODEL_LAYER/ollama_branch/ollama_branch";
 
 // The server-side allowlist of providers. Order is the default priority.
 // Prices default to 0 (unknown); set AZ_PRICE_<ID>="input,output" (USD per million tokens)
@@ -33,6 +34,8 @@ const SPECS: ProviderSpec[] = [
 const DEFAULT_CODE_PROVIDERS = ["groq", "gemini"];
 
 export type Provider = {
+  contextWindow?: number;
+  maxOutputTokens?: number;
   id: string;
   label: string;
   providerModel: string;
@@ -59,8 +62,10 @@ function price(id: string): [number, number] {
  * available for other uses, e.g. an OpenAI key without chat credits still serves free moderation.
  */
 export function configuredProviders(): Provider[] {
+  const mode = process.env.AZ_PROVIDER_MODE || "standard";
+  if (!["standard", "ollama-only"].includes(mode)) throw new Error("Invalid AZ_PROVIDER_MODE");
   const disabled = new Set((process.env.AZ_DISABLED_PROVIDERS ?? "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
-  return SPECS.filter(spec => process.env[spec.keyEnv] && !disabled.has(spec.id)).map((spec, index) => {
+  const providers: Provider[] = SPECS.filter(spec => mode !== "ollama-only" && process.env[spec.keyEnv] && !disabled.has(spec.id)).map((spec, index) => {
     const [input, output] = price(spec.id);
     return {
       id: spec.id, label: spec.label, adapter: spec.adapter,
@@ -68,6 +73,16 @@ export function configuredProviders(): Provider[] {
       inputUsdPerMillion: input, outputUsdPerMillion: output, priority: (index + 1) * 10,
     };
   });
+  if (process.env.OLLAMA_ENABLED === "true" && !disabled.has("ollama")) {
+    const config = ollamaConfig();
+    const model = process.env.OLLAMA_MODEL?.trim();
+    if (!model) throw new Error("OLLAMA_MODEL is required when Ollama is enabled");
+    const [input, output] = price("ollama");
+    providers.push({ id: "ollama", label: "Ollama", providerModel: model, adapter: ollamaBranch,
+      inputUsdPerMillion: input, outputUsdPerMillion: output, priority: 90,
+      contextWindow: config.contextWindow, maxOutputTokens: config.maxOutputTokens });
+  }
+  return providers;
 }
 
 export function codeProviderIds(): string[] {
@@ -80,7 +95,7 @@ export function metaRegistry(providers: Provider[]): ModelDefinition[] {
     id: p.id, provider: "openai-compatible", providerModel: p.providerModel,
     enabled: true, productionReady: true, external: true,
     capabilities: CAPABILITIES, classifications: ["public", "internal"],
-    contextWindow: CONTEXT_WINDOW, maxOutputTokens: MAX_OUTPUT, priority: p.priority,
+    contextWindow: p.contextWindow ?? CONTEXT_WINDOW, maxOutputTokens: p.maxOutputTokens ?? MAX_OUTPUT, priority: p.priority,
     inputUsdPerMillion: p.inputUsdPerMillion, outputUsdPerMillion: p.outputUsdPerMillion,
   }));
 }
@@ -91,7 +106,7 @@ export function routingCandidates(providers: Provider[], tenantId: string, capab
     const stats = health.stats(p.id);
     return {
       id: p.id, enabled: true, verified: true, allowedTenantIds: [tenantId],
-      tasks: TASKS, capabilities: [capability], region: "global", contextTokens: CONTEXT_WINDOW,
+      tasks: TASKS, capabilities: [capability], region: "global", contextTokens: p.contextWindow ?? CONTEXT_WINDOW,
       // No versioned evaluation exists yet, so every provider gets the same neutral score.
       qualityScore: 0.5,
       inputUsdPerMillion: p.inputUsdPerMillion, outputUsdPerMillion: p.outputUsdPerMillion,

@@ -1,0 +1,32 @@
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8090
+      OLLAMA_ENABLED: "false"
+      OLLAMA_BASE_URL: http://ollama:11434
+      DATABASE_URL: ${DATABASE_URL:?required}
+      AUTHORITY_URL: ${AUTHORITY_URL:?required}
+      AUTHORITY_SERVICE_TOKEN: ${AUTHORITY_SERVICE_TOKEN:?required}
+      HEALTH_TOKEN: ${HEALTH_TOKEN:?required}
+    networks: [qorlla_private]
+    # Connect to your existing authenticated Portal reverse proxy; no public ports.
+  ollama:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:?pin_verified_version}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NO_CLOUD: "1"
+    volumes: [ollama_models:/root/.ollama]
+    networks: [qorlla_private]
+    # GPU device allocation depends on host runtime and must be configured explicitly.
+networks:
+  qorlla_private:
+    internal: true
+volumes:
+  ollama_models:

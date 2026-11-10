@@ -4,6 +4,7 @@
 // ============================================================
 
 import "server-only";
+import { requireCloudInferenceAllowed } from "@/lib/pipeline/privacy";
 import OpenAI from "openai";
 import {
   Model, requiredEnv, turnsOf, validateRequest
@@ -11,6 +12,7 @@ import {
 
 export const grokBranch: Model = {
   async run(request) {
+    requireCloudInferenceAllowed();
     validateRequest(request);
     const client = new OpenAI({
       apiKey: requiredEnv("XAI_API_KEY"),

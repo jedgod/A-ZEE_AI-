@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aztrade}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-aztrade}
+    # Do not publish 5432 in production. Use an internal network or SSH tunnel.
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    volumes:
+      - aztrade_pg:/var/lib/postgresql/data
+      - ./backend/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      # Seed is opt-in. Mount only for local demo:
+      # - ./backend/sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aztrade}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aztrade_pg:

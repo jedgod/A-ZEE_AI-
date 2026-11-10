@@ -16,6 +16,7 @@ import { MessageContent } from "@/components/message-content";
 import { DevCanvas } from "@/components/dev-canvas";
 import { MoreMenu } from "@/components/more-menu";
 import { UserIconRail } from "@/components/user/icon-rail";
+import { newId } from "@/lib/client-id";
 import { SignalPing } from "@/components/user/signal-ping";
 import { VerifyBanner } from "@/components/user/verify-banner";
 import { ShareMenu } from "@/components/share-menu";
@@ -249,7 +250,7 @@ export default function WorkspacePage() {
       setModel(shared.mode === "code" ? "code" : "auto");
       if (shared.prompts.length) setSavedPrompts(current => {
         const known = new Set(current.map(p => p.prompt));
-        const next = [...current, ...shared.prompts.filter(p => !known.has(p.prompt)).map(p => ({ ...p, id: crypto.randomUUID() }))].slice(0, 20);
+        const next = [...current, ...shared.prompts.filter(p => !known.has(p.prompt)).map(p => ({ ...p, id: newId() }))].slice(0, 20);
         try { localStorage.setItem("az-prompts", JSON.stringify(next)); } catch {}
         return next;
       });
@@ -330,7 +331,7 @@ export default function WorkspacePage() {
 
   const saveHistory = useCallback((nextMessages: Message[], nextMode: Mode, id: string | null, projectId?: string) => {
     if (!nextMessages.length) return;
-    const cid = id || crypto.randomUUID();
+    const cid = id || newId();
     const title = (nextMessages[0].display || nextMessages[0].content || "Untitled").slice(0, 70);
     const existing = history.find(h => h.id === cid)?.projectId;
     const target = projectId ?? existing ?? (id ? undefined : newChatProject ?? undefined);
@@ -357,7 +358,7 @@ export default function WorkspacePage() {
   };
 
   const createProjectAndMove = (name: string): string | null => {
-    const result = addProject(projects, name, crypto.randomUUID());
+    const result = addProject(projects, name, newId());
     if ("error" in result) return result.error;
     setProjects(result.projects);
     try { localStorage.setItem("az-projects", JSON.stringify(result.projects.slice(1))); } catch { notify("Storage unavailable"); }
@@ -566,7 +567,7 @@ export default function WorkspacePage() {
         if (!prompt) return "Write the prompt first.";
         const title = (v.title.trim() || prompt.split("\n")[0]).slice(0, 48);
         const promptMode = (["chat", "code", "research"].includes(v.mode) ? v.mode : "chat") as Mode;
-        const next = [{ id: crypto.randomUUID(), title, mode: promptMode, prompt }, ...savedPrompts.filter(p => p.prompt !== prompt)].slice(0, 20);
+        const next = [{ id: newId(), title, mode: promptMode, prompt }, ...savedPrompts.filter(p => p.prompt !== prompt)].slice(0, 20);
         if (storePrompts(next)) notify(`Saved “${title}”`);
         return null;
       },
@@ -707,7 +708,7 @@ export default function WorkspacePage() {
     kind: "name", title: "New project", label: "Project name", initial: "", maxLength: MAX_PROJECT_NAME, confirm: "Create",
     submit: async name => {
       if (!serverSidebar) {
-        const result = addProject(projects, name, crypto.randomUUID());
+        const result = addProject(projects, name, newId());
         if ("error" in result) return result.error;
         setProjects(result.projects);
         try { localStorage.setItem("az-projects", JSON.stringify(result.projects.slice(1))); } catch {}
@@ -788,7 +789,7 @@ export default function WorkspacePage() {
       description: `Someone shared this project with ${bundle.chats.length} chat${bundle.chats.length === 1 ? "" : "s"}${bundle.instructions ? " and instructions" : ""}. A copy is added to your projects; you can change or delete it.`,
       submit: async () => {
         const api = sidebarRef.current;
-        let projectId = crypto.randomUUID();
+        let projectId = newId();
         if (api.mode === "server") {
           const created = await api.createProject(bundle.name, projectId);
           if (created) projectId = created.id;
@@ -802,7 +803,7 @@ export default function WorkspacePage() {
           setProjects(result.projects);
           try { localStorage.setItem("az-projects", JSON.stringify(result.projects.slice(1))); } catch {}
         }
-        const chats: HistoryItem[] = bundle.chats.map(c => ({ id: crypto.randomUUID(), title: c.title, mode: c.mode, messages: c.messages, projectId }));
+        const chats: HistoryItem[] = bundle.chats.map(c => ({ id: newId(), title: c.title, mode: c.mode, messages: c.messages, projectId }));
         setHistory(prev => {
           const next = [...chats, ...prev].slice(0, 30);
           try { localStorage.setItem("az-user-conversations", JSON.stringify(next)); } catch {}
@@ -1014,6 +1015,7 @@ export default function WorkspacePage() {
             <li><strong>IP address:</strong> recorded only when a trusted proxy reports it, and never used on its own to link accounts.</li>
           </ul>
           <p>This is used only to spot several free accounts on one device after the free allowance has been used, in which case we may ask you to upgrade. Paying customers are never affected, and no one is banned for this. We don’t sell this information or use it for advertising. It is deleted after 90 days.</p>
+          <p>You can delete your account and its data at any time from <a href="/account/delete" style={{ textDecoration: "underline" }}>Delete account</a>, on the website or in the mobile app.</p>
           <button disabled={busy} className={styles.outline} onClick={() => {
             try { localStorage.removeItem("az-user-conversations"); setHistory([]); newChat(); notify("History cleared"); setDialog(null); }
             catch { notify("Storage unavailable"); }

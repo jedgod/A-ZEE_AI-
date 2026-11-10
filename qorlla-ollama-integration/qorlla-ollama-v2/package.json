@@ -1,0 +1,1 @@
+{"name":"qorlla-ollama-gateway-v2","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node src/server.mjs","test":"node --test test/*.test.mjs","check":"node --check src/app.mjs && node --check src/store.mjs"},"dependencies":{"fastify":"^5.2.0","jose":"^6.0.0","pg":"^8.13.0"}}

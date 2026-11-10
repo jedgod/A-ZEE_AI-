@@ -1,0 +1,11 @@
+-- REVIEW-ONLY TEMPLATE. DO NOT APPLY UNTIL EVERY PRIVATE ROUTE USES
+-- transaction-scoped context AND app_role is proven to lack BYPASSRLS.
+-- Existing users.tenant_id is TEXT; normalize it and backfill before enabling.
+-- Fail-closed example for users (adapt policies for other tables and FKs):
+-- CREATE POLICY users_tenant_scope ON users
+-- FOR ALL TO aztrade_app
+-- USING (tenant_id = nullif(current_setting('app.current_tenant', true), '')
+--        AND id::text = nullif(current_setting('app.current_user_id', true), ''))
+-- WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant', true), '')
+--             AND id::text = nullif(current_setting('app.current_user_id', true), ''));
+-- IMPORTANT: deny direct SQL table access to API roles except required least privileges.

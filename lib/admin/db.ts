@@ -9,7 +9,7 @@ export const pool = shared.adminPool ?? new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10,
   connectionTimeoutMillis: 5000,
-  ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+  ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: true } : undefined,
 });
 shared.adminPool = pool;
 

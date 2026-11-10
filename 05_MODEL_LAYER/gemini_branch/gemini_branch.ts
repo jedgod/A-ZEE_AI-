@@ -4,6 +4,7 @@
 // ============================================================
 
 import "server-only";
+import { requireCloudInferenceAllowed } from "@/lib/pipeline/privacy";
 import { GoogleGenAI } from "@google/genai";
 import {
   Model, requiredEnv, turnsOf, validateRequest
@@ -11,6 +12,7 @@ import {
 
 export const geminiBranch: Model = {
   async run(request) {
+    requireCloudInferenceAllowed();
     validateRequest(request);
     const client = new GoogleGenAI({
       // Accept the Google SDK's variable name or this app's GEMINI_API_KEY.

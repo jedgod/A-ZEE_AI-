@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { pool } from "@/lib/admin/db";
 import { answerChat } from "@/lib/pipeline";
@@ -48,8 +48,7 @@ export const replySchema = z.object({
   if (r.mode !== "translate" && r.language) bad("language", "only translate takes a language");
 });
 
-const STALE_RUNNING_SECONDS = 60;
-const RETENTION_DAYS = 7;
+const STALE_RUNNING_SECONDS = 300;
 const MAX_IN_FLIGHT = 3; // generations one user may have running at once
 
 export class LinqextError extends Error {
@@ -76,6 +75,7 @@ export async function createReply(request: Request, raw: unknown) {
   const user: SessionUser = await linqextUser(request, true);
   if (!await allow("linqext", user.id, 20)) throw new UserError(429, "RATE_LIMITED");
   const input = replySchema.parse(raw);
+  const attempt = randomUUID();
   const hash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
 
   const { actor } = webActor(request, user);
@@ -96,21 +96,22 @@ export async function createReply(request: Request, raw: unknown) {
   // Claim the request id. A retry of a finished request replays its answer; a different body under
   // the same id is refused; a failed or abandoned attempt may be taken over. (user_id, request_id)
   // is the table's primary key, so two simultaneous requests can never both claim it.
-  await pool.query(`DELETE FROM linqext_requests WHERE created_at < now() - make_interval(days => $1)`, [RETENTION_DAYS]).catch(() => undefined);
+
   const claimed = await pool.query(
-    `INSERT INTO linqext_requests (user_id, request_id, payload_hash, status, trigger, mode) VALUES ($1, $2, $3, 'running', $4, $5) ON CONFLICT DO NOTHING RETURNING 1`,
-    [user.id, input.requestId, hash, input.trigger, input.mode]);
+    `INSERT INTO linqext_requests (user_id, request_id, payload_hash, status, trigger, mode, attempt_id) VALUES ($1, $2, $3, 'running', $4, $5, $6) ON CONFLICT DO NOTHING RETURNING 1`,
+    [user.id, input.requestId, hash, input.trigger, input.mode, attempt]);
   if (!claimed.rowCount) {
     const row = (await pool.query(`SELECT payload_hash, status, response FROM linqext_requests WHERE user_id = $1 AND request_id = $2`, [user.id, input.requestId])).rows[0];
     if (row?.payload_hash !== hash) throw new LinqextError(409, "IDEMPOTENCY_CONFLICT");
+    if (row.status === "completed" && !row.response) throw new LinqextError(410, "REPLAY_EXPIRED");
     if (row.status === "completed") return { replay: true, result: row.response };
     const taken = await pool.query(
-      `UPDATE linqext_requests SET status = 'running', created_at = now()
+      `UPDATE linqext_requests SET status = 'running', created_at = now(), attempt_id = $4
        WHERE user_id = $1 AND request_id = $2 AND (status = 'failed' OR (status = 'running' AND created_at < now() - make_interval(secs => $3))) RETURNING 1`,
-      [user.id, input.requestId, STALE_RUNNING_SECONDS]);
+      [user.id, input.requestId, STALE_RUNNING_SECONDS, attempt]);
     if (!taken.rowCount) throw new LinqextError(409, "REQUEST_IN_PROGRESS");
   }
-  const fail = () => pool.query(`UPDATE linqext_requests SET status = 'failed' WHERE user_id = $1 AND request_id = $2 AND status = 'running'`, [user.id, input.requestId]).catch(() => undefined);
+  const fail = () => pool.query(`UPDATE linqext_requests SET status = 'failed' WHERE user_id = $1 AND request_id = $2 AND status = 'running' AND attempt_id = $3`, [user.id, input.requestId, attempt]).catch(() => undefined);
 
   // At most MAX_IN_FLIGHT generations per user at once. Checked after the claim, before any model call or charge.
   const running = (await pool.query(
@@ -129,7 +130,7 @@ export async function createReply(request: Request, raw: unknown) {
   }
 
   // Charge the texting allowance once, atomically (entitlements.ts). Nothing is generated if it is used up.
-  try { await chargeRequest(user.id, input.requestId, policy.monthlyAllowance); }
+  try { await chargeRequest(user.id, input.requestId, policy.monthlyAllowance, attempt); }
   catch (error) {
     await fail();
     if (error instanceof AllowanceExhausted) throw new LinqextError(429, "PLAN_LIMIT_REACHED", { limit: error.limit, plan: policy.planName });
@@ -144,11 +145,12 @@ export async function createReply(request: Request, raw: unknown) {
     const replies = parseReplies(answer, input.variants, maxWords);
     if (!replies) throw new LinqextError(503, "REPLY_GENERATION_UNAVAILABLE");
     const result = { requestId: input.requestId, mode: input.mode, tier: policy.tier, replies, insertRequiresUserAction: true };
-    await pool.query(`UPDATE linqext_requests SET status = 'completed', response = $3 WHERE user_id = $1 AND request_id = $2`, [user.id, input.requestId, JSON.stringify(result)]);
+    const completed = await pool.query(`UPDATE linqext_requests SET status = 'completed', response = $3 WHERE user_id = $1 AND request_id = $2 AND attempt_id = $4 AND status = 'running'`, [user.id, input.requestId, JSON.stringify(result), attempt]);
+    if (!completed.rowCount) throw new Error('Inference attempt superseded');
     return { replay: false, result };
   } catch (error) {
     // Give the charge back (to the period it was charged to) and free the request id for a retry.
-    await refundRequest(user.id, input.requestId);
+    await refundRequest(user.id, input.requestId, attempt);
     await fail();
     throw error;
   }

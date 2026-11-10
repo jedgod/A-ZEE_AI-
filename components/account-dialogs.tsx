@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Terminal } from "lucide-react";
+import { Download, Smartphone, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ export type AccountData = {
   } | null;
   staff: { name: string; email: string; role: string } | null;
   links: { terms: string | null; privacy: string | null; help: string | null };
+  /** Store listings for the A-Zee mobile app (APP_STORE_URL / PLAY_STORE_URL); null until published. */
+  apps?: { ios: string | null; android: string | null };
 };
 
 type Props = { dialog: AccountDialog | null; onClose: () => void; data: AccountData | null; onChanged: () => void; notify: (m: string) => void };
@@ -64,7 +66,7 @@ export function AccountDialogs({ dialog, onClose, data, onChanged, notify }: Pro
       <PlanDialog open={dialog === "plan"} onClose={onClose} data={data} />
       <ShortcutsDialog open={dialog === "shortcuts"} onClose={onClose} />
       <ReleaseNotesDialog open={dialog === "release-notes"} onClose={onClose} />
-      <DownloadDialog open={dialog === "download"} onClose={onClose} />
+      <DownloadDialog open={dialog === "download"} onClose={onClose} apps={data?.apps} />
       <SupportDialog open={dialog === "support" || dialog === "bug"} kind={dialog === "bug" ? "bug" : "support"} onClose={onClose} data={data} notify={notify} />
     </>
   );
@@ -222,12 +224,23 @@ function ReleaseNotesDialog({ open, onClose }: D) {
   );
 }
 
-function DownloadDialog({ open, onClose }: D) {
+function DownloadDialog({ open, onClose, apps }: D & { apps?: { ios: string | null; android: string | null } }) {
+  const store = (label: string, url: string | null | undefined) => url
+    ? <Button asChild size="sm" variant="outline"><a href={url} target="_blank" rel="noopener noreferrer">{label}</a></Button>
+    : <Button size="sm" variant="outline" disabled>{label}: coming soon</Button>;
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Download apps</DialogTitle><DialogDescription>Use AZ_AI from your editor with AZee Connect.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Download apps</DialogTitle><DialogDescription>A-Zee on your phone and tablet, and in your editor.</DialogDescription></DialogHeader>
         <div className="grid gap-3">
+          <div className="flex items-start gap-3 rounded-lg border p-4">
+            <Smartphone className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold">Mobile app: iPhone, iPad, Android phones and tablets</h3>
+              <p className="text-sm text-muted-foreground">Chat, history, favorites, your prompt library and notifications, signed in to the same account.</p>
+              <div className="mt-2 flex flex-wrap gap-2">{store("App Store", apps?.ios)}{store("Google Play", apps?.android)}</div>
+            </div>
+          </div>
           <div className="flex items-start gap-3 rounded-lg border p-4">
             <Download className="mt-0.5 h-5 w-5 shrink-0" />
             <div className="min-w-0 flex-1">

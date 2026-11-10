@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { safeUrl } from "@/11_POSTPROCESS/citations/module";
+import { ollamaOnly } from "@/lib/pipeline/privacy";
 
 // Web discovery through Tavily (https://tavily.com). Set TAVILY_API_KEY in .env.local.
 // TAVILY_BASE_URL overrides the endpoint (used by scripts/check-search.cjs with a local fake).
@@ -15,7 +16,7 @@ export class SearchUnavailableError extends Error {
   constructor(public status?: number) { super("SEARCH_UNAVAILABLE"); }
 }
 
-export const searchConfigured = () => Boolean(process.env.TAVILY_API_KEY?.trim());
+export const searchConfigured = () => !ollamaOnly() && Boolean(process.env.TAVILY_API_KEY?.trim());
 export const SEARCH_PROVIDER = "tavily";
 const MAX_CONTENT = 5_000;
 
@@ -41,7 +42,7 @@ export async function webSearch(
   fetchImpl: typeof fetch = fetch,
 ): Promise<WebResult[]> {
   const key = process.env.TAVILY_API_KEY?.trim();
-  if (!key) throw new SearchNotConfiguredError();
+  if (!key || ollamaOnly()) throw new SearchNotConfiguredError();
   const base = (process.env.TAVILY_BASE_URL || "https://api.tavily.com").replace(/\/+$/, "");
   let response: Response;
   try {

@@ -3,6 +3,7 @@
 // service (pipeline-api: pgvector, PostgreSQL) through 07_TOOLS/search when configured.
 
 import type { SearchAdapter } from "@/07_TOOLS/search/module";
+import { ollamaOnly } from "./privacy";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -26,8 +27,8 @@ export function compactHistory(messages: ChatMessage[], budget = HISTORY_BUDGET_
   return { messages: kept, dropped: messages.length - kept.length };
 }
 
-export const webSearchEnabled = () => process.env.PIPELINE_WEB_SEARCH === "true";
-export const pipelineConfigured = () => Boolean(process.env.PIPELINE_API_URL && process.env.PIPELINE_API_TOKEN);
+export const webSearchEnabled = () => !ollamaOnly() && process.env.PIPELINE_WEB_SEARCH === "true";
+export const pipelineConfigured = () => !ollamaOnly() && Boolean(process.env.PIPELINE_API_URL && process.env.PIPELINE_API_TOKEN);
 
 /**
  * 07_TOOLS SearchAdapter backed by pipeline-api's /v1/03/context (pgvector documents plus
@@ -36,6 +37,8 @@ export const pipelineConfigured = () => Boolean(process.env.PIPELINE_API_URL && 
 export function pipelineSearchAdapter(fetchImpl: typeof fetch = fetch): SearchAdapter {
   return {
     async search({ query, limit }) {
+      // Even a loopback pipeline-api may forward text to cloud embedding/moderation.
+      if (ollamaOnly()) return [];
       const base = process.env.PIPELINE_API_URL?.replace(/\/+$/, "");
       const token = process.env.PIPELINE_API_TOKEN;
       if (!base || !token) return [];

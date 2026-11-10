@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { chatError } from "@/lib/chat/web";
 import type { RequestActor } from "@/lib/pipeline/actor";
+import { accessFor } from "@/lib/plans";
 import { actorFor } from "@/lib/users/auth";
 import { SidebarError } from "@/lib/sidebar";
 import { NO_STORE, sidebarOwner } from "@/lib/sidebar-route";
@@ -18,7 +19,11 @@ export async function codeAgentRoute(request: Request, mutation: boolean, work: 
   try {
     if (mutation && request.headers.get(CSRF_HEADER) !== "1") return reply(403, { error: "CSRF_HEADER_REQUIRED" });
     const owner = await sidebarOwner(request, mutation);
-    return await work({ owner, actor: (await actorFor(request)).actor });
+    const { actor } = await actorFor(request);
+    // The code agent writes detailed, multi-file changes, which the Free plan doesn't include
+    // (free coding answers are basic and short; see lib/pipeline/free-limits.ts).
+    if (process.env.DATABASE_URL && (await accessFor(actor)).planId === "free") return reply(403, { error: "UPGRADE_REQUIRED", feature: "code_agent" });
+    return await work({ owner, actor });
   } catch (error) {
     if (error instanceof CodeAgentError) return reply(error.status, { error: error.code, ...(error.detail !== undefined ? { detail: error.detail } : {}) });
     if (error instanceof SidebarError) return reply(error.status, { error: error.code });

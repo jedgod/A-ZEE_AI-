@@ -1,0 +1,33 @@
+services:
+  ollama:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:?pin_tested_version}
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    networks: [inference_private]
+    environment:
+      OLLAMA_NO_CLOUD: '1'
+    # No public port binding. Configure GPU reservations per host.
+  qorlla-ollama-gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      OLLAMA_ENABLED: 'true'
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODELS: ${OLLAMA_MODELS:?}
+      DATABASE_URL: ${DATABASE_URL:?}
+      JWKS_URL: ${JWKS_URL:?}
+      JWT_ISSUER: ${JWT_ISSUER:?}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?}
+      PG_SSL: 'true'
+    networks: [inference_private, app_private]
+    depends_on: [ollama]
+volumes:
+  ollama_models:
+networks:
+  inference_private:
+    internal: true
+  app_private:
+    external: true

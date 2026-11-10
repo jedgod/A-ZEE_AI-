@@ -26,6 +26,7 @@ export const FEATURES: Record<FeatureName, Definition> = {
 
 /** Off when AZ_FEATURE_<NAME>=off, and always off while planned or infrastructure-blocked. */
 export function featureEnabled(name: FeatureName, env: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {}): boolean {
+  if (name === "connectors" && env.AZ_PROVIDER_MODE === "ollama-only") return false;
   const def = FEATURES[name];
   if (def.readiness === "planned" || def.readiness === "infrastructure_blocked") return false;
   return (env[def.env] ?? "on").toLowerCase() !== "off";

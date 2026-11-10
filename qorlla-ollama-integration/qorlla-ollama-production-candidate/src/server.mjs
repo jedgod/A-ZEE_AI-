@@ -1,0 +1,14 @@
+import {createStore} from './store.mjs';
+import {createAuthority} from './auth.mjs';
+import {buildApp} from './app.mjs';
+const e=process.env;
+const required=['AUTHORITY_URL','AUTHORITY_SERVICE_TOKEN','OLLAMA_BASE_URL','HEALTH_TOKEN'];
+for(const k of required)if(!e[k])throw Error(`Missing ${k}`);
+if(!e.DATABASE_URL&&!e.SQLITE_PATH)throw Error('Missing database configuration');
+if(e.NODE_ENV==='production'&&!e.DATABASE_URL)throw Error('Production requires PostgreSQL');
+const ollama=new URL(e.OLLAMA_BASE_URL);
+if(!['http:','https:'].includes(ollama.protocol)||ollama.username||ollama.password||ollama.search||ollama.hash||ollama.pathname!=='/')throw Error('Invalid OLLAMA_BASE_URL');
+const store=await createStore({databaseUrl:e.DATABASE_URL,sqlitePath:e.SQLITE_PATH});
+const app=buildApp({store,verifyIdentity:createAuthority({url:e.AUTHORITY_URL,serviceToken:e.AUTHORITY_SERVICE_TOKEN}),ollamaUrl:ollama.origin,enabled:e.OLLAMA_ENABLED==='true'});
+await app.listen({host:e.HOST||'127.0.0.1',port:Number(e.PORT||8090)});
+const stop=()=>app.close();process.once('SIGTERM',stop);process.once('SIGINT',stop);

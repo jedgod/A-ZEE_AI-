@@ -4,6 +4,7 @@
   "scripts": {
     "test": "vitest run",
     "dev": "next dev --hostname localhost",
+    "dev:lan": "node scripts/dev-lan.cjs",
     "build": "node --require ./scripts/windows-fs-compat.cjs node_modules/next/dist/bin/next build",
     "start": "next start --hostname localhost",
     "typecheck": "tsc --noEmit",

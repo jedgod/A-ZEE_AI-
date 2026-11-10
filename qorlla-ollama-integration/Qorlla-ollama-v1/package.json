@@ -1,0 +1,9 @@
+{
+  "name": "qorlla-private-ollama-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {"start": "node src/server.mjs", "test": "node --test test/*.test.mjs", "check": "node --check src/server.mjs && node --check src/ollama.mjs"},
+  "dependencies": {"fastify": "^5.2.0", "jose": "^6.0.0", "pg": "^8.13.0"}
+}

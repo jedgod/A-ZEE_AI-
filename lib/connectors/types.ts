@@ -1,6 +1,8 @@
 // Provider-neutral connector contracts. A provider handles OAuth (authorize URL, code exchange,
 // refresh, revoke) and exposes read-only resource operations through ReadClient.
 
+import { ollamaOnly } from "@/lib/pipeline/privacy";
+
 export type ProviderId = "github" | "google_drive" | "gmail";
 
 export type TokenSet = { accessToken: string; refreshToken?: string | null; expiresAt?: string | null; scopes: string[] };
@@ -28,6 +30,7 @@ export class ConnectorError extends Error {
 
 /** Read-only HTTP for provider APIs: GET only, JSON or text, size-capped, with a timeout. */
 export async function readOnly(fetchImpl: typeof fetch, url: string, accessToken: string, accept = "application/json", maxBytes = 2_000_000) {
+  if (ollamaOnly()) throw new ConnectorError(403, "EXTERNAL_DATA_DISABLED");
   const response = await fetchImpl(url, {
     method: "GET",
     headers: { Authorization: `Bearer ${accessToken}`, Accept: accept, "User-Agent": "AZ_AI-connectors" },

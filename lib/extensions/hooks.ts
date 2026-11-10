@@ -2,6 +2,7 @@
 // 15_EXTENSIONS / HOOK EXECUTION
 // ============================================================
 import "server-only";
+import { ollamaOnly } from "@/lib/pipeline/privacy";
 import { z } from "zod";
 import { performance } from "node:perf_hooks";
 import type { Actor, HookData } from "./contracts";
@@ -22,6 +23,8 @@ export async function runHooks(
   parentSignal?: AbortSignal
 ) {
   if (!actor.userId || !actor.tenantId) throw new Error("Unauthorized");
+  // In-process extensions are not a network sandbox; do not hand them private text.
+  if (ollamaOnly()) return {};
   if ((data.context?.length ?? 0) > 100000 ||
       (data.output?.length ?? 0) > 100000) {
     throw new Error("Hook payload too large");

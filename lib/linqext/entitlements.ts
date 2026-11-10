@@ -58,12 +58,13 @@ export async function textingUsed(userId: string): Promise<number> {
  * already charged and does not charge again. The counter increments only while below the limit, in a
  * single statement, so concurrent requests can never overshoot it. Throws AllowanceExhausted.
  */
-export async function chargeRequest(userId: string, requestId: string, allowance: number | null): Promise<void> {
+export async function chargeRequest(userId: string, requestId: string, allowance: number | null, attempt?: string): Promise<void> {
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
-    const row = (await db.query(`SELECT charged_period FROM linqext_requests WHERE user_id = $1 AND request_id = $2 FOR UPDATE`, [userId, requestId])).rows[0];
-    if (row?.charged_period) { await db.query("COMMIT"); return; }
+    const row = (await db.query(`SELECT charged_period FROM linqext_requests WHERE user_id = $1 AND request_id = $2 AND ($3::uuid IS NULL OR attempt_id = $3) AND status = 'running' FOR UPDATE`, [userId, requestId, attempt ?? null])).rows[0];
+    if (!row) throw new Error('Inference attempt superseded or missing');
+    if (row.charged_period) { await db.query("COMMIT"); return; }
     const period = periodStart();
     const admitted = allowance === null || allowance > 0
       ? (await db.query(
@@ -84,15 +85,15 @@ export async function chargeRequest(userId: string, requestId: string, allowance
 }
 
 /** Gives back the charge of a request that failed, to the period it was charged to. Safe to call twice. */
-export async function refundRequest(userId: string, requestId: string): Promise<void> {
+export async function refundRequest(userId: string, requestId: string, attempt?: string): Promise<void> {
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
     const row = (await db.query(
-      `UPDATE linqext_requests r SET charged_period = NULL
-       FROM (SELECT charged_period FROM linqext_requests WHERE user_id = $1 AND request_id = $2 FOR UPDATE) old
+      `UPDATE linqext_requests r SET charged_period = NULL, status = 'failed'
+       FROM (SELECT charged_period FROM linqext_requests WHERE user_id = $1 AND request_id = $2 AND ($3::uuid IS NULL OR attempt_id = $3) AND status = 'running' FOR UPDATE) old
        WHERE r.user_id = $1 AND r.request_id = $2 AND old.charged_period IS NOT NULL RETURNING old.charged_period AS period`,
-      [userId, requestId])).rows[0];
+      [userId, requestId, attempt ?? null])).rows[0];
     if (row) await db.query(`UPDATE linqext_usage SET used = GREATEST(used - 1, 0) WHERE user_id = $1 AND period_start = $2`, [userId, row.period]);
     await db.query("COMMIT");
   } catch {

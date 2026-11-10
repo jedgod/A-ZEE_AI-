@@ -59,6 +59,7 @@ import { accountById, personalizationFor } from "@/lib/accounts";
 import { projectInstructions } from "@/lib/sidebar";
 import { accessFor, can, reserveUsage, type Access, type AccessFeature, type Reservation } from "@/lib/plans";
 import type { ChatInput } from "@/lib/chat/contracts";
+import { closeOpenFences, FREE_CODE_INSTRUCTION, FREE_CODE_NOTICE, freeCodeBudget, freeCodeLimitApplies } from "./free-limits";
 import { ProviderError } from "@/lib/chat/provider";
 import type { RequestActor } from "./actor";
 import { compactHistory, pipelineConfigured, pipelineSearchAdapter, withContext, type RetrievedSource } from "./context";
@@ -254,10 +255,14 @@ export async function answerChat(
       if (attachmentBytes) needed.push("attachments");
       if (!options.skipUsage) reservation = await reserveUsage(access, needed);
     }
+    // Free plan: coding and build-an-app requests get a hard, small output budget plus a "basic,
+    // short" instruction (lib/pipeline/free-limits.ts). Paid plans keep the full budget.
+    const freeCode = freeCodeLimitApplies(access, input.mode, classified.task, latest);
+    const outputBudget = freeCode ? Math.min(maxOutputTokens, freeCodeBudget()) : maxOutputTokens;
 
     // 04 routing: eligibility, budget, fresh latency data, then health-aware fallback order.
     const tenantId = actor.auth.tenantId;
-    const requirements: Requirements = { tenantId, task: classified.task, capabilities: [capability], region: "global", inputTokens, outputTokens: maxOutputTokens, minQuality: 0 };
+    const requirements: Requirements = { tenantId, task: classified.task, capabilities: [capability], region: "global", inputTokens, outputTokens: outputBudget, minQuality: 0 };
     const candidates = routingCandidates(providers, tenantId, capability);
     runModelSelector(candidates, requirements);
     runCostOptimizer(candidates, requirements, maxUsd);
@@ -296,6 +301,8 @@ export async function answerChat(
       ...(styleInstruction(input.style) ? [styleInstruction(input.style)!] : []),
       ...(structured ? [`Return ONLY a JSON object matching this JSON Schema, with no other text: ${JSON.stringify(answerJsonSchema)}. Put the full Markdown answer in "answer".`] : []),
       notes.join("\n"),
+      // Last, so project or personal instructions asking for more detail can't override it.
+      ...(freeCode ? [FREE_CODE_INSTRUCTION] : []),
     ].join("\n\n");
     const lastUser = buildUserPrompt({ text: messages.at(-1)!.content }).content;
     const fewShot = structured
@@ -338,7 +345,7 @@ export async function answerChat(
     const prompt = withToolResults(planned, toolResults);
 
     // 05 model layer through 04 fallback: multi-pass for reasoning, specialists for code.
-    const chatModel = (preferred: string[] = []) => router.model({ system: systemText, history, maxOutputTokens, preferred });
+    const chatModel = (preferred: string[] = []) => router.model({ system: systemText, history, maxOutputTokens: outputBudget, preferred });
     let result: Result;
     stage("generate");
     try {
@@ -376,6 +383,10 @@ export async function answerChat(
     stage("validate");
     const outputCheck = await span("validate", () => runPolicyCheck(answerText.slice(0, 50000), checker));
     if (outputCheck.decision !== "allow") throw new OutputBlockedError(outputCheck.reasons);
+    if (freeCode) {
+      answerText = closeOpenFences(answerText); // the budget may have cut a code block off
+      warnings.push(FREE_CODE_NOTICE);
+    }
     const answer = vault.restore(runCleanup(answerText));
 
     // 10 factual/hallucination checks + 09 confidence tags when the answer used retrieved sources.

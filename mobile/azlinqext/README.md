@@ -47,3 +47,31 @@ Still open (unchanged from the blockers above): Android `SessionTokenProvider` i
 its own process and cannot read the Expo app's secure storage, so a native bridge is needed to hand it the session
 token (and a native Android project via `expo prebuild`). iOS, a complete keyboard UI, and consent records are not
 built. Per-user concurrency limits use the shared `linqext` rate limit (20 requests/minute).
+
+## Android keyboard (production module)
+
+The prototype under `android/` is superseded by the Expo local module in `mobile/modules/azlinqext`:
+
+| Piece | Where |
+|---|---|
+| Keyboard service (typing keys, suggestion bar, insert) | `modules/azlinqext/android/.../ime/` |
+| Suggestion flow, API client, field privacy policy, insert planner | `modules/azlinqext/android/.../ai/` |
+| Encrypted credential store (Android Keystore, no-backup storage) | `modules/azlinqext/android/.../store/` |
+| App <-> keyboard bridge (`linkKeyboard`, `unlinkKeyboard`, `getStatus`, settings/picker) | `AzLinqextModule.kt`, `modules/azlinqext/index.ts` |
+| Setup, privacy choice, plan and allowance screen | `src/app/(app)/keyboard.tsx`, `src/lib/keyboard.ts` |
+| Server: scoped keyboard credentials, consent, usage | `lib/linqext/*`, `app/api/linqext/*`, migrations 029 and 030 |
+
+Authentication: the keyboard never gets the app's session. `POST /api/linqext/keyboard/link` (app session) mints a
+15-minute access token plus a rotating refresh token that only `/api/linqext/*` accepts and that dies with the
+app session. See `docs/azlinqext-privacy-review.md`.
+
+Draft only: replies are shown in the keyboard and typed into the field only when the user taps one. Nothing is
+sent. `NoAutoSendTest` fails the build if the AI code or manifest gains a send mechanism.
+
+Run the unit tests: `cd mobile && npx expo prebuild --platform android --no-install && cd android && ./gradlew :azlinqext:testDebugUnitTest`.
+Physical-device checklist: `docs/azlinqext-device-test-plan.md`.
+
+Known limits of this version: English (US) QWERTY only, no swipe typing, no predictions or auto-correct, no emoji
+panel, no iOS keyboard, and no reading of earlier messages from other apps (the server supports context, the keyboard
+sends only the selected message). Only the user's own typing app is involved: there is no accessibility service or
+notification access.

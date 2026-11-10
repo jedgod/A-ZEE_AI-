@@ -15,7 +15,7 @@ export function moderationChecker(fetchImpl: typeof fetch = fetch): PolicyChecke
       const local = safetyCheck(text);
       if (!local.passed) return { decision: "block", reasons: local.reasons };
       const key = process.env.OPENAI_API_KEY;
-      if (!key || process.env.AZ_MODERATION === "off") return { decision: "allow", reasons: [] };
+      if (!key || process.env.AZ_MODERATION === "off" || process.env.AZ_PROVIDER_MODE === "ollama-only") return { decision: "allow", reasons: [] };
       try {
         const response = await fetchImpl("https://api.openai.com/v1/moderations", {
           method: "POST",

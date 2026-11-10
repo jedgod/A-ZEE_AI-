@@ -4,6 +4,7 @@
 // ============================================================
 
 import "server-only";
+import { requireCloudInferenceAllowed } from "@/lib/pipeline/privacy";
 import {
   Model, requiredEnv, turnsOf, validateRequest
 } from "../contracts";
@@ -29,6 +30,7 @@ type Endpoint = {
 export function compatibleBranch(endpoint: Endpoint): Model {
   return {
     async run(request) {
+      requireCloudInferenceAllowed();
       validateRequest(request);
       const key = requiredEnv(endpoint.keyEnv);
       const anthropic = endpoint.dialect === "anthropic";
