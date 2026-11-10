@@ -15,3 +15,9 @@ cannot charge or refund), clears stored reply text after 7 days, deletes request
 | `maintenance_recovered` (info) | a cycle succeeded after an alert | confirm the backlog metric (`staleRunning`) is falling |
 
 Metrics file (`MAINTENANCE_METRICS_FILE`): `staleRunning` (backlog), `lastStats` (recovered/redacted/deleted), `consecutiveFailures`, `secondsSinceSuccess`.
+
+## Email alerts (prepared, not enabled)
+Set `ALERT_COMMAND="node scripts/staging/alert-smtp.mjs"` on the supervisor and provide `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY` (`tls` or `starttls`),
+`ALERT_MAIL_FROM`, `ALERT_MAIL_TO` and, if the relay needs it, `SMTP_USER` + `SMTP_PASSWORD_FILE` (a mounted secret file) and `SMTP_CA_FILE`. Until all required
+settings exist nothing is sent: the command exits 3 and the supervisor logs `alert_delivery_failed`. No provider is assumed. Verify with a deliberate test
+alert after configuring a real relay; the code is only tested against a fake server.

@@ -46,7 +46,10 @@ if (process.argv[1]?.endsWith("maintenance-supervisor.mjs")) {
   const sink = (a) => {
     console.error(JSON.stringify({ type: "alert", ...a }));
     if (env.MAINTENANCE_ALERT_FILE) appendFileSync(env.MAINTENANCE_ALERT_FILE, JSON.stringify(a) + "\n");
-    if (env.ALERT_COMMAND) { const p = spawn(env.ALERT_COMMAND, { shell: true, stdio: ["pipe", "ignore", "ignore"] }); p.on("error", () => {}); p.stdin.on("error", () => {}); p.stdin.end(JSON.stringify(a)); }
+    if (env.ALERT_COMMAND) {   // delivery is NOT assumed: a failing or unconfigured command is itself reported, never silent
+      const failed = (why) => console.error(JSON.stringify({ type: "alert_delivery_failed", event: a.event, why }));
+      const p = spawn(env.ALERT_COMMAND, { shell: true, stdio: ["pipe", "ignore", "ignore"] }); p.on("error", () => failed("spawn")); p.on("close", (code) => { if (code !== 0) failed(`exit ${code}`); }); p.stdin.on("error", () => {}); p.stdin.end(JSON.stringify(a));
+    }
   };
   const withDb = async (fn) => { const db = new pg.Client({ connectionString: env.DATABASE_URL, statement_timeout: 30000, connectionTimeoutMillis: 5000 }); db.on("error", () => {}); await db.connect(); try { return await fn(db); } finally { await db.end().catch(() => {}); } };
   const sup = createSupervisor({
