@@ -119,3 +119,30 @@ Oracle SSH repair and host-key pinning; A1 eligibility/capacity and an ARM build
 * **Gap closed:** the provider's digest pin cannot detect weights corrupted on disk (it compares the identifier Ollama reports). `scripts/staging/verify-ollama-model.mjs` hashes every blob against the manifest and can run a loopback-only smoke question; it flags the E: store (manifest unreadable). The opt-in live test `tests/ollama-live.test.ts` only asserts "non-empty output", so it **passed with garbage**: treat its pass/fail as plumbing, never as quality.
 * **Inference performance observed (valid only while the weights were intact):** ~16-18 tokens/s on the i5-10400H (CPU only), model load 1.6 s, ~1.4 GB resident when loaded.
 * **Oracle SSH recovered by itself** (banner `SSH-2.0-OpenSSH_9.9` in ~75-90 ms on re-probe) after the earlier banner timeouts. Cause unknown until the console diagnostics (`docs/runbooks/oracle-ssh-diagnostics.md`) are read. Offered host fingerprints (fetched without trusting or pinning; **compare with the console before use**): ED25519 `SHA256:Z6ukUofk6oAe6J1QIPx2InOomK3YMHpKQVPpaLBRLFk`, ECDSA `SHA256:+hLMHA6K2fO6MgvMpTSdMoJNL4V7lLcE6Uqr8jw0B9o`, RSA `SHA256:TdPl/gm2JrejbFoZ9XzfO6TijZUWtFAufo1D2JQIi5o`.
+
+## 11. Root cause of the SSH banner stalls (2026-11-10, from the VM's serial console log)
+Read by the owner in OCI Cloud Shell (`oci compute console-history capture/get-content`, 153,706 bytes). The kernel log shows **five global out-of-memory kills, every one of them `dnf` run by `dnf-makecache.service`** (anon RSS ~337-343 MB on a 1 GB machine). Boot was ~04:30:31 UTC.
+
+| Kernel uptime | UTC | Local (EST) | Process that tripped the OOM killer | Killed |
+|---|---|---|---|---|
+| 32,316 s | 13:29 | 08:29 | `oci-wlp` | dnf (342 MB) |
+| 37,865 s | 15:01 | 10:01 | `pmcd` | dnf (337 MB) |
+| 45,854 s | 17:14 | 12:14 | `oci-wlp` | dnf (337 MB) |
+| 49,742 s | 18:19 | 13:19 | `runcommand` (Oracle Cloud Agent) | dnf (339 MB) |
+| 54,968 s | 19:46 | 14:46 | `irqbalance` | dnf (337 MB) |
+
+Interpretation: the hourly package-metadata refresh needs ~340 MB, and with the OS, Oracle Cloud Agent plugins and monitoring on a **1 GB shape**, memory is exhausted; the machine freezes while it reclaims memory (sshd cannot send its banner) until the OOM killer ends `dnf`. This matches the intermittent 1-2 minute banner stalls and the Cloud Agent's Run Command never executing. Not every observed stall coincides with a logged kill (e.g. ~16:53 and 17:00 EST), so some are probably reclaim thrashing without a kill; this is a strong explanation, not proof for every stall.
+
+Proposed fixes (NOT applied; each modifies the live VM and needs approval): (1) `systemctl disable --now dnf-makecache.timer` (metadata refresh is not needed for this host); (2) add a 2 GB swap file to absorb spikes; (3) optionally cap `dnf-makecache.service` with `MemoryMax=`; (4) the lasting fix is a larger shape: this stack (~600 MB measured) plus the OS does not fit comfortably in 1 GB, which supports the A1 Flex (12 GB) plan.
+
+### 11a. Fixes applied (2026-11-10, approved by the owner; over SSH with the pinned host key and the admin key; no reboot)
+| Change | Result |
+|---|---|
+| `systemctl disable --now dnf-makecache.timer` | timer disabled and inactive; 0 scheduled runs; the failed service state was reset |
+| drop-in `/etc/systemd/system/dnf-makecache.service.d/azee-memory.conf` | `MemoryHigh=150M`, `MemoryMax=200M` (effective, verified with `systemctl show`) |
+| 2 GB swap file `/swapfile` (the existing 498 MB `/.swapfile` kept) | enabled and persisted in `/etc/fstab`; total swap 2.5 GB; `/etc/fstab` backed up as `/etc/fstab.bak-azee-20261110` |
+
+Evidence the diagnosis was right: the journal lists **seven OOM kills today, all of `dnf`** (06:26, 08:29, 10:01, 12:14, 13:19, 14:46 and **17:01 EST**); the 17:01 EST kill coincides exactly with a measured SSH banner stall (17:00:44-17:01:17) and a 15-minute load average of 15.19. No kill occurred after the timer was disabled (checked ~15 minutes later; ongoing monitoring recommended: `sudo journalctl -k --since today | grep -c oom-kill`).
+
+### 11b. Second finding: kdump reserves 448 MB of the 1 GB (NOT changed)
+Kernel command line `crashkernel=1G-64G:448M` with kdump enabled and active reserves **448 MB**, leaving only **498 MB** usable (`MemTotal` 510,644 kB). Disabling the kdump service alone does not return it; the `crashkernel=` parameter must be removed (for example with `grubby --update-kernel=ALL --remove-args=crashkernel`) **and the VM rebooted**, which is a state change that needs separate approval. Expected effect: roughly 1 GB usable instead of 498 MB. Crash dumps would no longer be captured (acceptable for a staging host). Even so, this stack on an E2 Micro stays marginal; a larger shape remains the lasting fix.
