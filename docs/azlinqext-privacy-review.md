@@ -40,8 +40,8 @@ works everywhere; only "send this text to A-Zee" is off. Enforced in `FieldPolic
 | Data | Where | Retention |
 |---|---|---|
 | The selected message and the generated reply | In flight to the A-Zee server and the AI model provider, then discarded by A-Zee. The reply is kept in the idempotency record below. | See below |
-| Idempotency record (`linqext_requests`): request id, a hash of the request, status and the **reply text** | A-Zee database | **7 days**, then deleted; deleted with the account. The message itself is **not** stored, only its hash. |
-| Usage count (one per reply) | A-Zee database (`usage_counters`) | With the account |
+| Idempotency record (`linqext_requests`): request id, a hash of the request, status and the **reply text** | A-Zee database | The **reply text is cleared after 7 days** and the **request metadata (id, hash, status, timestamps) is deleted after 90 days**, both by the scheduled maintenance worker (`scripts/lib/inference-maintenance.cjs`); deleted with the account. The message itself is **not** stored, only its hash. **These deletions only happen while that worker is scheduled; see "Verification status" below.** |
+| Usage count (one per reply, per month) | A-Zee database (`linqext_usage`) | With the account |
 | Consent record | A-Zee database | With the account |
 | Keyboard link (`linqext_keyboard_links`): token **hashes**, device install id, timestamps | A-Zee database | Expires after 30 days; revoked links purged after 7 days; deleted with the account |
 | Keyboard credential, cached plan and random install id | On the phone, in one file encrypted with a non-exportable Android Keystore key, in the app's no-backup storage | Erased on sign-out, on withdrawing consent, on account switch, and when the server revokes the link |
@@ -72,3 +72,11 @@ write the reply. List them in the privacy policy.
 - A user can still tap Suggest on a message that contains someone else's private information. This is the same trade-off as any assistant; the product copy says what is sent.
 - Under-18 users: the keyboard has no age gate of its own. Follow the account-level policy.
 - Device-level key loss (factory reset, new lock screen): the store can't be read, is discarded, and the keyboard asks the user to reconnect. No data is lost server-side.
+
+## Verification status (corrected 2026-11-10)
+This review previously stated a 7-day deletion of idempotency records and a `usage_counters` usage table. The code does otherwise:
+reply text is cleared at 7 days and request metadata deleted at 90 days (maintenance worker), and the keyboard's monthly count lives in
+`linqext_usage`. The table above now matches the code. **Not yet verified:** that the worker is actually scheduled in each deployment
+(the native and Compose staging stacks did not schedule it when this was written), account-deletion cascades against a populated
+database, and the retention applied by the external AI provider (not controllable from this codebase; the provider's terms must be
+reviewed and disclosed). This is a documentation/implementation reconciliation, not a legal compliance determination.

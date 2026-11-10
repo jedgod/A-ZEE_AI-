@@ -134,6 +134,22 @@ services:
       AZTRADE_JWT_KID: ${AZTRADE_JWT_KID:-azee-staging-local-1}
       # AI provider keys are intentionally NOT set: AI replies fail closed until a provider is configured for staging (see README).
 
+  maintenance:                   # supervised inference maintenance: stale-request recovery (exactly-once refund), retention, metrics, alerts
+    <<: *app
+    restart: unless-stopped
+    networks: [private]
+    depends_on: { migrate-azee: { condition: service_completed_successfully } }
+    secrets: [AZEE_DATABASE_URL]
+    environment:
+      SECRET_ENV: "DATABASE_URL=AZEE_DATABASE_URL"
+      MAINTENANCE_INTERVAL_MS: "60000"
+      MAINTENANCE_METRICS_FILE: /var/maintenance/metrics.json
+      MAINTENANCE_ALERT_FILE: /var/maintenance/alerts.jsonl
+      ALERT_OWNER: azee-staging-owner
+      ALERT_RUNBOOK: docs/runbooks/inference-maintenance.md
+    volumes: [maintenance:/var/maintenance]
+    command: ["node", "scripts/staging/maintenance-supervisor.mjs"]
+
   gateway:                       # the ONLY published port. Edge network only: no path to introspect, aztrade-api or db.
     image: nginx:1.27-alpine
     networks: [edge]
@@ -155,3 +171,4 @@ services:
 
 volumes:
   pgdata: {}
+  maintenance: {}

@@ -83,7 +83,7 @@ describe("Qorlla native Ollama integration", () => {
     enable(); vi.stubEnv("PIPELINE_API_URL", "http://127.0.0.1:8000"); vi.stubEnv("PIPELINE_API_TOKEN", "token");
     vi.stubEnv("TAVILY_API_KEY", "key"); const fetcher = vi.fn();
     expect(pipelineConfigured()).toBe(false); expect(searchConfigured()).toBe(false);
-    expect(await pipelineSearchAdapter(fetcher).search({ query: "protected", limit: 1 })).toEqual([]);
+    expect(await pipelineSearchAdapter(fetcher).search({ tenantId: "test-tenant", userId: "test-user", query: "protected", limit: 1 })).toEqual([]);
     await expect(webSearch("protected", {}, fetcher)).rejects.toThrow("SEARCH_NOT_CONFIGURED");
     expect(fetcher).not.toHaveBeenCalled();
   });
@@ -95,7 +95,7 @@ describe("Qorlla native Ollama integration", () => {
     }
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it.each([[], [{ name: "installed-model:tag", digest: "changed" }],
+  it.each([[undefined], [{ name: "installed-model:tag", digest: "changed" }],
     [{ name: "installed-model:tag", digest: "pinned", remote_host: "https://ollama.com" }]])("rejects missing, changed or remote models before sending a prompt", async models => {
     enable(); vi.stubEnv("OLLAMA_MODEL_DIGEST", "pinned");
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ models }))); vi.stubGlobal("fetch", fetcher);

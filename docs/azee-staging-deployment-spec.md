@@ -75,8 +75,12 @@ Tested: rotation while 40 concurrent requests are in flight loses none (`aztrade
 `AZTRADE_MTLS_LISTEN_HOST`, `AZTRADE_SERVICE_SECRET`, `AZEE_JWT_ISSUER`, `AZTRADE_JWT_{KID,PRIVATE_KEY,PREVIOUS_PUBLIC_KEYS}`,
 `AZTRADE_DATABASE_URL`, `AZTRADE_MIGRATION_DATABASE_URL`, `AZTRADE_INTROSPECT_ROUTE`.
 
-## 6. Not yet built (do not assume)
-- A runnable entry point that loads these settings, calls `assertSecureDeployment`, reads secrets through `lib/secrets` and starts
-  `createMtlsIntrospectServer` with the real introspection function (the library and tests exist; the launcher does not).
-- Internal CA tooling and automated rotation jobs; certificate expiry monitoring; audit-log shipping and alerting.
-- A real secret-store adapter, hosted private networking, staging database, and the external-reachability verification in section 3.
+## 6. Status of the pieces (updated 2026-11-10)
+Built and tested locally (disposable credentials only):
+- Launcher: `scripts/introspect-listener.mjs` + `lib/aztrade/listener.ts` (secrets through `lib/secrets`, startup gate, `/introspect` and `/jwks`).
+- Local private CA with issue/rotate/revoke/watch and persisted gateway SANs: `scripts/staging/pki.mjs`.
+- Native (no-Docker) staging stack and verification: `scripts/staging/native-*.ps1|mjs`, `gateway.mjs`.
+Still NOT built or verified (do not assume):
+- Certificate-expiry monitoring, audit-log shipping, alerting, and a scheduled maintenance worker with failure alerts.
+- A real secret-store adapter, hosted private networking, a production database, and external-reachability verification (section 3).
+- Container runtime verification (Docker did not start on the build machine: drive C: had ~1.2 GB free).

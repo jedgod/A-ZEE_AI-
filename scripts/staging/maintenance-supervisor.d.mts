@@ -1,0 +1,1 @@
+export function createSupervisor(o: { run: () => Promise<any>; backlog: () => Promise<number>; now?: () => number; alertAfter?: number; staleAfterMs?: number; owner?: string; runbook?: string; sink?: (a: any) => void; writeMetrics?: (m: any) => void }): { cycle(): Promise<any>; state: any };

@@ -6,7 +6,8 @@
   Stop with native-down.ps1. Isolation here is loopback binding + mTLS/auth, NOT container networking.
 #>
 param([string]$Base = 'G:\A-Z_AI\staging-local', [string]$LanIp = '10.0.0.237', [int]$GatewayPort = 8443,
-      [ValidateSet('', 'introspect', 'aztrade-api', 'app', 'gateway')][string]$Only = '')   # -Only restarts a single service (others keep running)
+      [ValidateSet('', 'introspect', 'aztrade-api', 'app', 'gateway', 'maintenance')][string]$Only = '',
+      [int]$MaintenanceIntervalMs = 60000)   # -Only restarts a single service (others keep running)
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..'); $sec = "$Base\secrets"; $pki = "$Base\pki\live"; $log = "$Base\logs"
 $secret = { param($n) (Get-Content "$sec\$n" -Raw).Trim() }
@@ -47,6 +48,12 @@ Start-Svc 'app' 'node' @('--require', './scripts/windows-fs-compat.cjs', 'node_m
   NODE_ENV = 'production'; DB_DIALECT = 'postgres'; APP_ORIGIN = $origin; NEXT_TELEMETRY_DISABLED = '1'
   DATABASE_URL = (& $secret 'AZEE_DATABASE_URL'); AZTRADE_SERVICE_SECRET = (& $secret 'AZTRADE_SERVICE_SECRET'); AZTRADE_JWT_PRIVATE_KEY = (& $secret 'AZTRADE_JWT_PRIVATE_KEY')
   AZEE_JWT_ISSUER = $origin; AZTRADE_JWT_KID = 'azee-staging-local-1' })
+
+# 3b. inference maintenance, supervised: recovers stale requests (exactly-once refund), applies retention, writes metrics and alerts
+Start-Svc 'maintenance' 'node' @('scripts/staging/maintenance-supervisor.mjs') $root @{
+  DATABASE_URL = (& $secret 'AZEE_DATABASE_URL'); MAINTENANCE_INTERVAL_MS = "$MaintenanceIntervalMs"
+  MAINTENANCE_METRICS_FILE = "$log\maintenance-metrics.json"; MAINTENANCE_ALERT_FILE = "$log\maintenance-alerts.jsonl"
+  ALERT_OWNER = 'azee-staging-owner'; ALERT_RUNBOOK = 'docs/runbooks/inference-maintenance.md' }
 
 # 4. gateway: the ONLY LAN-facing listener
 Start-Svc 'gateway' 'node' @('scripts/staging/gateway.mjs') $root @{ GATEWAY_BIND = $LanIp; GATEWAY_PORT = "$GatewayPort"; APP_URL = 'http://127.0.0.1:3000'; GATEWAY_TLS_DIR = "$pki\gateway" }

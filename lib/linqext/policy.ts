@@ -34,7 +34,7 @@ export const MULTI_VARIANT_MODES: readonly Mode[] = ["reply", "rewrite", "tone"]
 /** Free and Go are the basic tier, Plus is the middle tier, everything above (Pro, Business, Enterprise) is premium. Unknown plans are basic. */
 export function tierForPlan(planId: string): Tier {
   if (planId === "plus" || planId === "go") return "plus";
-  if (/^(pro|business|enterprise)/.test(planId)) return "premium";
+  if (/^(pro\d{0,4}|premium|business|enterprise)$/.test(planId)) return "premium";   // exact ids (pro25, pro60, pro500, ...): a prefix match would upgrade unknown names such as "professional"
   return "free";
 }
 
