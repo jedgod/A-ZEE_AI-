@@ -146,3 +146,19 @@ Evidence the diagnosis was right: the journal lists **seven OOM kills today, all
 
 ### 11b. Second finding: kdump reserves 448 MB of the 1 GB (NOT changed)
 Kernel command line `crashkernel=1G-64G:448M` with kdump enabled and active reserves **448 MB**, leaving only **498 MB** usable (`MemTotal` 510,644 kB). Disabling the kdump service alone does not return it; the `crashkernel=` parameter must be removed (for example with `grubby --update-kernel=ALL --remove-args=crashkernel`) **and the VM rebooted**, which is a state change that needs separate approval. Expected effect: roughly 1 GB usable instead of 498 MB. Crash dumps would no longer be captured (acceptable for a staging host). Even so, this stack on an E2 Micro stays marginal; a larger shape remains the lasting fix.
+
+### 11c. kdump change and reboot performed (2026-11-10 17:21-17:25 EST, approved by the owner)
+Backups on the VM (rollback material): `/etc/default/grub.bak-azee-20261110`, `/etc/kernel/cmdline.bak-azee-20261110`, `/root/grubby-info.bak-azee-20261110.txt`, `/root/boot-entries.bak-azee-20261110/`.
+Change: `grubby --update-kernel=ALL --remove-args='crashkernel=1G-64G:448M,64G-:512M'` (all three boot entries, including rescue), the same argument removed from `/etc/default/grub` and `/etc/kernel/cmdline`, `kdump` disabled; then one reboot. Downtime 17:22:10 to 17:24:56 (about 2 min 46 s).
+Rollback: `sudo grubby --update-kernel=ALL --args='crashkernel=1G-64G:448M,64G-:512M'`, restore the two backed-up files, `systemctl enable --now kdump`, reboot.
+
+| Measurement | Before | After (5 min after boot) |
+|---|---|---|
+| `MemTotal` | 498 MB | **946 MB** |
+| crash kernel reserve (`kexec_crash_size`) | 448 MB | 0 |
+| swap | 498 MB (276 MB in use) | 2.5 GB, **0 in use** |
+| `MemAvailable` | ~292 MB | ~332 MB |
+| OOM lines since boot | 7 kills that day | 0 |
+| `dnf-makecache.timer`, MemoryMax drop-in | disabled, 200M | unchanged |
+
+Reading it honestly: usable RAM nearly doubled, but `MemAvailable` rose only ~40 MB because pages that had been pushed to swap (276 MB) now stay in RAM. The largest resident group is Oracle Cloud Agent plugins (`oci-wlp`, `runcommand`, `agent`, `gomon`, `updater`: about 57-61 MB each, ~290 MB total). Disabling plugins that are not needed (Run Command never worked on this instance) would free ~60-120 MB; not done. `mcelog.service` fails at boot (machine-check logging unsupported on this virtual CPU); harmless, not changed.
