@@ -13,9 +13,19 @@ export type IntrospectFn = (token: string, env: Env) => Promise<unknown>;
 const list = (v?: string) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
 /** The real introspection: A-Zee's live session store + billing. Imported lazily so DATABASE_URL is set before the pool is created. */
-async function realJwks(env: Env) { process.env.DATABASE_URL = env.AZTRADE_DATABASE_URL; const { aztradeConfig, jwksFor } = await import("./identity"); return jwksFor(aztradeConfig(env)); }
+let guarded = false;
+/** A database restart makes idle pooled connections emit 'error'. Without a listener Node treats that as fatal and the identity
+ *  service dies (AZTrade then fails closed forever). With one, pg discards the dead client and reconnects on the next query. */
+async function guardPool(log: (e: Record<string, unknown>) => void = () => {}) {
+  if (guarded) return; guarded = true;
+  const { pool } = await import("@/lib/admin/db");
+  pool.on("error", (e: Error & { code?: string }) => console.error(JSON.stringify({ type: "db_pool_error", code: e.code ?? "UNKNOWN" })));
+  log({ type: "db_pool_guard_installed" });
+}
+async function realJwks(env: Env) { process.env.DATABASE_URL = env.AZTRADE_DATABASE_URL; await guardPool(); const { aztradeConfig, jwksFor } = await import("./identity"); return jwksFor(aztradeConfig(env)); }
 async function realIntrospect(token: string, env: Env) {
   process.env.DATABASE_URL = env.AZTRADE_DATABASE_URL;                     // the A-Zee pool reads DATABASE_URL at import time
+  await guardPool();
   const { aztradeConfig, introspect } = await import("./identity");
   return introspect(token, aztradeConfig(env));
 }

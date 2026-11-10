@@ -30,6 +30,12 @@ export function pki(dir, o = {}) {
   const ca = path.join(dir, "ca"), live = path.join(dir, "live"), cnf = path.join(ca, "openssl.cnf");
   const ossl = (args, cwd = ca) => execFileSync(process.env.OPENSSL_BIN || "openssl", args, { cwd, stdio: "pipe" });
   const atomic = (file, data, mode) => { const t = `${file}.tmp${process.pid}`; writeFileSync(t, data, mode ? { mode } : undefined); renameSync(t, file); };
+  // Gateway SANs persist next to the CA so a later `rotate` (without the env var) cannot silently drop the LAN address phones use.
+  const sansFile = path.join(dir, "gateway-sans.txt");
+  const wanted = [...new Set([...(existsSync(sansFile) ? readFileSync(sansFile, "utf8").split(",") : []), ...(process.env.AZEE_GATEWAY_SANS || "").split(",")].map((x) => x.trim()).filter(Boolean))];
+  const ids = IDENTITIES.map((i) => (i.name === "gateway" ? { ...i, sans: [...new Set([...i.sans, ...wanted])] } : i));
+  const saveSans = () => { if (wanted.length && existsSync(dir)) writeFileSync(sansFile, wanted.join(",")); };
+  const hasSans = (c, sans) => sans.every((s) => c.subjectAltName?.includes(s.replace(/^IP:/, "IP Address:")));
 
   function init() {
     if (existsSync(path.join(ca, "ca.key"))) throw new Error("CA already exists; refusing to overwrite");
@@ -38,7 +44,7 @@ export function pki(dir, o = {}) {
     writeFileSync(cnf, `[ca]\ndefault_ca=c\n[c]\ndatabase=index.txt\nserial=serial\ncrlnumber=crlnumber\nnew_certs_dir=issued\ndefault_md=sha256\ndefault_crl_days=${opt.crlDays}\npolicy=p\nunique_subject=no\ncopy_extensions=none\n[p]\ncommonName=supplied\n[req]\ndistinguished_name=d\nprompt=no\n[d]\nCN=azee-staging-local private CA (disposable)\n[v3ca]\nbasicConstraints=critical,CA:true,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\n`);
     ossl(["req", "-x509", "-newkey", "rsa:3072", "-nodes", "-keyout", "ca.key", "-out", "ca.pem", "-days", "365", "-config", "openssl.cnf", "-extensions", "v3ca"]);
     try { chmodSync(path.join(ca, "ca.key"), 0o600); } catch { /* not supported on this filesystem */ }
-    refreshCrl();
+    saveSans(); refreshCrl();
   }
   const refreshCrl = () => { ossl(["ca", "-config", "openssl.cnf", "-cert", "ca.pem", "-keyfile", "ca.key", "-gencrl", "-out", "ca.crl"]); };
 
@@ -60,22 +66,22 @@ export function pki(dir, o = {}) {
   const fraction = (c, now = Date.now()) => (Date.parse(c.validTo) - now) / (Date.parse(c.validTo) - Date.parse(c.validFrom));
 
   function publish() {   // CA cert + current CRL next to every identity (atomic)
-    for (const id of IDENTITIES) { const out = path.join(live, id.name); if (!existsSync(out)) continue;
+    for (const id of ids) { const out = path.join(live, id.name); if (!existsSync(out)) continue;
       atomic(path.join(out, "ca.pem"), readFileSync(path.join(ca, "ca.pem"))); atomic(path.join(out, "ca.crl"), readFileSync(path.join(ca, "ca.crl"))); }
   }
   function rotate(now = Date.now()) {
     const result = [];
-    for (const id of IDENTITIES) {
+    for (const id of ids) {
       const c = certOf(id);
-      const reason = !c ? "missing" : Date.parse(c.validTo) <= now ? "expired" : fraction(c, now) < opt.renewFraction ? "expiring" : null;
+      const reason = !c ? "missing" : Date.parse(c.validTo) <= now ? "expired" : fraction(c, now) < opt.renewFraction ? "expiring" : id.kind === "server" && !hasSans(c, id.sans) ? "san_changed" : null;
       if (reason) { const n = issue(id); result.push({ identity: id.name, action: "issued", reason, serial: n.serialNumber, validTo: n.validTo }); }
       else result.push({ identity: id.name, action: "kept", validTo: c.validTo });
     }
-    refreshCrl(); publish();   // CRL is refreshed on EVERY run: an expired CRL makes TLS reject every client
+    saveSans(); refreshCrl(); publish();   // CRL is refreshed on EVERY run: an expired CRL makes TLS reject every client
     return result;
   }
   function revoke(name, { reissue = true } = {}) {
-    const id = IDENTITIES.find((i) => i.name === name); if (!id) throw new Error(`unknown identity ${name}`);
+    const id = ids.find((i) => i.name === name); if (!id) throw new Error(`unknown identity ${name}`);
     const c = certOf(id); if (!c) throw new Error("no live certificate to revoke");
     ossl(["ca", "-config", "openssl.cnf", "-cert", "ca.pem", "-keyfile", "ca.key", "-revoke", path.join(live, id.name, "cert.pem")]);
     refreshCrl();
@@ -84,7 +90,7 @@ export function pki(dir, o = {}) {
     return { revoked: c.serialNumber, reissued: reissue };
   }
   function status(now = Date.now()) {
-    return IDENTITIES.map((id) => { const c = certOf(id); return c ? { identity: id.name, validTo: c.validTo, remainingFraction: Number(fraction(c, now).toFixed(3)), expired: Date.parse(c.validTo) <= now, fingerprint256: c.fingerprint256 } : { identity: id.name, missing: true }; });
+    return ids.map((id) => { const c = certOf(id); return c ? { identity: id.name, validTo: c.validTo, remainingFraction: Number(fraction(c, now).toFixed(3)), expired: Date.parse(c.validTo) <= now, fingerprint256: c.fingerprint256 } : { identity: id.name, missing: true }; });
   }
   return { init, rotate, revoke, status, refreshCrl, publish, opt };
 }

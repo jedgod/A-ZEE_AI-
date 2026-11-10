@@ -12,10 +12,11 @@ const dir = path.resolve(args.includes("--dir") ? args[args.indexOf("--dir") + 1
 const rotate = args.includes("--rotate") ? args[args.indexOf("--rotate") + 1] : null;
 const hex = (n = 24) => randomBytes(n).toString("hex");
 const enc = encodeURIComponent;
+const DBHOST = process.env.AZEE_DB_HOSTPORT || "db:5432";   // native staging: 127.0.0.1:54400
 
 export function build() {
   const pw = Object.fromEntries(ROLES.map((r) => [r, hex()]));
-  const url = (role, db) => `postgres://${role}:${enc(pw[role])}@db:5432/${db}`;
+  const url = (role, db) => `postgres://${role}:${enc(pw[role])}@${DBHOST}/${db}`;
   const rsa = generateKeyPairSync("rsa", { modulusLength: 3072 });
   return {
     postgres_admin_password: hex(),

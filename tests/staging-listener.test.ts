@@ -90,3 +90,21 @@ describe("signing keys over the authenticated channel", () => {
     await noJwks.close();
   });
 });
+
+describe("certificate rotation keeps the gateway's LAN address", () => {
+  it("persists the gateway SANs at init so a later rotate without the env var cannot drop them, and reissues a certificate that lacks them", () => {
+    const d = mkdtempSync(path.join(tmpdir(), "san-")); const saved = process.env.AZEE_GATEWAY_SANS;
+    try {
+      process.env.AZEE_GATEWAY_SANS = "IP:10.9.8.7"; const a = pki(path.join(d, "pki")); a.init(); a.rotate();
+      const san = () => new X509Certificate(readFileSync(path.join(d, "pki/live/gateway/cert.pem"))).subjectAltName ?? "";
+      expect(san()).toContain("10.9.8.7");
+      delete process.env.AZEE_GATEWAY_SANS;                                              // a later run WITHOUT the variable
+      const b = pki(path.join(d, "pki")); b.rotate(Date.now() + 29 * 86_400_000);       // force a reissue
+      expect(san()).toContain("10.9.8.7");
+      // a certificate that lacks a wanted SAN is detected and reissued even when it is far from expiry
+      writeFileSync(path.join(d, "pki/gateway-sans.txt"), "IP:10.9.8.7,IP:10.9.8.8");
+      expect(pki(path.join(d, "pki")).rotate().find((r) => r.identity === "gateway")).toMatchObject({ action: "issued", reason: "san_changed" });
+      expect(san()).toContain("10.9.8.8");
+    } finally { if (saved === undefined) delete process.env.AZEE_GATEWAY_SANS; else process.env.AZEE_GATEWAY_SANS = saved; rmSync(d, { recursive: true, force: true }); }
+  });
+});
