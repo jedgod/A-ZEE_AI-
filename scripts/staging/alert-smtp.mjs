@@ -91,7 +91,11 @@ export async function sendMail(settings, message) {
   } finally { c.sock().destroy(); }
 }
 
-if (process.argv[1]?.endsWith("alert-smtp.mjs")) {
+if (process.argv[1]?.endsWith("alert-smtp.mjs") && process.argv.includes("--check")) {
+  // Configuration check only: validates the settings and prints NON-secret facts. Contacts nothing, sends nothing.
+  const c = smtpSettings(); const out = c.ok ? { configured: true, host: c.host, port: c.port, security: c.security, recipients: c.to.length, auth: Boolean(c.user), customCa: Boolean(c.caFile) } : { configured: false, reason: c.reason };
+  console.log(JSON.stringify(out)); process.exit(c.ok ? 0 : 3);
+} else if (process.argv[1]?.endsWith("alert-smtp.mjs")) {
   const s = smtpSettings();
   if (!s.ok) { console.error(JSON.stringify({ type: "alert_email_skipped", reason: s.reason })); process.exit(3); }
   let raw = ""; process.stdin.setEncoding("utf8"); for await (const chunk of process.stdin) { raw += chunk; if (raw.length > 65536) break; }

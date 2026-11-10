@@ -1,0 +1,22 @@
+# TEMPLATE (not installed). Oracle host: /etc/systemd/system/azee-ollama-health.service. Monitors the loopback endpoint the tunnel provides; starts/stops nothing else.
+[Unit]
+Description=A-Zee Ollama endpoint health monitor (fail-closed alerts)
+After=network-online.target
+
+[Service]
+User=azee
+EnvironmentFile=/etc/azee/ollama-health.env
+ExecStart=/usr/bin/node /opt/azee/scripts/staging/ollama-tunnel-health.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/azee/health
+# egress for this unit is loopback only
+IPAddressDeny=any
+IPAddressAllow=127.0.0.0/8
+
+[Install]
+WantedBy=multi-user.target

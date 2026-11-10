@@ -113,11 +113,13 @@ try {
   const link = await gw("/api/linqext/keyboard/link", { method: "POST", cookie: C.cookie, body: {} });
   const l = link.json?.data; check("keyboard link issues scoped credentials", link.status === 200 && !!l, `${link.status} ${link.text.slice(0, 160)}`);
   const accessTok = l?.accessToken ?? l?.access_token, refreshTok = l?.refreshToken ?? l?.refresh_token;
-  const kb = (p, o = {}) => gw(p, { ...o, headers: { authorization: `Bearer ${accessTok}`, ...(o.headers ?? {}) } });
+  // The keyboard is the mobile client: its credentials are only honoured with X-AZ-Client: mobile (otherwise 403 INVALID_ORIGIN, which
+  // an earlier version of this check mistook for "AI provider absent").
+  const kb = (p, o = {}) => gw(p, { ...o, headers: { authorization: `Bearer ${accessTok}`, "x-az-client": "mobile", ...(o.headers ?? {}) } });
   const ent0 = await kb("/api/linqext/entitlements"); check("keyboard credential reads entitlements (no browser session)", ent0.status === 200, `${ent0.status}`);
   const rid = randomUUID();
   const rep = await kb("/api/linqext/replies", { method: "POST", body: { requestId: rid, message: "Can we meet tomorrow?", consent: true } });
-  check("reply generation fails closed without an AI provider (no provider detail leaked)", rep.status >= 400 && !/api[_ -]?key|openai|gemini|groq|mistral|together|openrouter/i.test(rep.text), `${rep.status} ${rep.text.slice(0, 160)}`);
+  check("reply generation fails closed because NO AI provider is configured (not an auth/origin error; no provider detail leaked)", rep.status >= 500 && rep.status < 600 && !/INVALID_ORIGIN|UNAUTHORI|SIGN_IN|CONSENT/i.test(rep.text) && !/api[_ -]?key|openai|gemini|groq|mistral|together|openrouter/i.test(rep.text), `${rep.status} ${rep.text.slice(0, 160)}`);
   const ent1 = await kb("/api/linqext/entitlements");
   check("a failed reply does not consume the monthly allowance", JSON.stringify(ent0.json?.data?.remaining ?? ent0.json?.data) === JSON.stringify(ent1.json?.data?.remaining ?? ent1.json?.data));
   const rf = await gw("/api/linqext/keyboard/refresh", { method: "POST", body: { refreshToken: refreshTok } }); const r = rf.json?.data;

@@ -127,12 +127,13 @@ services:
     secrets: [AZEE_DATABASE_URL, AZTRADE_SERVICE_SECRET, AZTRADE_JWT_PRIVATE_KEY]
     environment:
       NODE_ENV: production
+      AZ_PROVIDER_MODE: ollama-only   # external AI is disabled by MODE (never rely on blanking keys); no cloud key is set anywhere in this file
       APP_ORIGIN: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
       DB_DIALECT: postgres
       SECRET_ENV: "DATABASE_URL=AZEE_DATABASE_URL;AZTRADE_SERVICE_SECRET=AZTRADE_SERVICE_SECRET;AZTRADE_JWT_PRIVATE_KEY=AZTRADE_JWT_PRIVATE_KEY"
       AZEE_JWT_ISSUER: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
       AZTRADE_JWT_KID: ${AZTRADE_JWT_KID:-azee-staging-local-1}
-      # AI provider keys are intentionally NOT set: AI replies fail closed until a provider is configured for staging (see README).
+      # No cloud AI key is set. AI replies fail closed (AI_PROVIDER_NOT_CONFIGURED) until the existing Ollama provider is configured (OLLAMA_*).
 
   maintenance:                   # supervised inference maintenance: stale-request recovery (exactly-once refund), retention, metrics, alerts
     <<: *app

@@ -1,0 +1,3 @@
+# TEMPLATE. Oracle host: /home/ollama-tunnel/.ssh/authorized_keys (mode 600, owner ollama-tunnel). One line, using the PUBLIC half of the DEDICATED key.
+# `restrict` turns every capability off; permitlisten re-allows only the single loopback listener; the key cannot run commands.
+restrict,port-forwarding,permitlisten="127.0.0.1:11434",command="/sbin/nologin" ssh-ed25519 AAAA...REPLACE_WITH_THE_DEDICATED_PUBLIC_KEY... azee-ollama-tunnel

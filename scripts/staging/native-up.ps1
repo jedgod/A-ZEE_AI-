@@ -7,7 +7,8 @@
 #>
 param([string]$Base = 'G:\A-Z_AI\staging-local', [string]$LanIp = '10.0.0.237', [int]$GatewayPort = 8443,
       [ValidateSet('', 'introspect', 'aztrade-api', 'app', 'gateway', 'maintenance')][string]$Only = '',
-      [int]$MaintenanceIntervalMs = 60000)   # -Only restarts a single service (others keep running)
+      [int]$MaintenanceIntervalMs = 60000,
+      [hashtable]$AppEnv = @{})    # extra environment for the A-Zee app only (e.g. AZ_PROVIDER_MODE=ollama-only, OLLAMA_*)   # -Only restarts a single service (others keep running)
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..'); $sec = "$Base\secrets"; $pki = "$Base\pki\live"; $log = "$Base\logs"
 $secret = { param($n) (Get-Content "$sec\$n" -Raw).Trim() }
@@ -42,12 +43,15 @@ Start-Svc 'aztrade-api' 'node' @('server.js') 'G:\A-Z_AI\AZTrade\backend' @{
   AZEE_INTROSPECTION_MTLS_CERT_FILE = "$pki\aztrade-api\cert.pem"; AZEE_INTROSPECTION_MTLS_KEY_FILE = "$pki\aztrade-api\key.pem"; AZEE_INTROSPECTION_MTLS_CA_FILE = "$pki\aztrade-api\ca.pem"
   CORS_ORIGIN = $origin }
 
-# 3. A-Zee Next.js app (loopback only). Provider keys are blanked so .env.local's real keys are NOT used: AI fails closed.
-$blank = @{}; foreach ($k in 'GEMINI_API_KEY', 'GROQ_API_KEY', 'MISTRALAI_API_KEY', 'OPENAI_API_KEY', 'OPENROUTERAI_API_KEY', 'TOGETHERAI_API_KEY', 'ANTHROPIC_API_KEY', 'XAI_API_KEY', 'TAVILY_API_KEY') { $blank[$k] = '' }
-Start-Svc 'app' 'node' @('--require', './scripts/windows-fs-compat.cjs', 'node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', '3000') $root ($blank + @{
+# 3. A-Zee Next.js app (loopback only).
+# EXTERNAL AI IS DISABLED BY MODE, NOT BY BLANKING KEYS. (Setting an environment variable to '' REMOVES it on Windows, so "blanking" a key
+# lets Next.js load the real key from .env.local. An earlier version of this script did exactly that and a reply request reached a real provider.)
+# AZ_PROVIDER_MODE=ollama-only makes the provider registry, search, connectors and moderation ignore every cloud key. Override only with -AppEnv.
+Start-Svc 'app' 'node' @('--require', './scripts/windows-fs-compat.cjs', 'node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', '3000') $root (@{
+  AZ_PROVIDER_MODE = 'ollama-only'
   NODE_ENV = 'production'; DB_DIALECT = 'postgres'; APP_ORIGIN = $origin; NEXT_TELEMETRY_DISABLED = '1'
   DATABASE_URL = (& $secret 'AZEE_DATABASE_URL'); AZTRADE_SERVICE_SECRET = (& $secret 'AZTRADE_SERVICE_SECRET'); AZTRADE_JWT_PRIVATE_KEY = (& $secret 'AZTRADE_JWT_PRIVATE_KEY')
-  AZEE_JWT_ISSUER = $origin; AZTRADE_JWT_KID = 'azee-staging-local-1' })
+  AZEE_JWT_ISSUER = $origin; AZTRADE_JWT_KID = 'azee-staging-local-1' } + $AppEnv)
 
 # 3b. inference maintenance, supervised: recovers stale requests (exactly-once refund), applies retention, writes metrics and alerts
 Start-Svc 'maintenance' 'node' @('scripts/staging/maintenance-supervisor.mjs') $root @{

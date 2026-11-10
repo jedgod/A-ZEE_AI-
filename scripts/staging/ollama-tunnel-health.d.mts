@@ -1,0 +1,2 @@
+export function checkOllama(o: { baseUrl: string; model?: string; digest?: string; timeoutMs?: number; fetchImpl?: typeof fetch }): Promise<{ ok: true; model: string } | { ok: false; reason: string }>;
+export function createMonitor(o: { check: () => Promise<{ ok: boolean; reason?: string }>; now?: () => number; alertAfter?: number; owner?: string; runbook?: string; sink?: (a: any) => void; writeStatus?: (s: any) => void }): { tick(): Promise<any>; state: any };
