@@ -1,0 +1,46 @@
+# EXAMPLE ONLY - not deployed, not verified. Shows the intended isolation for local staging (see docs/azee-staging-deployment-spec.md).
+# Secret files are produced by your secret store/CI into ./secrets-staging (outside git); no secret values appear in this file.
+# `internal: true` networks have no route to the outside; that is NOT proof of cloud-level isolation.
+name: azee-staging
+networks:
+  private:    { internal: true }     # app <-> introspection <-> database only
+  edge:       {}                     # reverse proxy <-> app only
+secrets:
+  service_secret:   { file: ./secrets-staging/service_secret }
+  introspect_cert:  { file: ./secrets-staging/introspect.pem }
+  introspect_key:   { file: ./secrets-staging/introspect.key }
+  client_ca:        { file: ./secrets-staging/client-ca.pem }
+  client_crl:       { file: ./secrets-staging/client-ca.crl }
+  db_runtime_url:   { file: ./secrets-staging/db_runtime_url }
+  db_admin_password: { file: ./secrets-staging/db_admin_password }
+services:
+  proxy:                              # public HTTPS ingress: explicit route allowlist, NO route to /introspect or the listener
+    image: nginx:stable
+    networks: [edge]
+    ports: ["443:443"]
+    # config (not included here) must proxy only approved user-facing paths to app:3000 and return 404 for /api/aztrade/introspect
+  app:
+    build: ..
+    networks: [edge, private]
+    environment:
+      NODE_ENV: production
+      AZEE_ENV: azee-staging
+      AZEE_SECRET_PROVIDER: file
+      AZEE_SECRETS_DIR: /run/secrets
+      AZTRADE_INTROSPECT_ROUTE: ""   # route stays 404 in production; introspection goes through the mTLS listener only
+    secrets: [service_secret, db_runtime_url]
+  introspect:                         # mTLS listener (launcher not yet built - see spec section 6); private network only, no published ports
+    build: ..
+    networks: [private]
+    environment:
+      NODE_ENV: production
+      AZEE_ENV: azee-staging
+      AZEE_SECRET_PROVIDER: file
+      AZEE_SECRETS_DIR: /run/secrets
+      AZTRADE_MTLS_LISTEN_HOST: ${INTROSPECT_PRIVATE_IP:?set to the container private-network address; wildcard binds are refused at startup}
+    secrets: [service_secret, introspect_cert, introspect_key, client_ca, client_crl, db_runtime_url]
+  db:                                 # dedicated staging PostgreSQL, separate credentials from any other environment
+    image: postgres:16
+    networks: [private]
+    secrets: [db_admin_password]
+    environment: { POSTGRES_PASSWORD_FILE: /run/secrets/db_admin_password }
