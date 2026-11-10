@@ -21,6 +21,7 @@ export type MtlsOptions = MtlsFiles & {
   deniedClientFingerprints?: string[];
   serviceSecret: string;
   introspect: (token: string) => Promise<unknown>;
+  jwks?: () => Promise<unknown>;                  // public signing keys, served to authenticated services at GET /jwks
   reloadMs?: number;                              // default 60s
   maxStaleMs?: number;                            // default 15 min
   now?: () => number;
@@ -77,8 +78,10 @@ export async function createMtlsIntrospectServer(opts: MtlsOptions) {
     const fp = norm(peer.fingerprint256 ?? "");
     const cn = typeof peer.subject?.CN === "string" ? peer.subject.CN : "";
     if (!fp || denied.has(fp) || !(allowedFp.has(fp) || allowedCn.has(cn))) { log({ type: "mtls_unauthorized_identity", fp: fp.slice(0, 12) }); return send(res, 403, { active: false }); }
-    if (req.method !== "POST" || req.url !== "/introspect") return send(res, 404, { active: false });
+    const isJwks = req.method === "GET" && req.url === "/jwks" && !!opts.jwks;
+    if (!isJwks && (req.method !== "POST" || req.url !== "/introspect")) return send(res, 404, { active: false });
     if (!same(String(req.headers.authorization ?? ""), `Bearer ${opts.serviceSecret}`)) return send(res, 401, { active: false });
+    if (isJwks) { try { return send(res, 200, await opts.jwks!()); } catch { return send(res, 503, { error: "KEYS_UNAVAILABLE" }); } }
     try {
       const chunks: Buffer[] = []; let size = 0;
       for await (const c of req) { size += (c as Buffer).length; if (size > 16_384) return send(res, 413, { active: false }); chunks.push(c as Buffer); }

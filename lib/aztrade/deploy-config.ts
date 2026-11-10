@@ -5,7 +5,9 @@
 type Env = Record<string, string | undefined>;
 const present = (v?: string) => typeof v === "string" && v.trim() !== "";
 
-export function deploymentProblems(env: Env = process.env): string[] {
+/** role: which process is starting. "client" = a service that CALLS introspection, "listener" = the private mTLS listener, "all" = check both. */
+export type Role = "client" | "listener" | "all";
+export function deploymentProblems(env: Env = process.env, role: Role = "all"): string[] {
   const strict = env.NODE_ENV === "production" || (present(env.AZEE_ENV) && !["development", "test"].includes(env.AZEE_ENV!));
   if (!strict) return [];
   const p: string[] = [];
@@ -16,10 +18,11 @@ export function deploymentProblems(env: Env = process.env): string[] {
   else if (env.AZEE_SECRET_PROVIDER === "env") p.push("AZEE_SECRET_PROVIDER: the env provider is not allowed outside development/test");
   if (env.AZEE_SECRET_PROVIDER === "file") need("AZEE_SECRETS_DIR", "required for the file provider");
   // Service identity + mTLS
-  for (const n of ["AZEE_INTROSPECTION_MTLS_CERT_FILE", "AZEE_INTROSPECTION_MTLS_KEY_FILE", "AZEE_INTROSPECTION_MTLS_CA_FILE"]) need(n, "client mTLS material is required");
-  for (const n of ["AZTRADE_MTLS_SERVER_CERT_FILE", "AZTRADE_MTLS_SERVER_KEY_FILE", "AZTRADE_MTLS_CLIENT_CA_FILE"]) need(n, "mTLS listener material is required");
-  need("AZTRADE_MTLS_CRL_FILE", "a revocation list is required");
-  if (!present(env.AZTRADE_MTLS_ALLOWED_CLIENT_CNS) && !present(env.AZTRADE_MTLS_ALLOWED_CLIENT_FINGERPRINTS)) p.push("AZTRADE_MTLS_ALLOWED_CLIENT_CNS or _FINGERPRINTS: an allowlist of service identities is required");
+  const isClient = role !== "listener", isListener = role !== "client";
+  if (isClient) for (const n of ["AZEE_INTROSPECTION_MTLS_CERT_FILE", "AZEE_INTROSPECTION_MTLS_KEY_FILE", "AZEE_INTROSPECTION_MTLS_CA_FILE"]) need(n, "client mTLS material is required");
+  if (isListener) for (const n of ["AZTRADE_MTLS_SERVER_CERT_FILE", "AZTRADE_MTLS_SERVER_KEY_FILE", "AZTRADE_MTLS_CLIENT_CA_FILE"]) need(n, "mTLS listener material is required");
+  if (isListener) need("AZTRADE_MTLS_CRL_FILE", "a revocation list is required");
+  if (isListener && !present(env.AZTRADE_MTLS_ALLOWED_CLIENT_CNS) && !present(env.AZTRADE_MTLS_ALLOWED_CLIENT_FINGERPRINTS)) p.push("AZTRADE_MTLS_ALLOWED_CLIENT_CNS or _FINGERPRINTS: an allowlist of service identities is required");
   need("AZTRADE_SERVICE_SECRET", "service credential is required");
   if (present(env.AZTRADE_SERVICE_SECRET) && env.AZTRADE_SERVICE_SECRET!.length < 32) p.push("AZTRADE_SERVICE_SECRET: must be at least 32 characters");
   // Public exposure
@@ -42,7 +45,7 @@ export function deploymentProblems(env: Env = process.env): string[] {
 function safeUser(url: string): string | null { try { return decodeURIComponent(new URL(url).username) || null; } catch { return null; } }
 
 /** Throws (listing setting NAMES only) when a strict environment is misconfigured. Call before opening any listener. */
-export function assertSecureDeployment(env: Env = process.env) {
-  const problems = deploymentProblems(env);
+export function assertSecureDeployment(env: Env = process.env, role: Role = "all") {
+  const problems = deploymentProblems(env, role);
   if (problems.length) throw new Error(`Refusing to start; insecure or incomplete configuration:\n - ${problems.join("\n - ")}`);
 }

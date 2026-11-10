@@ -1,0 +1,20 @@
+# Keep real credentials and bulk out of every image build context
+.env
+.env.*
+secrets-staging/
+**/secrets-staging/
+node_modules/
+.next/
+.git/
+mobile/
+verification/
+**/*.pem
+**/*.key
+**/*.crl
+runtime-logs/
+.mirror/
+.stage/
+qorlla-ollama-integration/
+AZTrade-Unified/
+AZTrade-Unified-step3/
+tsconfig.tsbuildinfo

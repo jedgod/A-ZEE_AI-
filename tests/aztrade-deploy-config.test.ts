@@ -34,6 +34,13 @@ describe("production/staging configuration is rejected when security settings ar
     expect(deploymentProblems({ ...good, AZTRADE_DATABASE_URL: good.AZTRADE_MIGRATION_DATABASE_URL }).join()).toMatch(/least-privilege|differ/);
     expect(deploymentProblems({ ...good, AZTRADE_DATABASE_URL: "postgres://aztrade_app:pw@localhost/aztrade" }).join()).toMatch(/local development/);
   });
+  it("is role-aware: a listener does not need client certificates and a client does not need listener material", () => {
+    const listener: Record<string, string | undefined> = { ...good }; for (const k of ["AZEE_INTROSPECTION_MTLS_CERT_FILE", "AZEE_INTROSPECTION_MTLS_KEY_FILE", "AZEE_INTROSPECTION_MTLS_CA_FILE"]) delete listener[k];
+    expect(deploymentProblems(listener, "listener")).toEqual([]); expect(deploymentProblems(listener, "all").length).toBe(3);
+    const client: Record<string, string | undefined> = { ...good }; for (const k of ["AZTRADE_MTLS_SERVER_CERT_FILE", "AZTRADE_MTLS_SERVER_KEY_FILE", "AZTRADE_MTLS_CLIENT_CA_FILE", "AZTRADE_MTLS_CRL_FILE", "AZTRADE_MTLS_ALLOWED_CLIENT_CNS"]) delete client[k];
+    expect(deploymentProblems(client, "client")).toEqual([]);
+    expect(deploymentProblems({ ...listener, AZTRADE_MTLS_CRL_FILE: "" }, "listener").join()).toMatch(/revocation/);
+  });
   it("the error names settings but never echoes secret values", () => {
     const secret = "TOP-SECRET-VALUE-" + "y".repeat(30);
     try { assertSecureDeployment({ ...good, AZTRADE_SERVICE_SECRET: secret, AZEE_SECRET_PROVIDER: "env" }); throw new Error("should refuse"); }

@@ -1,0 +1,156 @@
+# azee-staging-local: LOCAL staging on Docker + PostgreSQL 16. NOT production. UNVERIFIED until the Docker engine is run.
+# Bring-up and checks: deploy/azee-staging-local/README.md.   Secrets: ./secrets-staging (generated, git-ignored).
+name: azee-staging-local
+
+networks:
+  edge: {}                       # gateway <-> app. The app needs outbound access (AI providers) through this network.
+  private:                       # internal: no route to the outside. app, introspect, aztrade-api, db, one-shots
+    internal: true
+    ipam: { config: [{ subnet: 172.28.77.0/24 }] }
+
+secrets:
+  postgres_admin_password:         { file: ./secrets-staging/postgres_admin_password }
+  db_azee_owner_password:          { file: ./secrets-staging/db_azee_owner_password }
+  db_azee_app_password:            { file: ./secrets-staging/db_azee_app_password }
+  db_aztrade_owner_password:       { file: ./secrets-staging/db_aztrade_owner_password }
+  db_aztrade_app_password:         { file: ./secrets-staging/db_aztrade_app_password }
+  db_aztrade_provisioner_password: { file: ./secrets-staging/db_aztrade_provisioner_password }
+  db_aztrade_marketdata_password:  { file: ./secrets-staging/db_aztrade_marketdata_password }
+  AZTRADE_SERVICE_SECRET:          { file: ./secrets-staging/AZTRADE_SERVICE_SECRET }
+  AZTRADE_JWT_PRIVATE_KEY:         { file: ./secrets-staging/AZTRADE_JWT_PRIVATE_KEY }
+  AZEE_DATABASE_URL:               { file: ./secrets-staging/AZEE_DATABASE_URL }
+  AZEE_MIGRATION_DATABASE_URL:     { file: ./secrets-staging/AZEE_MIGRATION_DATABASE_URL }
+  AZTRADE_DATABASE_URL:            { file: ./secrets-staging/AZTRADE_DATABASE_URL }
+  AZTRADE_API_DATABASE_URL:        { file: ./secrets-staging/AZTRADE_API_DATABASE_URL }
+  AZTRADE_MIGRATION_DATABASE_URL:  { file: ./secrets-staging/AZTRADE_MIGRATION_DATABASE_URL }
+
+x-app: &app
+  build: { context: ../.., dockerfile: deploy/azee-staging-local/Dockerfile.app }
+  image: azee-staging-local/app:dev
+
+x-aztrade-build: &aztrade-build
+  context: ${AZTRADE_REPO:-../../../AZTrade}
+  dockerfile: ../AZ_AI/deploy/azee-staging-local/Dockerfile.aztrade
+  additional_contexts: { tools: . }
+
+services:
+  db:
+    image: postgres:16-alpine
+    networks: [private]
+    secrets: [postgres_admin_password]
+    environment: { POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password, POSTGRES_USER: postgres }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U postgres"], interval: 5s, timeout: 5s, retries: 20 }
+    restart: unless-stopped
+
+  db-bootstrap:                  # one-shot: separate databases + least-privilege roles (scripts/staging/db-bootstrap.mjs)
+    <<: *app
+    restart: "no"
+    networks: [private]
+    depends_on: { db: { condition: service_healthy } }
+    secrets: [postgres_admin_password, db_azee_owner_password, db_azee_app_password, db_aztrade_owner_password, db_aztrade_app_password, db_aztrade_provisioner_password, db_aztrade_marketdata_password]
+    environment: { PGHOST: db, AZEE_SECRETS_DIR: /run/secrets }
+    entrypoint: []
+    command: ["node", "scripts/staging/db-bootstrap.mjs"]
+
+  migrate-azee:                  # one-shot: A-Zee migrations as azee_owner
+    <<: *app
+    restart: "no"
+    networks: [private]
+    depends_on: { db-bootstrap: { condition: service_completed_successfully } }
+    secrets: [AZEE_MIGRATION_DATABASE_URL]
+    environment: { SECRET_ENV: "DATABASE_URL=AZEE_MIGRATION_DATABASE_URL" }
+    command: ["node", "scripts/migrate.cjs"]
+
+  migrate-aztrade:               # one-shot: AZTrade schema, migrations and grants as aztrade_owner (backend/scripts/apply-schema.mjs)
+    build: *aztrade-build
+    image: azee-staging-local/aztrade:dev
+    restart: "no"
+    networks: [private]
+    depends_on: { db-bootstrap: { condition: service_completed_successfully } }
+    secrets: [AZTRADE_MIGRATION_DATABASE_URL]
+    environment: { SECRET_ENV: "MIGRATION_DATABASE_URL=AZTRADE_MIGRATION_DATABASE_URL" }
+    command: ["node", "scripts/apply-schema.mjs"]
+
+  introspect:                    # private mTLS listener: /introspect and /jwks. No published ports, private network only.
+    <<: *app
+    restart: unless-stopped
+    networks: { private: { ipv4_address: "${INTROSPECT_PRIVATE_IP:-172.28.77.10}" } }
+    depends_on: { migrate-azee: { condition: service_completed_successfully } }
+    secrets: [AZTRADE_SERVICE_SECRET, AZTRADE_JWT_PRIVATE_KEY, AZTRADE_DATABASE_URL]
+    environment:
+      NODE_ENV: production
+      AZEE_ENV: azee-staging-local
+      AZEE_SECRET_PROVIDER: file
+      AZEE_SECRETS_DIR: /run/secrets
+      AZEE_JWT_ISSUER: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
+      AZTRADE_JWT_KID: ${AZTRADE_JWT_KID:-azee-staging-local-1}
+      AZTRADE_MTLS_SERVER_CERT_FILE: /run/pki/cert.pem
+      AZTRADE_MTLS_SERVER_KEY_FILE: /run/pki/key.pem
+      AZTRADE_MTLS_CLIENT_CA_FILE: /run/pki/ca.pem
+      AZTRADE_MTLS_CRL_FILE: /run/pki/ca.crl
+      AZTRADE_MTLS_ALLOWED_CLIENT_CNS: aztrade-api,azee-app
+      AZTRADE_MTLS_LISTEN_HOST: ${INTROSPECT_PRIVATE_IP:-172.28.77.10}      # the container's own private address; a wildcard bind is refused at startup
+    volumes: ["${PKI_DIR:-../../secrets-staging/pki}/live/introspect:/run/pki:ro"]
+    entrypoint: []
+    command: ["node", "--experimental-transform-types", "--no-warnings", "scripts/introspect-listener.mjs"]
+
+  aztrade-api:                   # AZTrade paper-trading API. Private network only; reaches identity ONLY through the mTLS listener.
+    build: *aztrade-build
+    image: azee-staging-local/aztrade:dev
+    restart: unless-stopped
+    networks: [private]
+    depends_on: { migrate-aztrade: { condition: service_completed_successfully }, introspect: { condition: service_started } }
+    secrets: [AZTRADE_API_DATABASE_URL, AZTRADE_SERVICE_SECRET]
+    environment:
+      NODE_ENV: production
+      AUTH_MODE: jwt
+      PORT: "3001"
+      SECRET_ENV: "DATABASE_URL=AZTRADE_API_DATABASE_URL;AZEE_INTROSPECTION_TOKEN=AZTRADE_SERVICE_SECRET"
+      AZEE_JWT_ISSUER: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
+      AZEE_JWT_AUDIENCE: aztrade-api
+      AZEE_JWKS_URL: https://introspect:8443/jwks
+      AZEE_INTROSPECTION_URL: https://introspect:8443/introspect
+      AZEE_INTROSPECTION_MTLS_CERT_FILE: /run/pki/cert.pem
+      AZEE_INTROSPECTION_MTLS_KEY_FILE: /run/pki/key.pem
+      AZEE_INTROSPECTION_MTLS_CA_FILE: /run/pki/ca.pem
+      AZEE_INTROSPECTION_MTLS_SERVER_NAME: introspect
+      CORS_ORIGIN: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
+    volumes: ["${PKI_DIR:-../../secrets-staging/pki}/live/aztrade-api:/run/pki:ro"]
+
+  app:                           # A-Zee Next.js (identity, subscriptions, AZLinqext, trade UI)
+    <<: *app
+    restart: unless-stopped
+    networks: [edge, private]
+    depends_on: { migrate-azee: { condition: service_completed_successfully } }
+    secrets: [AZEE_DATABASE_URL, AZTRADE_SERVICE_SECRET, AZTRADE_JWT_PRIVATE_KEY]
+    environment:
+      NODE_ENV: production
+      APP_ORIGIN: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
+      DB_DIALECT: postgres
+      SECRET_ENV: "DATABASE_URL=AZEE_DATABASE_URL;AZTRADE_SERVICE_SECRET=AZTRADE_SERVICE_SECRET;AZTRADE_JWT_PRIVATE_KEY=AZTRADE_JWT_PRIVATE_KEY"
+      AZEE_JWT_ISSUER: https://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8443}
+      AZTRADE_JWT_KID: ${AZTRADE_JWT_KID:-azee-staging-local-1}
+      # AI provider keys are intentionally NOT set: AI replies fail closed until a provider is configured for staging (see README).
+
+  gateway:                       # the ONLY published port. Edge network only: no path to introspect, aztrade-api or db.
+    image: nginx:1.27-alpine
+    networks: [edge]
+    depends_on: [app]
+    ports: ["${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8443}:8443"]
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${PKI_DIR:-../../secrets-staging/pki}/live/gateway:/etc/gateway-tls:ro
+    restart: unless-stopped
+
+  pki-rotate:                    # rotation loop: the ONLY container that sees the CA key. No network at all.
+    image: node:24-alpine
+    network_mode: none
+    working_dir: /work
+    command: ["sh", "-c", "node scripts/staging/pki.mjs watch --dir /pki --every-minutes 60"]   # needs openssl in the image: build one, or run pki.mjs on the host (documented)
+    volumes: ["../../scripts:/work/scripts:ro", "${PKI_DIR:-../../secrets-staging/pki}:/pki"]
+    restart: unless-stopped
+    profiles: [rotation]
+
+volumes:
+  pgdata: {}
