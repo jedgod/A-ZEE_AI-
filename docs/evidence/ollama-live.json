@@ -1,0 +1,214 @@
+{
+  "startedAt": "2026-11-10T18:41:24.928Z",
+  "processId": 24908,
+  "model": "qwen2.5:1.5b",
+  "base": "http://127.0.0.1:11434",
+  "hardware": {
+    "cpu": "Intel(R) Core(TM) i5-10400H CPU @ 2.60GHz",
+    "logicalCpus": 8,
+    "memoryBytes": 16762388480,
+    "freeBytesAtStart": 2590756864
+  },
+  "limitations": [
+    "Development host, not certified production hardware",
+    "Synthetic prompts only",
+    "No database/session authority in live pipeline harness",
+    "No packet capture or enforced egress firewall",
+    "Raw Ollama streaming is not native Qorlla token streaming"
+  ],
+  "rows": [
+    {
+      "name": "native-non-streaming",
+      "ok": true,
+      "ms": 4622.2618,
+      "result": {
+        "provider": "ollama",
+        "modelId": "qwen2.5:1.5b",
+        "text": "Qorlla Workspace offers a comprehensive AI workspace environment that integrates chat functionality, project management, code assistance, and document search to streamline productivity and collaboration."
+      }
+    },
+    {
+      "name": "native-pipeline",
+      "ok": true,
+      "ms": 4004.7920999999988,
+      "result": {
+        "answer": "Qorlla Workspace is an AI-driven workspace that offers chat, project management, code assistance, and document search capabilities to enhance productivity and collaboration.",
+        "meta": {
+          "requestId": "18e130d3-e390-4566-96e0-20662ae44b34",
+          "language": "en",
+          "redacted": {},
+          "droppedMessages": 0,
+          "retrievedDocuments": 0,
+          "task": "qa",
+          "provider": "Ollama",
+          "attempts": 1,
+          "warnings": [],
+          "extensions": {},
+          "contentType": "text/plain; charset=utf-8",
+          "style": "default",
+          "quality": {
+            "rubric": "structure-v1",
+            "score": 100,
+            "checks": [
+              {
+                "name": "nonempty",
+                "pass": true,
+                "weight": 20
+              },
+              {
+                "name": "bounded_length",
+                "pass": true,
+                "weight": 20
+              },
+              {
+                "name": "no_placeholder",
+                "pass": true,
+                "weight": 20
+              }
+            ],
+            "calibrated": false
+          }
+        }
+      }
+    },
+    {
+      "name": "missing-model",
+      "ok": true,
+      "ms": 7.328800000002957,
+      "result": "controlled rejection"
+    },
+    {
+      "name": "digest-mismatch",
+      "ok": true,
+      "ms": 5.354899999998452,
+      "result": "controlled rejection"
+    },
+    {
+      "name": "native-cancel",
+      "ok": true,
+      "ms": 505.26350000000093,
+      "result": "aborted by caller; server resource release needs separate verification"
+    },
+    {
+      "name": "native-timeout",
+      "ok": true,
+      "ms": 55.0028999999995,
+      "result": "timeout rejected"
+    },
+    {
+      "name": "native-concurrency-2",
+      "ok": true,
+      "ms": 1071.0460999999996,
+      "result": [
+        "READY",
+        "HEALTHY"
+      ]
+    },
+    {
+      "name": "raw-stream-1",
+      "ok": true,
+      "ms": 5059.951799999999,
+      "result": {
+        "ttftMs": 207.8027000000002,
+        "elapsedMs": 5059.815900000001,
+        "outputTokens": 78,
+        "tokensPerSecond": 16.076928515174043,
+        "loadMs": 2.1195,
+        "text": "1. Personalized recommendations: A local AI assistant can suggest tailored products or services based on your preferences and past behavior.\n2. Smart home integration: It can control and optimize your smart home devices, making your life more convenient and energy-efficient.\n3. Health monitoring: It can track your health metrics, remind you to take medication, and even provide early warnings for potential health issues."
+      }
+    },
+    {
+      "name": "raw-stream-2",
+      "ok": true,
+      "ms": 4960.094400000002,
+      "result": {
+        "ttftMs": 91.0099999999984,
+        "elapsedMs": 4960.080999999998,
+        "outputTokens": 78,
+        "tokensPerSecond": 16.014990030668706,
+        "loadMs": 3.7859,
+        "text": "1. Personalized recommendations: A local AI assistant can suggest tailored products or services based on your preferences and past behavior.\n2. Smart home integration: It can control and optimize your smart home devices, making your life more convenient and energy-efficient.\n3. Health monitoring: It can track your health metrics, remind you to take medication, and even provide early warnings for potential health issues."
+      }
+    },
+    {
+      "name": "raw-stream-3",
+      "ok": true,
+      "ms": 4860.1993,
+      "result": {
+        "ttftMs": 81.29399999999805,
+        "elapsedMs": 4860.1853999999985,
+        "outputTokens": 78,
+        "tokensPerSecond": 16.321204655560855,
+        "loadMs": 3.1508,
+        "text": "1. Personalized recommendations: A local AI assistant can suggest tailored products or services based on your preferences and past behavior.\n2. Smart home integration: It can control and optimize your smart home devices, making your life more convenient and energy-efficient.\n3. Health monitoring: It can track your health metrics, remind you to take medication, and even provide early warnings for potential health issues."
+      }
+    },
+    {
+      "name": "raw-stream-4",
+      "ok": true,
+      "ms": 4855.3439,
+      "result": {
+        "ttftMs": 81.1536000000051,
+        "elapsedMs": 4855.327799999999,
+        "outputTokens": 78,
+        "tokensPerSecond": 16.336618110607283,
+        "loadMs": 3.1384,
+        "text": "1. Personalized recommendations: A local AI assistant can suggest tailored products or services based on your preferences and past behavior.\n2. Smart home integration: It can control and optimize your smart home devices, making your life more convenient and energy-efficient.\n3. Health monitoring: It can track your health metrics, remind you to take medication, and even provide early warnings for potential health issues."
+      }
+    },
+    {
+      "name": "raw-stream-5",
+      "ok": true,
+      "ms": 4843.803400000004,
+      "result": {
+        "ttftMs": 92.96189999999478,
+        "elapsedMs": 4843.785499999998,
+        "outputTokens": 78,
+        "tokensPerSecond": 16.416632237340725,
+        "loadMs": 4.0104,
+        "text": "1. Personalized recommendations: A local AI assistant can suggest tailored products or services based on your preferences and past behavior.\n2. Smart home integration: It can control and optimize your smart home devices, making your life more convenient and energy-efficient.\n3. Health monitoring: It can track your health metrics, remind you to take medication, and even provide early warnings for potential health issues."
+      }
+    }
+  ],
+  "catalog": {
+    "models": [
+      {
+        "name": "qwen2.5:1.5b",
+        "model": "qwen2.5:1.5b",
+        "modified_at": "2026-11-10T13:39:15.759638-05:00",
+        "size": 986061892,
+        "digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "1.5B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 1536,
+          "runner": "ggml"
+        },
+        "capabilities": [
+          "completion",
+          "tools"
+        ]
+      }
+    ]
+  },
+  "digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+  "ollamaVersion": {
+    "version": "0.40.16"
+  },
+  "benchmark": {
+    "samples": 5,
+    "ttftP50Ms": 91.0099999999984,
+    "ttftP95Ms": 207.8027000000002,
+    "outputTokensPerSecondP50": 16.321204655560855,
+    "sustainableCapacity": "not established",
+    "queueP95": "not instrumented"
+  },
+  "finishedAt": "2026-11-10T18:41:59.999Z"
+}
