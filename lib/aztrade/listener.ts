@@ -46,6 +46,13 @@ export async function startListener(opts: { env?: Env; provider?: SecretProvider
     deniedClientFingerprints: list(env.AZTRADE_MTLS_DENIED_CLIENT_FINGERPRINTS),
     serviceSecret, reloadMs: Number(env.AZTRADE_MTLS_RELOAD_MS) || 30_000, maxStaleMs: Number(env.AZTRADE_MTLS_MAX_STALE_MS) || 15 * 60_000, log,
     // Re-read secrets per call (short cache) so a rotated signing key / service credential applies without a restart.
+    ai: env.AZTRADE_AI_APP_URL ? async (body) => {
+      const url = new URL(env.AZTRADE_AI_APP_URL!);
+      if (url.protocol !== "http:" || !["localhost","127.0.0.1","[::1]"].includes(url.hostname) || url.pathname !== "/api/aztrade/ai" || url.username || url.password || url.search || url.hash) throw new Error("Private AI upstream required");
+      const current = await hydrate([...SECRET_NAMES], secrets, env);
+      const response = await fetch(url, {method:"POST", redirect:"error", headers:{"content-type":"application/json",authorization:`Bearer ${current.AZTRADE_SERVICE_SECRET}`},body,signal:AbortSignal.timeout(15000)});
+      return {status:response.status,body:await response.json()};
+    } : undefined,
     jwks: async () => (opts.jwks ?? realJwks)(await hydrate([...SECRET_NAMES], secrets, env)),
     introspect: async (token) => introspect(token, await hydrate([...SECRET_NAMES], secrets, env)),
   });

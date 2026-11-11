@@ -27,7 +27,7 @@ export function createSupervisor({ run, backlog, now = () => Date.now(), alertAf
     } catch (e) {
       state.failures++; state.consecutiveFailures++;
       const mismatch = /reconciliation mismatch/i.test(e.message);              // quota books disagree: needs a human, alert at once
-      if ((mismatch || state.consecutiveFailures >= alertAfter) && !(state.alerting && !mismatch)) { state.alerting = true; raise(mismatch ? "critical" : "major", mismatch ? "quota_reconciliation_mismatch" : "maintenance_failing", { consecutiveFailures: state.consecutiveFailures, message: String(e.message).slice(0, 200) }); }
+      if ((mismatch || state.consecutiveFailures >= alertAfter) && !(state.alerting && !mismatch)) { state.alerting = true; raise(mismatch ? "critical" : "major", mismatch ? "quota_reconciliation_mismatch" : "maintenance_failing", { consecutiveFailures: state.consecutiveFailures, message: mismatch ? "Quota reconciliation mismatch" : "Maintenance cycle failed" }); }
     }
     const age = state.lastSuccessAt ? now() - state.lastSuccessAt : null;
     if (age !== null && age > staleAfterMs && !state.staleAlerted) { state.staleAlerted = true; state.alerting = true; raise("major", "maintenance_stale", { secondsSinceSuccess: Math.round(age / 1000) }); }

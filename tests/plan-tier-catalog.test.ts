@@ -23,6 +23,6 @@ describe("plan -> tier catalog", () => {
   it("every live plan id maps to its tier", () => { for (const [plan, tier] of Object.entries(EXPECTED)) expect(tierForPlan(plan), plan).toBe(tier); });
   it("legacy ids still work and unknown or look-alike names are never upgraded", () => {
     for (const p of ["pro100", "pro200", "pro"]) expect(tierForPlan(p), p).toBe("premium");
-    for (const p of ["", "professional", "business_x", "enterprisey", "Pro25", "constructor", "mystery", "pro12345"]) expect(tierForPlan(p), p).toBe("free");
+    for (const p of ["", "professional", "business_x", "enterprisey", "Pro25", "constructor", "mystery", "pro12345", "pro9999", "pro0", "pro26"]) expect(tierForPlan(p), p).toBe("free");
   });
 });

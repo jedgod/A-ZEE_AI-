@@ -42,6 +42,7 @@ beforeAll(async () => {
     keyFile: f("server.key"), certFile: f("server.pem"), clientCaFile: f("clientca.pem"), crlFile: f("clientca.crl"),
     allowedClientCommonNames: ["aztrade-api", "revoked-api", "denied-api"], deniedClientFingerprints: [denyFp],
     serviceSecret: SECRET, now: () => clock, reloadMs: 3_600_000, maxStaleMs: 60_000, log: (e) => logs.push(JSON.stringify(e)),
+    ai: async (body) => ({status:202,body:{length:body.length}}),
     introspect: async (token) => { if (token === "boom") throw new Error("db down"); return { active: true, echo: token.length }; },
   });
   url = `https://127.0.0.1:${await svc.listen(0, "127.0.0.1")}/introspect`;
@@ -49,6 +50,13 @@ beforeAll(async () => {
 afterAll(async () => { await svc?.close(); rmSync(dir, { recursive: true, force: true }); });
 
 describe("/introspect over mTLS (disposable certificates)", () => {
+  it("protects AI relay with the same client and service authentication", async()=>{
+    const invoke=(cn:string,secret=SECRET,body='{}')=>mtlsFetcher(clientEnv(cn))(url.replace('/introspect','/ai'),{method:'POST',headers:{authorization:`Bearer ${secret}`},body});
+    expect((await invoke('aztrade-api')).status).toBe(202);
+    expect((await invoke('aztrade-api','wrong')).status).toBe(401);
+    expect((await invoke('other-service')).status).toBe(403);
+    expect((await invoke('aztrade-api',SECRET,'x'.repeat(64001))).status).toBe(413);
+  });
   it("answers an allowlisted client with a valid certificate and the service credential", async () => {
     const r = await call("aztrade-api"); expect(r.status).toBe(200); expect(await r.json()).toEqual({ active: true, echo: 30 });
   });

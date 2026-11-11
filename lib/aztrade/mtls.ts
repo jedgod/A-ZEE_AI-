@@ -21,6 +21,7 @@ export type MtlsOptions = MtlsFiles & {
   deniedClientFingerprints?: string[];
   serviceSecret: string;
   introspect: (token: string) => Promise<unknown>;
+  ai?: (body: string) => Promise<{status:number; body:unknown}>;
   jwks?: () => Promise<unknown>;                  // public signing keys, served to authenticated services at GET /jwks
   reloadMs?: number;                              // default 60s
   maxStaleMs?: number;                            // default 15 min
@@ -78,13 +79,15 @@ export async function createMtlsIntrospectServer(opts: MtlsOptions) {
     const fp = norm(peer.fingerprint256 ?? "");
     const cn = typeof peer.subject?.CN === "string" ? peer.subject.CN : "";
     if (!fp || denied.has(fp) || !(allowedFp.has(fp) || allowedCn.has(cn))) { log({ type: "mtls_unauthorized_identity", fp: fp.slice(0, 12) }); return send(res, 403, { active: false }); }
+    const isAi = req.method === "POST" && req.url === "/ai" && !!opts.ai;
     const isJwks = req.method === "GET" && req.url === "/jwks" && !!opts.jwks;
-    if (!isJwks && (req.method !== "POST" || req.url !== "/introspect")) return send(res, 404, { active: false });
+    if (!isAi && !isJwks && (req.method !== "POST" || req.url !== "/introspect")) return send(res, 404, { active: false });
     if (!same(String(req.headers.authorization ?? ""), `Bearer ${opts.serviceSecret}`)) return send(res, 401, { active: false });
     if (isJwks) { try { return send(res, 200, await opts.jwks!()); } catch { return send(res, 503, { error: "KEYS_UNAVAILABLE" }); } }
     try {
       const chunks: Buffer[] = []; let size = 0;
-      for await (const c of req) { size += (c as Buffer).length; if (size > 16_384) return send(res, 413, { active: false }); chunks.push(c as Buffer); }
+      for await (const c of req) { size += (c as Buffer).length; if (size > (isAi ? 64_000 : 16_384)) return send(res, 413, { active: false }); chunks.push(c as Buffer); }
+      if (isAi) { const result = await opts.ai!(Buffer.concat(chunks).toString("utf8")); return send(res,result.status,result.body); }
       const token = JSON.parse(Buffer.concat(chunks).toString("utf8"))?.token;
       if (typeof token !== "string" || token.length > 8192) return send(res, 400, { active: false });
       send(res, 200, await opts.introspect(token));

@@ -18,19 +18,25 @@ describe("allowlist decisions", () => {
   });
 });
 describe("gateway process", () => {
-  let dir: string, gw: ReturnType<typeof createGateway>, upstream: http.Server, port: number, ca: Buffer; const seen: string[] = [];
+  let dir: string, gw: ReturnType<typeof createGateway>, upstream: http.Server, trade: http.Server, port: number, ca: Buffer; const seen: string[] = [];
   beforeAll(async () => {
     dir = mkdtempSync(path.join(tmpdir(), "gw-")); const p = pki(path.join(dir, "pki")); p.init(); p.rotate(); ca = readFileSync(path.join(dir, "pki/live/gateway/ca.pem"));
     upstream = http.createServer((req, res) => { seen.push(req.url!); res.end("app:" + req.url); }); await new Promise<void>((ok) => upstream.listen(0, "127.0.0.1", ok));
-    gw = createGateway({ tlsDir: path.join(dir, "pki/live/gateway"), appUrl: `http://127.0.0.1:${(upstream.address() as any).port}`, log: () => {} });
+    trade = http.createServer((req,res)=>res.end('trade:'+req.url));
+    await new Promise<void>(ok=>trade.listen(0,'127.0.0.1',ok));
+    gw = createGateway({ tlsDir: path.join(dir, "pki/live/gateway"), appUrl: `http://127.0.0.1:${(upstream.address() as any).port}`, tradeUrl: `http://127.0.0.1:${(trade.address() as any).port}`, log: () => {} });
     await new Promise<void>((ok) => gw.listen(0, "127.0.0.1", ok)); port = (gw.address() as any).port;
   });
-  afterAll(async () => { gw.close(); upstream.close(); gw.closeAllConnections(); rmSync(dir, { recursive: true, force: true }); });
+  afterAll(async () => { gw.close(); upstream.close(); trade.close(); gw.closeAllConnections(); rmSync(dir, { recursive: true, force: true }); });
   const get = (p: string) => new Promise<{ s: number; b: string }>((ok, bad) => { https.get({ host: "127.0.0.1", port, path: p, ca, servername: "localhost" }, (r) => { let b = ""; r.on("data", (c) => (b += c)); r.on("end", () => ok({ s: r.statusCode!, b })); }).on("error", bad); });
   it("proxies approved routes over verified TLS and never lets denied routes reach the app", async () => {
     expect(await get("/login")).toEqual({ s: 200, b: "app:/login" });
     for (const p of ["/api/aztrade/introspect", "/api/admin/users", "/api/webhooks/stripe", "/secret"]) expect((await get(p)).s).toBe(404);
     expect(seen).toEqual(["/login"]);
+  });
+  it("routes only approved trading endpoints to the trading service", async()=>{
+    for(const p of ['/trade/','/trade/app.js','/api/paper','/api/paper/orders','/api/assistant/chat']) expect(await get(p)).toEqual({s:200,b:'trade:'+p});
+    for(const p of ['/trade/.env','/trade/README.md','/api/paper/admin','/api/aztrade/ai','/api/auth/%2e%2e/admin']) expect((await get(p)).s).toBe(404);
   });
   it("does not serve plain HTTP", async () => { await expect(new Promise((ok, bad) => { http.get({ host: "127.0.0.1", port, path: "/login", timeout: 2000 }, (r) => ok(r.statusCode)).on("error", bad); })).rejects.toBeDefined(); });
 });

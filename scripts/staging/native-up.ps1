@@ -8,6 +8,7 @@
 param([string]$Base = 'G:\A-Z_AI\staging-local', [string]$LanIp = '10.0.0.237', [int]$GatewayPort = 8443,
       [ValidateSet('', 'introspect', 'aztrade-api', 'app', 'gateway', 'maintenance')][string]$Only = '',
       [int]$MaintenanceIntervalMs = 60000,
+      [string]$AlertCommand = '', [string]$AlertOwner = 'azee-staging-owner',
       [hashtable]$AppEnv = @{})    # extra environment for the A-Zee app only (e.g. AZ_PROVIDER_MODE=ollama-only, OLLAMA_*)   # -Only restarts a single service (others keep running)
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..'); $sec = "$Base\secrets"; $pki = "$Base\pki\live"; $log = "$Base\logs"
@@ -29,7 +30,7 @@ function Start-Svc($name, $exe, $argList, $dir, $envMap) {
 # 1. private mTLS identity listener (loopback only)
 Start-Svc 'introspect' 'node' @('--experimental-transform-types', '--no-warnings', 'scripts/introspect-listener.mjs') $root @{
   NODE_ENV = 'production'; AZEE_ENV = 'azee-staging-local'; AZEE_SECRET_PROVIDER = 'file'; AZEE_SECRETS_DIR = $sec
-  AZEE_JWT_ISSUER = $origin; AZTRADE_JWT_KID = 'azee-staging-local-1'
+  AZEE_JWT_ISSUER = $origin; AZTRADE_JWT_KID = 'azee-staging-local-1'; AZTRADE_AI_APP_URL = 'http://127.0.0.1:3000/api/aztrade/ai'
   AZTRADE_MTLS_SERVER_CERT_FILE = "$pki\introspect\cert.pem"; AZTRADE_MTLS_SERVER_KEY_FILE = "$pki\introspect\key.pem"
   AZTRADE_MTLS_CLIENT_CA_FILE = "$pki\introspect\ca.pem"; AZTRADE_MTLS_CRL_FILE = "$pki\introspect\ca.crl"
   AZTRADE_MTLS_ALLOWED_CLIENT_CNS = 'aztrade-api,azee-app'; AZTRADE_MTLS_LISTEN_HOST = '127.0.0.1'; AZTRADE_MTLS_PORT = '18443' }
@@ -41,6 +42,7 @@ Start-Svc 'aztrade-api' 'node' @('server.js') 'G:\A-Z_AI\AZTrade\backend' @{
   AZEE_JWT_ISSUER = $origin; AZEE_JWT_AUDIENCE = 'aztrade-api'
   AZEE_JWKS_URL = 'https://localhost:18443/jwks'; AZEE_INTROSPECTION_URL = 'https://localhost:18443/introspect'
   AZEE_INTROSPECTION_MTLS_CERT_FILE = "$pki\aztrade-api\cert.pem"; AZEE_INTROSPECTION_MTLS_KEY_FILE = "$pki\aztrade-api\key.pem"; AZEE_INTROSPECTION_MTLS_CA_FILE = "$pki\aztrade-api\ca.pem"
+  AZEE_AI_BRIDGE_URL = 'https://localhost:18443/ai'; AZEE_AI_BRIDGE_TOKEN = (& $secret 'AZTRADE_SERVICE_SECRET')
   CORS_ORIGIN = $origin }
 
 # 3. A-Zee Next.js app (loopback only).
@@ -57,10 +59,10 @@ Start-Svc 'app' 'node' @('--require', './scripts/windows-fs-compat.cjs', 'node_m
 Start-Svc 'maintenance' 'node' @('scripts/staging/maintenance-supervisor.mjs') $root @{
   DATABASE_URL = (& $secret 'AZEE_DATABASE_URL'); MAINTENANCE_INTERVAL_MS = "$MaintenanceIntervalMs"
   MAINTENANCE_METRICS_FILE = "$log\maintenance-metrics.json"; MAINTENANCE_ALERT_FILE = "$log\maintenance-alerts.jsonl"
-  ALERT_OWNER = 'azee-staging-owner'; ALERT_RUNBOOK = 'docs/runbooks/inference-maintenance.md' }
+  ALERT_COMMAND = $AlertCommand; ALERT_OWNER = $AlertOwner; ALERT_RUNBOOK = 'docs/runbooks/inference-maintenance.md' }
 
 # 4. gateway: the ONLY LAN-facing listener
-Start-Svc 'gateway' 'node' @('scripts/staging/gateway.mjs') $root @{ GATEWAY_BIND = $LanIp; GATEWAY_PORT = "$GatewayPort"; APP_URL = 'http://127.0.0.1:3000'; GATEWAY_TLS_DIR = "$pki\gateway" }
+Start-Svc 'gateway' 'node' @('scripts/staging/gateway.mjs') $root @{ GATEWAY_BIND = $LanIp; GATEWAY_PORT = "$GatewayPort"; APP_URL = 'http://127.0.0.1:3000'; AZTRADE_URL = 'http://127.0.0.1:3001'; GATEWAY_TLS_DIR = "$pki\gateway" }
 
 $pids | ConvertTo-Json | Set-Content "$Base\pids.json"
 Start-Sleep 8

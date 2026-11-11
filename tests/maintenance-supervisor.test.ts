@@ -32,7 +32,7 @@ describe("maintenance supervisor", () => {
     expect(alerts.map((a) => a.event)).toContain("maintenance_stale");
   });
   it("never puts message text, tokens or account ids into an alert", async () => {
-    const { sup, alerts } = make(async () => { throw new Error("x".repeat(500)); }); for (let i = 0; i < 3; i++) await sup.cycle();
-    expect(JSON.stringify(alerts).length).toBeLessThan(900); expect(alerts[0].detail.message.length).toBeLessThanOrEqual(200);
+    const { sup, alerts } = make(async () => { throw new Error("Bearer secret-token postgres://user:password@host " + "x".repeat(500)); }); for (let i = 0; i < 3; i++) await sup.cycle();
+    expect(JSON.stringify(alerts)).not.toMatch(/secret-token|password@host/); expect(JSON.stringify(alerts).length).toBeLessThan(900); expect(alerts[0].detail.message.length).toBeLessThanOrEqual(200);
   });
 });
