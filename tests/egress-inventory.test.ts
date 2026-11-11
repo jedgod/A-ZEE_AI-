@@ -57,5 +57,5 @@ describe("outbound host inventory", () => {
       const reg = await import("@/lib/pipeline/registry") as Record<string, any>;
       expect((reg.configuredProviders() as { id: string }[]).map((p) => p.id)).toEqual(["ollama"]);
     } finally { for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k]; Object.assign(process.env, saved); }
-  });
+  }, 30_000);   // the first import of the registry compiles the whole pipeline; under a full parallel run it can exceed the 5 s default
 });
