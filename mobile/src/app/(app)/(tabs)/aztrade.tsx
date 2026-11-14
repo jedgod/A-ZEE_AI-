@@ -442,7 +442,7 @@ export default function AZTradeMobileScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={s.header}>
           <View style={s.headRow}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Back to A-Zee" hitSlop={10} onPress={() => (router.canGoBack() ? router.back() : router.navigate("/"))} style={{ paddingRight: 8 }}><Text style={{ color: "#fff", fontSize: 26 }}>‹</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Back to A-Zee" hitSlop={10} onPress={() => router.navigate("/")} style={{ paddingRight: 8 }}><Text style={{ color: "#fff", fontSize: 26 }}>‹</Text></Pressable>
             <Image accessibilityLabel="AZ" source={require("../../../../assets/aztrade-az.png")} resizeMode="contain" style={s.markImg} />
             <Text style={s.brand}>AZTrade <Text style={{ color: "#2f9bff" }}>AI</Text></Text>
             <View style={{ flex: 1 }} />
@@ -847,7 +847,7 @@ const s = StyleSheet.create({
   note: { flexDirection: "row", gap: 10, alignItems: "flex-start", backgroundColor: "#e9f0fc", borderRadius: 14, padding: 12, borderWidth: 1, borderColor: P.line },
   nav: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-around", backgroundColor: "#0c1a44", borderRadius: 26, borderWidth: 1, borderColor: "#22356b", paddingTop: 6, paddingBottom: 6, paddingHorizontal: 4, marginHorizontal: 14, marginBottom: 6, marginTop: 4 },
   navItem: { alignItems: "center", gap: 2, minWidth: 56 },
-  navPill: { width: 40, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  navPill: { width: 40, height: 26, borderRadius: 13, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   navPillOn: { backgroundColor: "#1f6fe0" },
   aiWrap: { marginTop: -22, alignItems: "center", minWidth: 64 },
   aiBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#1f8fff", alignItems: "center", justifyContent: "center", borderWidth: 2.5, borderColor: "#58b4ff", shadowColor: "#2aa0ff", shadowOpacity: 0.7, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 10 },

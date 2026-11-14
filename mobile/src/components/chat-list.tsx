@@ -6,7 +6,7 @@ import { deleteChat, listChats, type ChatSummary } from "@/lib/chat";
 import { useTheme, type Theme } from "@/lib/theme";
 
 /** The signed-in user's saved chats. Tap to open, long-press to delete. Used by History and the tablet sidebar. */
-export function ChatList({ onOpen, selectedId, refreshKey, theme }: { onOpen: (id: string) => void; selectedId?: string | null; refreshKey?: number; theme?: Theme }) {
+export function ChatList({ onOpen, selectedId, refreshKey, theme, compact }: { onOpen: (id: string) => void; selectedId?: string | null; refreshKey?: number; theme?: Theme; compact?: boolean }) {
   const system = useTheme();
   const t = theme ?? system;
   const [chats, setChats] = useState<ChatSummary[] | null>(null);
@@ -33,9 +33,9 @@ export function ChatList({ onOpen, selectedId, refreshKey, theme }: { onOpen: (i
         ListEmptyComponent={chats === null ? <Empty>Loading…</Empty> : <Empty>No chats yet. Start one in the Chat tab.</Empty>}
         renderItem={({ item }) => (
           <Pressable accessibilityRole="button" accessibilityLabel={`Open chat ${item.title}`} onPress={() => onOpen(item.id)} onLongPress={() => remove(item)}
-            style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomColor: t.line, borderBottomWidth: 1, backgroundColor: item.id === selectedId ? t.card : "transparent" }}>
-            <Text numberOfLines={1} style={{ color: t.ink, fontSize: 16, fontWeight: "600" }}>{item.title}</Text>
-            <Text style={{ color: t.muted, fontSize: 12, marginTop: 2 }}>{item.mode} · {new Date(item.updatedAt).toLocaleDateString()}</Text>
+            style={{ paddingVertical: compact ? 5 : 12, paddingHorizontal: 14, borderBottomColor: t.line, borderBottomWidth: 1, backgroundColor: item.id === selectedId ? t.card : "transparent" }}>
+            <Text numberOfLines={1} style={{ color: t.ink, fontSize: compact ? 11.5 : 16, fontWeight: "600" }}>{item.title}</Text>
+            <Text style={{ color: t.muted, fontSize: compact ? 9.5 : 12, marginTop: compact ? 0 : 2 }}>{item.mode} · {new Date(item.updatedAt).toLocaleDateString()}</Text>
           </Pressable>
         )}
       />

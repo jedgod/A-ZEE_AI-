@@ -59,11 +59,11 @@ const MODELS = [
 ] as const;
 type ModelKey = (typeof MODELS)[number]["key"];
 
-function RoundButton({ glyph, label, onPress, size = 40, bg = C.pill, ink = C.ink }: { glyph: string; label: string; onPress: () => void; size?: number; bg?: string; ink?: string }) {
+function RoundButton({ glyph, label, onPress, size = 40, bg = C.pill, ink = C.ink, glyphSize = SIZE.icon }: { glyph: string; label: string; onPress: () => void; size?: number; bg?: string; ink?: string; glyphSize?: number }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6}
       style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 })}>
-      <Text style={{ color: ink, fontSize: SIZE.icon, lineHeight: SIZE.icon + 4, includeFontPadding: false }}>{glyph}</Text>
+      <Text style={{ color: ink, fontSize: glyphSize, lineHeight: glyphSize + 4, includeFontPadding: false }}>{glyph}</Text>
     </Pressable>
   );
 }
@@ -263,28 +263,28 @@ export default function ChatScreen() {
       {focused ? <StatusBar style="light" /> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {/* Header */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingTop: 6, height: 52 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingTop: 4, height: 42 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             {!wide ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={() => setMenu(true)} hitSlop={8} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ color: C.ink, fontSize: 26, lineHeight: 30, includeFontPadding: false }}>☰</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={() => setMenu(true)} hitSlop={8} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: C.ink, fontSize: 19, lineHeight: 22, includeFontPadding: false }}>☰</Text>
               </Pressable>
             ) : null}
-            <Logo size={20} />
+            <Logo size={15} />
           </View>
-          <View style={{ flexDirection: "row", gap: 4 }}>
-            <RoundButton glyph="🔌" label="Connectors" onPress={() => setConnectors(true)} size={38} bg="transparent" />
-            <RoundButton glyph="✎" label="New chat" onPress={reset} size={38} bg="transparent" />
+          <View style={{ flexDirection: "row", gap: 2 }}>
+            <RoundButton glyph="🔌" label="Connectors" onPress={() => setConnectors(true)} size={30} glyphSize={15} bg="transparent" />
+            <RoundButton glyph="✎" label="New chat" onPress={reset} size={30} glyphSize={16} bg="transparent" />
           </View>
         </View>
 
         {/* Ask / Imagine / Build */}
-        <View style={{ alignItems: "center", paddingVertical: 6 }}>
-          <View accessibilityRole="tablist" style={{ flexDirection: "row", backgroundColor: C.surface, borderRadius: 999, padding: 3 }}>
+        <View style={{ alignItems: "center", paddingVertical: 4 }}>
+          <View accessibilityRole="tablist" style={{ flexDirection: "row", backgroundColor: C.surface, borderRadius: 999, padding: 2 }}>
             {TABS.map(x => (
               <Pressable key={x.key} accessibilityRole="tab" accessibilityState={{ selected: tab === x.key }} onPress={() => setTab(x.key)}
-                style={{ paddingHorizontal: 20, height: 34, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: tab === x.key ? C.pill : "transparent" }}>
-                <Text style={{ color: tab === x.key ? C.ink : C.muted, fontSize: SIZE.chip, fontWeight: "600" }}>{x.label}</Text>
+                style={{ paddingHorizontal: 14, height: 27, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: tab === x.key ? C.pill : "transparent" }}>
+                <Text style={{ color: tab === x.key ? C.ink : C.muted, fontSize: 12.5, fontWeight: "600" }}>{x.label}</Text>
               </Pressable>
             ))}
           </View>
