@@ -39,7 +39,7 @@ const LATIN: Record<string, [string, Set<string>]> = {
 };
 export const LANGUAGE_NAMES: Record<string, string> = {
   en: "English", es: "Spanish", de: "German", fr: "French", pt: "Portuguese", it: "Italian", ja: "Japanese",
-  ko: "Korean", zh: "Chinese", ru: "Russian", ar: "Arabic", hi: "Hindi", el: "Greek", he: "Hebrew", th: "Thai",
+  ko: "Korean", zh: "Chinese", nl: "Dutch", sw: "Swahili", tw: "Twi (Akan)", ee: "Ewe", ru: "Russian", ar: "Arabic", hi: "Hindi", el: "Greek", he: "Hebrew", th: "Thai",
 };
 
 export function detectLanguage(text: string): LanguageResult {

@@ -1,10 +1,14 @@
+import { useEffect } from "react";
 import { Redirect, Stack } from "expo-router";
 import { Loading } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { registerForPush } from "@/lib/push";
 
 /** Everything signed-in. Guests go to sign-in; unverified accounts go to verification. */
 export default function AppLayout() {
   const { loading, user, verified } = useAuth();
+  // Once signed in and verified, ask to receive alerts on the lock screen (does nothing in a build without the push module).
+  useEffect(() => { if (user && verified) void registerForPush(); }, [user?.id, verified]);
   if (loading) return <Loading />;
   if (!user) return <Redirect href="/sign-in" />;
   if (!verified) return <Redirect href="/verify" />;

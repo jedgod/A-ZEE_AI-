@@ -11,6 +11,8 @@ import paperRouter from './routes/paper.js';
 import assistantRouter from './routes/assistant.js';
 import riskRouter from './routes/risk.js';
 import strategiesRouter from './routes/strategies.js';
+import { intelligenceRouter } from './routes/intelligence.js';
+import { BrokerRegistry } from './lib/broker-readonly.js';
 
 dotenv.config();
 
@@ -66,6 +68,10 @@ app.use('/api/paper', authMiddleware, requestDb, paperRouter);
 app.use('/api/assistant', authMiddleware, requestDb, assistantRouter);
 app.use('/api/risk', authMiddleware, requestDb, riskRouter);
 app.use('/api/strategies', authMiddleware, requestDb, strategiesRouter);
+// Research intelligence. FAIL CLOSED: no licence registry entry and no vendor adapter exist, so market data, broker
+// connections and certified backtests all answer "unavailable" until an operator registers approved ones.
+app.use('/api/intelligence', authMiddleware, requestDb,
+  intelligenceRouter({ registry: { async find() { return null; } }, adapters: new Map(), brokerRegistry: new BrokerRegistry() }));
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

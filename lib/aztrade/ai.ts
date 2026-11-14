@@ -7,6 +7,7 @@ import { webActor } from "@/lib/pipeline/actor";
 import { accessFor } from "@/lib/plans";
 import { allow } from "@/lib/users/auth";
 import { aztradeConfig, AztradeUnavailable, serviceAuthorized, tenantFor } from "./identity";
+import { dailyLimit, refundQuota, reserveQuota } from "./quota";
 
 // AZTrade AI bridge, A-Zee side: the only place the AZTrade assistant reaches A-Zee's models. AZTrade supplies the
 // user's own facts; A-Zee authenticates AZTrade, verifies the user and tenant itself, meters a SEPARATE allowance
@@ -160,8 +161,14 @@ export async function handleBridge(request: Request): Promise<Response> {
   }
   const fail = () => pool.query(`UPDATE aztrade_ai_requests SET status = 'failed' WHERE user_id = $1 AND request_id = $2 AND status = 'running' AND attempt_id = $3`, [user.id, body.requestId, attempt]).catch(() => undefined);
 
+  // The daily research cap (separate from the monthly allowance below). A retry of this request id is not charged twice.
+  const daily = { userId: user.id, feature: "research" as const, requestId: body.requestId };
+  const slot = await reserveQuota({ ...daily, limit: await dailyLimit(user.id, "research") });
+  if (!slot.allowed) { await fail(); return json({ error: "DAILY_LIMIT_REACHED", limit: slot.limit }, 429); }
+
   try { await chargeRequest(user.id, body.requestId, limit, attempt); }
   catch (error) {
+    await refundQuota(daily).catch(() => undefined);
     await fail();
     if (error instanceof AllowanceExhausted) return json({ error: "PLAN_LIMIT_REACHED", limit: error.limit }, 429);
     throw error;
@@ -176,6 +183,7 @@ export async function handleBridge(request: Request): Promise<Response> {
   } catch (error) {
     console.error("aztrade ai model call failed:", (error as Error).message);
     await refundRequest(user.id, body.requestId, attempt);
+    await refundQuota(daily).catch(() => undefined);
     await fail();
     return json({ error: "AI_UNAVAILABLE" }, 503);
   }

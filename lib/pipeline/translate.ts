@@ -16,8 +16,16 @@ import { configuredProviders, metaRegistry } from "./registry";
 import { createRouter } from "./router";
 import { moderationChecker } from "./validation";
 
-export const TRANSLATION_TARGETS = ["en", "es", "fr", "de", "ja"] as const; // 11_POSTPROCESS/translation's allowlist
+export const TRANSLATION_TARGETS = ["en", "es", "fr", "de", "ja", "nl", "hi", "sw", "ru", "zh", "tw", "ee"] as const; // 11_POSTPROCESS/translation's allowlist
 export type TranslationTarget = (typeof TRANSLATION_TARGETS)[number];
+
+/** Spelling guidance for languages models often write loosely. */
+const DIALECT_NOTES: Record<string, string> = {
+  nl: " (as spoken in the Netherlands)",
+  zh: " (Simplified Chinese, Mandarin)",
+  tw: " (Ghanaian Akan, using standard Asante/Akuapem Twi orthography, including the letters ɛ and ɔ)",
+  ee: " (Eʋegbe, using standard Ewe orthography, including the letters ɖ, ɛ, ƒ, ɣ, ŋ, ɔ and ʋ)",
+};
 
 /**
  * 11_POSTPROCESS translation of an answer, routed like chat (00 preflight, plan limits, 04/05
@@ -48,7 +56,7 @@ export async function translateAnswer(text: string, target: TranslationTarget, a
     const translator: Translator = {
       async translate({ text: source, targetLanguage }) {
         const result = await router.model({
-          system: `Translate the user's message into ${LANGUAGE_NAMES[targetLanguage]}. Keep the Markdown structure, code blocks, URLs, and placeholders like [EMAIL_1] exactly as they are. Return only the translation.`,
+          system: `Translate the user's message into ${LANGUAGE_NAMES[targetLanguage]}${DIALECT_NOTES[targetLanguage] ?? ""}. Keep the Markdown structure, code blocks, URLs, and placeholders like [EMAIL_1] exactly as they are. Return only the translation.`,
           history: [], maxOutputTokens: 4000,
         }).run({ prompt: source, modelId: "routed" });
         return result.text;

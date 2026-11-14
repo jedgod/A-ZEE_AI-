@@ -19,7 +19,7 @@ export interface Translator {
 export async function runTranslation(raw: unknown, adapter: Translator) {
   const input = z.object({
     text: z.string().min(1).max(20000),
-    targetLanguage: z.enum(["en", "es", "fr", "de", "ja"]),
+    targetLanguage: z.enum(["en", "es", "fr", "de", "ja", "nl", "hi", "sw", "ru", "zh", "tw", "ee"]),
   }).strict().parse(raw);
   const text = z.string().min(1).max(40000)
     .parse(await adapter.translate(input));

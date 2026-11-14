@@ -16,6 +16,8 @@ const dark: Theme = {
   accent: "#34d399", accentInk: "#06281d", danger: "#f87171", bubbleUser: "#0f5f47", bubbleUserInk: "#ffffff", bubbleAi: "#1d2420",
 };
 
+export const darkTheme: Theme = dark;
+
 export function useTheme(): Theme {
   return useColorScheme() === "dark" ? dark : light;
 }

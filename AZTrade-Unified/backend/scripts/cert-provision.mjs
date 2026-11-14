@@ -38,7 +38,12 @@ const admin = new pg.Client({ connectionString: adminUrl });
 await admin.connect();
 try {
   const { rows: [v] } = await admin.query("SELECT current_setting('server_version_num')::int AS v, current_user AS who, (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS su");
-  if (v.v < 160000 || v.v >= 170000) fail(`PostgreSQL 16 required, got ${v.v}`);
+  // Certification evidence is PostgreSQL 16 only. AZTRADE_DEV_ALLOW_PG_MAJOR=<n> lets a newer major build a throwaway DEV
+  // database for end-to-end runs; it never counts as certification.
+  const devMajor = Number(process.env.AZTRADE_DEV_ALLOW_PG_MAJOR || 0);
+  const major = Math.floor(v.v / 10000);
+  if (!(major === 16 || (devMajor && major === devMajor))) fail(`PostgreSQL 16 required, got ${v.v}`);
+  if (major !== 16) console.warn(`WARNING: PostgreSQL ${major} dev database. This is NOT certification evidence.`);
   if (!v.su) fail('the admin URL must be the throwaway cluster\'s superuser (used only to create roles and the database)');
   // Isolation guard: the cluster may hold only the system databases and a previous certification database.
   const { rows: others } = await admin.query("SELECT datname FROM pg_database WHERE NOT datistemplate AND datname NOT IN ('postgres', $1)", [DB]);

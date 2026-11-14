@@ -17,3 +17,4 @@ __pycache__/
 pipeline-api/.venv/
 .pytest_cache/
 .mirror/
+secrets-staging/

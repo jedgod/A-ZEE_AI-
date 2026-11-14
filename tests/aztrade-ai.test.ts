@@ -8,6 +8,8 @@ const S = vi.hoisted(() => ({
   allow: true, walled: false, planId: "plus", chatFails: false, answer: "Your paper cash is $1,000.00.",
 }));
 const chat = vi.hoisted(() => ({ answerChat: vi.fn() }));
+// The daily quota has its own tests on a real PostgreSQL (aztrade-quota.test.ts); here it is a recording double.
+const quota = vi.hoisted(() => ({ allowed: true, limit: 5, reserve: vi.fn(), refund: vi.fn() }));
 const key = (u: string, r: string) => `${u}|${r}`;
 const run = vi.hoisted(() => (sql: string, v: any[]): any => {
   const t = sql.replace(/\s+/g, " ").trim();
@@ -28,6 +30,7 @@ const run = vi.hoisted(() => (sql: string, v: any[]): any => {
 const pool = vi.hoisted(() => ({ query: async (sql: string, v: any[] = []) => run(sql, v), connect: async () => ({ query: async (sql: string, v: any[] = []) => run(sql, v), release: () => undefined }) }));
 vi.mock("@/lib/admin/db", () => ({ pool }));
 vi.mock("@/lib/pipeline", () => chat);
+vi.mock("@/lib/aztrade/quota", () => ({ dailyLimit: async () => quota.limit, reserveQuota: (a: unknown) => quota.reserve(a), refundQuota: (a: unknown) => quota.refund(a) }));
 vi.mock("@/lib/pipeline/actor", () => ({ webActor: (_r: Request, u: any) => ({ actor: { userId: u.id } }) }));
 vi.mock("@/lib/plans", () => ({ resolvePlan: async () => S.planId, accessFor: async () => ({ planId: S.planId, planName: S.planId, walled: S.walled, entitlements: { messages: { enabled: true, monthlyLimit: S.limit } } }) }));
 vi.mock("@/lib/users/auth", () => ({ allow: async () => S.allow, sha: (v: string) => v, tokenFrom: () => null }));
@@ -46,6 +49,9 @@ const ok = async (r: Response) => ({ status: r.status, ...(await r.json()) });
 beforeEach(() => {
   S.users.clear(); S.requests.clear(); S.usage.clear(); S.users.set("user-1", true); S.users.set("user-2", true);
   Object.assign(S, { limit: 3, allow: true, walled: false, planId: "plus", chatFails: false, answer: "Your paper cash is $1,000.00." });
+  quota.allowed = true; quota.limit = 5;
+  quota.reserve.mockReset(); quota.reserve.mockImplementation(async () => ({ allowed: quota.allowed, used: 1, limit: quota.limit, remaining: 4, replay: false }));
+  quota.refund.mockReset(); quota.refund.mockResolvedValue(true);
   chat.answerChat.mockReset();
   chat.answerChat.mockImplementation(async () => { if (S.chatFails) throw new Error("provider down"); return { answer: S.answer, meta: {} }; });
 });
@@ -127,6 +133,41 @@ describe("a separate, atomic allowance", () => {
   it("an unlimited plan is never refused", async () => {
     S.limit = null;
     for (let i = 0; i < 6; i++) expect((await call(body())).status).toBe(200);
+  });
+});
+
+describe("daily research cap (on top of the monthly allowance)", () => {
+  it("reserves one daily slot per request, keyed by the request id, using the plan's daily limit", async () => {
+    const b = body(); quota.limit = 25;
+    expect((await call(b)).status).toBe(200);
+    expect(quota.reserve).toHaveBeenCalledWith({ userId: "user-1", feature: "research", requestId: b.requestId, limit: 25 });
+    expect(quota.refund).not.toHaveBeenCalled();
+  });
+  it("a reached daily cap answers 429, never reaches the model and does not touch the monthly count", async () => {
+    quota.allowed = false;
+    const r = await ok(await call(body()));
+    expect(r).toMatchObject({ status: 429, error: "DAILY_LIMIT_REACHED", limit: 5 });
+    expect(chat.answerChat).not.toHaveBeenCalled();
+    expect([...S.usage.values()]).toEqual([]);
+  });
+  it("gives the daily slot back when the monthly allowance is used up", async () => {
+    S.limit = 0;
+    const r = await ok(await call(body()));
+    expect(r.status).toBe(429);
+    expect(quota.refund).toHaveBeenCalledTimes(1);
+  });
+  it("gives the daily slot back when the model call fails", async () => {
+    S.chatFails = true;
+    expect((await call(body())).status).toBe(503);
+    expect(quota.refund).toHaveBeenCalledTimes(1);
+  });
+  it("a replay of an already answered request is served without charging the daily cap again", async () => {
+    const b = body();
+    expect((await call(b)).status).toBe(200);
+    quota.reserve.mockClear();
+    const again = await ok(await call(b));
+    expect(again).toMatchObject({ status: 200, replay: true });
+    expect(quota.reserve).not.toHaveBeenCalled();
   });
 });
 

@@ -2,7 +2,9 @@ import { z } from "zod";
 import { readJson } from "@/lib/http";
 import { ProviderError } from "@/lib/chat/provider";
 import { InputBlockedError, NotPermittedError, OutputBlockedError } from "@/lib/pipeline";
-import { actorFor } from "@/lib/users/auth";
+import { actorFor, sessionUser } from "@/lib/users/auth";
+import { clearTranslations, listTranslations, saveTranslation } from "@/lib/translations";
+import { handle, sidebarOwner } from "@/lib/sidebar-route";
 import { TRANSLATION_TARGETS, translateAnswer } from "@/lib/pipeline/translate";
 import { PlanLimitError, UpgradeRequiredError } from "@/lib/plans";
 import { errorResponse, NO_STORE, requireSameOrigin } from "@/lib/staff/route";
@@ -17,7 +19,15 @@ export async function POST(request: Request) {
     requireSameOrigin(request);
     const input = body.parse(await readJson(request, 100_000));
     const { actor } = await actorFor(request);
-    return Response.json({ data: await translateAnswer(input.text, input.targetLanguage, actor) }, { headers: NO_STORE });
+    const result = await translateAnswer(input.text, input.targetLanguage, actor);
+    // History is a convenience for signed-in accounts: a failure to save never loses the translation.
+    if (process.env.DATABASE_URL) {
+      try {
+        const user = await sessionUser(request);
+        if (user) await saveTranslation(user.id, { targetLang: input.targetLanguage, sourceText: input.text, translatedText: result.text, provider: result.provider });
+      } catch (e) { console.warn("translation history not saved:", (e as Error)?.message?.slice(0, 120)); }
+    }
+    return Response.json({ data: result }, { headers: NO_STORE });
   } catch (error) {
     if (error instanceof UpgradeRequiredError) return Response.json({ error: "UPGRADE_REQUIRED", feature: error.feature, plan: error.planName }, { status: 403, headers: NO_STORE });
     if (error instanceof PlanLimitError) return Response.json({ error: "PLAN_LIMIT_REACHED", feature: error.feature, limit: error.limit, plan: error.planName }, { status: 429, headers: NO_STORE });
@@ -27,3 +37,15 @@ export async function POST(request: Request) {
     return errorResponse(error);
   }
 }
+
+/** The signed-in account's recent translations, newest first. */
+export const GET = (request: Request) => handle(async () => {
+  const owner = await sidebarOwner(request);
+  return Response.json({ data: { translations: await listTranslations(owner) } }, { headers: NO_STORE });
+});
+
+/** Clears the account's translation history. */
+export const DELETE = (request: Request) => handle(async () => {
+  const owner = await sidebarOwner(request, true);
+  return Response.json({ data: { deleted: await clearTranslations(owner) } }, { headers: NO_STORE });
+});

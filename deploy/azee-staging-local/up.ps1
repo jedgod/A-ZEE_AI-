@@ -23,5 +23,6 @@ if (-not (Test-Path "$root\secrets-staging\pki\ca\ca.key")) { node scripts/stagi
 $env:GATEWAY_BIND = $GatewayBind; $env:GATEWAY_PORT = "$GatewayPort"; $env:GATEWAY_HOST = if ($LanIp) { $LanIp } else { 'localhost' }
 $env:PKI_DIR = "$root\secrets-staging\pki"
 docker compose -f "$stack\compose.yaml" up -d --build
+if ($LASTEXITCODE -ne 0) { throw 'Docker Compose startup failed. Inspect the build and service logs above.' }
 docker compose -f "$stack\compose.yaml" ps
 "Gateway: https://$($env:GATEWAY_HOST):$GatewayPort   CA to trust on test devices: $root\secrets-staging\pki\live\gateway\ca.pem"

@@ -26,13 +26,15 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{
       headerShown: false, tabBarActiveTintColor: t.accent, tabBarInactiveTintColor: t.muted,
-      tabBarStyle: { backgroundColor: t.card, borderTopColor: t.line },
+      // The chat screen has its own menu (hamburger sidebar), so the bottom tab bar is hidden.
+      tabBarStyle: { display: "none" },
     }}>
       <Tabs.Screen name="index" options={{ title: "Chat", tabBarIcon: icon("💬") }} />
       <Tabs.Screen name="history" options={{ title: "History", tabBarIcon: icon("🕘") }} />
       <Tabs.Screen name="favorites" options={{ title: "Favorites", tabBarIcon: icon("★") }} />
       <Tabs.Screen name="library" options={{ title: "Library", tabBarIcon: icon("📚") }} />
       <Tabs.Screen name="notifications" options={{ title: "Alerts", tabBarIcon: icon("🔔"), tabBarBadge: unread > 0 ? (unread > 9 ? "9+" : unread) : undefined }} />
+      <Tabs.Screen name="aztrade" options={{ title: "AZTrade", tabBarIcon: icon("📈") }} />
       <Tabs.Screen name="account" options={{ title: "Account", tabBarIcon: icon("👤") }} />
     </Tabs>
   );

@@ -3,11 +3,12 @@ import { Alert, FlatList, Pressable, RefreshControl, Text, View } from "react-na
 import { useFocusEffect } from "expo-router";
 import { Empty, ErrorText } from "./ui";
 import { deleteChat, listChats, type ChatSummary } from "@/lib/chat";
-import { useTheme } from "@/lib/theme";
+import { useTheme, type Theme } from "@/lib/theme";
 
 /** The signed-in user's saved chats. Tap to open, long-press to delete. Used by History and the tablet sidebar. */
-export function ChatList({ onOpen, selectedId, refreshKey }: { onOpen: (id: string) => void; selectedId?: string | null; refreshKey?: number }) {
-  const t = useTheme();
+export function ChatList({ onOpen, selectedId, refreshKey, theme }: { onOpen: (id: string) => void; selectedId?: string | null; refreshKey?: number; theme?: Theme }) {
+  const system = useTheme();
+  const t = theme ?? system;
   const [chats, setChats] = useState<ChatSummary[] | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);

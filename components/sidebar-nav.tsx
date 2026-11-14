@@ -4,7 +4,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   MessageSquare, Image, Library, Zap, Plus, Folder, FolderOpen, FolderPlus, MoreHorizontal, Puzzle, Pin,
-  MessageCircle, ExternalLink, Pencil, Share2, Trash2, Archive, ChevronDown, Search, Code, SquarePen, Settings, Blocks, Globe,
+  MessageCircle, ExternalLink, Pencil, Share2, Trash2, Archive, ChevronDown, Search, Code, SquarePen, Settings, Blocks, Globe, ChartCandlestick,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +57,7 @@ export type NavGroup = {
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   chat: MessageSquare, imagine: Image, library: Library, automations: Zap, plus: Plus, folder: Folder,
-  puzzle: Puzzle, blocks: Blocks, globe: Globe, pin: Pin, message: MessageCircle, search: Search, code: Code,
+  puzzle: Puzzle, blocks: Blocks, globe: Globe, pin: Pin, message: MessageCircle, search: Search, code: Code, candlestick: ChartCandlestick,
 };
 
 // Menu order follows the design: open, rename, share, edit, settings, pin — then a divider and Delete.

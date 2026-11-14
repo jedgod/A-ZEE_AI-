@@ -35,6 +35,11 @@ In use before this stack: 8080 (Apache httpd), 11434 (Ollama). This stack uses *
 - Rotation: `node scripts/staging/pki.mjs rotate` (or `watch`) reissues certificates under 40% lifetime and refreshes the CRL every run (CRL validity is 7 days: run at least daily). `revoke <identity>` revokes + republishes; the listener reloads within 30 s.
 
 ## Bring-up
+The private subnet defaults to `10.253.77.0/24`. If it conflicts with an existing
+Docker network, set `PRIVATE_SUBNET` and `INTROSPECT_PRIVATE_IP` together before
+starting. Secret files are generated in the repository's ignored
+`secrets-staging/` directory and mounted from there.
+
 ```
 .\deploy\azee-staging-local\up.ps1                 # loopback only
 .\deploy\azee-staging-local\up.ps1 -LanIp 192.168.x.y   # also publish on the LAN for a physical phone (adds the IP to the gateway certificate)

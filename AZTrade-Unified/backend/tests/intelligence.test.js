@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { denyExecution,assertLicensedSource } from '../lib/core.js';
+import { validateBars,createMarketDataService } from '../lib/market-data.js';
+import { portfolioIntelligence } from '../lib/portfolio.js';
+import { validateBrokerScopes,assertReadOnlyBrokerRequest } from '../lib/broker-readonly.js';
+import { buildGroundedResearch,validateResearchAnswer } from '../lib/research-policy.js';
+
+const quote=i=>({symbol:'AAA',time:new Date(Date.UTC(2025,0,i+1)).toISOString(),open:String(100+i),high:String(101+i),low:String(99+i),close:String(100+i),volume:'1000'});
+test('execution always locked',()=>assert.throws(denyExecution,/TRADE_EXECUTION_DISABLED/));
+test('unlicensed sources refused',()=>assert.throws(()=>assertLicensedSource({active:true,approved:false,grants:['historical']},'historical'),/SOURCE_NOT_APPROVED/));
+test('licensed source allows historical only',()=>{const s={active:true,approved:true,assetClasses:['stock'],grants:['historical']};assert.doesNotThrow(()=>assertLicensedSource(s,'historical'));assert.throws(()=>assertLicensedSource(s,'paper'));});
+test('bad data rejected',()=>assert.throws(()=>validateBars([{...quote(0),low:'999'}],{symbol:'AAA',start:'2025-01-01',end:'2025-12-31'}),/BAD_OHLC/));
+test('historical licensed provider calls adapter',async()=>{const s={active:true,approved:true,assetClasses:['stock'],grants:['historical']};const x=createMarketDataService({registry:{find:async()=>s},adapters:new Map([['licensed',{fetchBars:async()=>[quote(0),quote(1)]}]])});const result=await x.historical({sourceId:'licensed',symbol:'AAA',assetClass:'stock',start:'2025-01-01',end:'2025-02-01'});assert.equal(result.bars.length,2);assert.equal(result.researchOnly,true)});
+test('research service rejects unknown vendor',async()=>{const x=createMarketDataService({registry:{find:async()=>null},adapters:new Map()});await assert.rejects(x.historical({sourceId:'none',symbol:'AAA',assetClass:'stock',start:'2025-01-01',end:'2025-02-01'}));});
+test('missing quotes cannot produce total',()=>{const r=portfolioIntelligence([{symbol:'AAA',quantity:'10',assetClass:'stock'}],new Map());assert.equal(r.status,'incomplete');assert.equal(r.totals,null);});
+test('concentration computed with verified data',()=>{const r=portfolioIntelligence([{symbol:'AAA',quantity:'2',assetClass:'stock'},{symbol:'BBB',quantity:'1',assetClass:'etf'}],new Map([['AAA',{verified:true,price:100,currency:'USD'}],['BBB',{verified:true,price:100,currency:'USD'}]]));assert.equal(Math.round(r.totals.largestPositionPct),67);});
+test('broker cannot request trading permissions',()=>assert.throws(()=>validateBrokerScopes(['orders:write']),/BROKER_SCOPE_REFUSED/));
+test('broker write operations blocked',()=>assert.throws(()=>assertReadOnlyBrokerRequest('POST','/orders'),/BROKER_WRITE_DENIED/));
+test('source references checked',()=>{const p=buildGroundedResearch({question:'Explain rates',sources:[{id:'fed',title:'Announcement',publishedAt:'2025-01-01',body:'Policy text'}]});assert.equal(p.executionAllowed,false);assert.equal(validateResearchAnswer('The source says so [source:fed]',['fed']),'The source says so [source:fed]');assert.throws(()=>validateResearchAnswer('Claim [source:fake]',['fed']));});
+import { createPkceAuthorization, BrokerOAuthFlow } from '../lib/oauth-pkce.js';
+test('PKCE challenge derives from verifier with S256',async()=>{const a=createPkceAuthorization();const {createHash}=await import('node:crypto');assert.equal(a.challenge,createHash('sha256').update(a.verifier).digest('base64url'));assert.notEqual(a.state,createPkceAuthorization().state);});
+test('OAuth rejects unapproved callback address',async()=>{const brokers={get:()=>({authorizeUrl:async()=>''})};const flow=new BrokerOAuthFlow({brokerRegistry:brokers,stateStore:{create:async()=>{}},tokenVault:{put:async()=>{}},redirectAllowlist:['https://example.org/callback']});await assert.rejects(flow.begin({providerId:'x',userId:'u',tenantId:'t',redirectUri:'https://evil.example/cb'}),/OAUTH_REDIRECT_DENIED/);});

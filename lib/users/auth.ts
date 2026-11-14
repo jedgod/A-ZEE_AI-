@@ -49,9 +49,23 @@ export const MOBILE_SESSION_DAYS = 60;
 const sessionDaysFor = (request: Request) => (isMobileClient(request) ? MOBILE_SESSION_DAYS : SESSION_DAYS);
 
 /** Writes must come from this app's own pages (or the mobile app). A missing Origin is accepted only for same-origin fetches. */
+/**
+ * The configured origin always passes. Outside production, the same site reached over a loopback name (localhost, 127.0.0.1, [::1]) on the
+ * SAME scheme and port passes too, so a developer who opens http://localhost:3001 while the server's APP_ORIGIN is the LAN address (npm run
+ * dev:lan) can still sign in. In production only the exact APP_ORIGIN is accepted.
+ */
+export function originAllowed(origin: string, app = appOrigin(), production = process.env.NODE_ENV === "production") {
+  if (origin === app) return true;
+  if (production) return false;
+  try {
+    const o = new URL(origin), a = new URL(app);
+    return ["localhost", "127.0.0.1", "[::1]"].includes(o.hostname) && o.protocol === a.protocol && o.port === a.port;
+  } catch { return false; }
+}
+
 export function strictOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  if (origin) { if (origin !== appOrigin()) throw new UserError(403, "INVALID_ORIGIN"); return; }
+  if (origin) { if (!originAllowed(origin)) throw new UserError(403, "INVALID_ORIGIN"); return; }
   if (isMobileClient(request)) return;
   const site = request.headers.get("sec-fetch-site");
   if (site !== "same-origin" && site !== "none") throw new UserError(403, "INVALID_ORIGIN");

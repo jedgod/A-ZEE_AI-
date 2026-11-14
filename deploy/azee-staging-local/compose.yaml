@@ -6,23 +6,23 @@ networks:
   edge: {}                       # gateway <-> app. The app needs outbound access (AI providers) through this network.
   private:                       # internal: no route to the outside. app, introspect, aztrade-api, db, one-shots
     internal: true
-    ipam: { config: [{ subnet: 172.28.77.0/24 }] }
+    ipam: { config: [{ subnet: "${PRIVATE_SUBNET:-10.253.77.0/24}" }] }
 
 secrets:
-  postgres_admin_password:         { file: ./secrets-staging/postgres_admin_password }
-  db_azee_owner_password:          { file: ./secrets-staging/db_azee_owner_password }
-  db_azee_app_password:            { file: ./secrets-staging/db_azee_app_password }
-  db_aztrade_owner_password:       { file: ./secrets-staging/db_aztrade_owner_password }
-  db_aztrade_app_password:         { file: ./secrets-staging/db_aztrade_app_password }
-  db_aztrade_provisioner_password: { file: ./secrets-staging/db_aztrade_provisioner_password }
-  db_aztrade_marketdata_password:  { file: ./secrets-staging/db_aztrade_marketdata_password }
-  AZTRADE_SERVICE_SECRET:          { file: ./secrets-staging/AZTRADE_SERVICE_SECRET }
-  AZTRADE_JWT_PRIVATE_KEY:         { file: ./secrets-staging/AZTRADE_JWT_PRIVATE_KEY }
-  AZEE_DATABASE_URL:               { file: ./secrets-staging/AZEE_DATABASE_URL }
-  AZEE_MIGRATION_DATABASE_URL:     { file: ./secrets-staging/AZEE_MIGRATION_DATABASE_URL }
-  AZTRADE_DATABASE_URL:            { file: ./secrets-staging/AZTRADE_DATABASE_URL }
-  AZTRADE_API_DATABASE_URL:        { file: ./secrets-staging/AZTRADE_API_DATABASE_URL }
-  AZTRADE_MIGRATION_DATABASE_URL:  { file: ./secrets-staging/AZTRADE_MIGRATION_DATABASE_URL }
+  postgres_admin_password:         { file: ../../secrets-staging/postgres_admin_password }
+  db_azee_owner_password:          { file: ../../secrets-staging/db_azee_owner_password }
+  db_azee_app_password:            { file: ../../secrets-staging/db_azee_app_password }
+  db_aztrade_owner_password:       { file: ../../secrets-staging/db_aztrade_owner_password }
+  db_aztrade_app_password:         { file: ../../secrets-staging/db_aztrade_app_password }
+  db_aztrade_provisioner_password: { file: ../../secrets-staging/db_aztrade_provisioner_password }
+  db_aztrade_marketdata_password:  { file: ../../secrets-staging/db_aztrade_marketdata_password }
+  AZTRADE_SERVICE_SECRET:          { file: ../../secrets-staging/AZTRADE_SERVICE_SECRET }
+  AZTRADE_JWT_PRIVATE_KEY:         { file: ../../secrets-staging/AZTRADE_JWT_PRIVATE_KEY }
+  AZEE_DATABASE_URL:               { file: ../../secrets-staging/AZEE_DATABASE_URL }
+  AZEE_MIGRATION_DATABASE_URL:     { file: ../../secrets-staging/AZEE_MIGRATION_DATABASE_URL }
+  AZTRADE_DATABASE_URL:            { file: ../../secrets-staging/AZTRADE_DATABASE_URL }
+  AZTRADE_API_DATABASE_URL:        { file: ../../secrets-staging/AZTRADE_API_DATABASE_URL }
+  AZTRADE_MIGRATION_DATABASE_URL:  { file: ../../secrets-staging/AZTRADE_MIGRATION_DATABASE_URL }
 
 x-app: &app
   build: { context: ../.., dockerfile: deploy/azee-staging-local/Dockerfile.app }
@@ -75,7 +75,7 @@ services:
   introspect:                    # private mTLS listener: /introspect and /jwks. No published ports, private network only.
     <<: *app
     restart: unless-stopped
-    networks: { private: { ipv4_address: "${INTROSPECT_PRIVATE_IP:-172.28.77.10}" } }
+    networks: { private: { ipv4_address: "${INTROSPECT_PRIVATE_IP:-10.253.77.10}" } }
     depends_on: { migrate-azee: { condition: service_completed_successfully } }
     secrets: [AZTRADE_SERVICE_SECRET, AZTRADE_JWT_PRIVATE_KEY, AZTRADE_DATABASE_URL]
     environment:
@@ -90,7 +90,7 @@ services:
       AZTRADE_MTLS_CLIENT_CA_FILE: /run/pki/ca.pem
       AZTRADE_MTLS_CRL_FILE: /run/pki/ca.crl
       AZTRADE_MTLS_ALLOWED_CLIENT_CNS: aztrade-api,azee-app
-      AZTRADE_MTLS_LISTEN_HOST: ${INTROSPECT_PRIVATE_IP:-172.28.77.10}      # the container's own private address; a wildcard bind is refused at startup
+      AZTRADE_MTLS_LISTEN_HOST: ${INTROSPECT_PRIVATE_IP:-10.253.77.10}      # the container's own private address; a wildcard bind is refused at startup
     volumes: ["${PKI_DIR:-../../secrets-staging/pki}/live/introspect:/run/pki:ro"]
     entrypoint: []
     command: ["node", "--experimental-transform-types", "--no-warnings", "scripts/introspect-listener.mjs"]

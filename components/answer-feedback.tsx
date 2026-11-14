@@ -5,7 +5,7 @@ import { Languages, ThumbsDown, ThumbsUp } from "lucide-react";
 import { MessageContent } from "@/components/message-content";
 import styles from "./answer-feedback.module.css";
 
-const LANGUAGES = [["en", "English"], ["es", "Spanish"], ["fr", "French"], ["de", "German"], ["ja", "Japanese"]] as const;
+const LANGUAGES = [["en", "English"], ["es", "Spanish"], ["fr", "French"], ["de", "German"], ["ja", "Japanese"], ["nl", "Dutch"], ["hi", "Hindi"], ["sw", "Swahili"], ["ru", "Russian"], ["zh", "Chinese"], ["tw", "Twi"], ["ee", "Ewe"]] as const;
 
 type State = "idle" | "sending" | "error";
 

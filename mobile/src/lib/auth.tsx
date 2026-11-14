@@ -1,3 +1,4 @@
+import { forgetPushToken } from "./push";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setUnauthorizedHandler } from "./api";
 import { clearToken, loadToken, saveToken } from "./storage";
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading, user, verified,
     signIn: (email, password) => start("/api/auth/login", { email: email.trim(), password }),
     register: (name, email, password) => start("/api/auth/register", { name: name.trim(), email: email.trim(), password }),
-    signOut: async () => { try { await api("/api/auth/logout", { method: "POST", skipUnauthorized: true }); } catch { /* sign out locally anyway */ } await forget(); },
+    signOut: async () => { await forgetPushToken(); try { await api("/api/auth/logout", { method: "POST", skipUnauthorized: true }); } catch { /* sign out locally anyway */ } await forget(); },
     refresh, forget,
   }), [loading, user, verified, start, refresh, forget]);
 

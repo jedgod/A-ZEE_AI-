@@ -29,24 +29,46 @@ const MESSAGES: Record<string, string> = {
   CHAT_NOT_FOUND: "That chat wasn't found.",
   TOO_MANY_METHODS: "Too many saved items.",
   LIBRARY_FULL: "Your prompt library is full.",
+  FILE_TOO_LARGE: "That file is too large (the limit is 8 MB).",
+  UNSUPPORTED_FORMAT: "That file type isn't supported. Use a PDF, Word (.docx), CSV or text file.",
+  UNREADABLE_DOCUMENT: "That file couldn't be read. It may be damaged or password-protected.",
+  NO_TEXT_FOUND: "No text was found in that file. A scanned PDF with no text layer can't be read yet.",
+  EMPTY_FILE: "That file is empty.",
+  DAILY_VIDEO_LIMIT: "You've reached today's limit for real video generations. Try again tomorrow.",
+  EXTERNAL_DATA_DISABLED: "This server is in private mode, so videos can't be uploaded.",
+  STORAGE_NOT_CONFIGURED: "Video upload isn't set up on the server yet.",
+  UNSUPPORTED_VIDEO: "Use an MP4, MOV or WebM video.",
+  VIDEO_TOO_LARGE: "That video is too large (the limit is 50 MB).",
+  TOO_MANY_UPLOADS: "You already have clips waiting. Finish or wait for those edits first.",
+  UPLOAD_FAILED: "The video couldn't be uploaded. Try again.",
+  SOURCE_NOT_FOUND: "That clip is no longer available. Choose it again.",
+  DAILY_LIMIT_REACHED: "You've used today's AZTrade AI questions. Try again tomorrow.",
+  FEATURE_DISABLED: "AZTrade AI isn't turned on for this server.",
+  SESSION_REVOKED: "Your AZTrade session ended. Reopen AZTrade to continue.",
+  AI_UNAVAILABLE: "The AI service is unavailable right now. Try again soon.",
+  AZTRADE_UNAVAILABLE: "AZTrade isn't set up on this server yet.",
+  TOO_MANY_JOBS: "You already have 3 videos rendering. Wait for one to finish.",
 };
 
 let onUnauthorized: (() => void) | null = null;
 /** The auth provider registers this so any 401 signs the user out in one place. */
 export const setUnauthorizedHandler = (handler: (() => void) | null) => { onUnauthorized = handler; };
 
-export async function api<T = unknown>(path: string, options: { method?: string; body?: unknown; token?: string | null; signal?: AbortSignal; skipUnauthorized?: boolean } = {}): Promise<T> {
+export async function api<T = unknown>(path: string, options: { method?: string; body?: unknown; token?: string | null; signal?: AbortSignal; skipUnauthorized?: boolean; headers?: Record<string, string> } = {}): Promise<T> {
   if (!API_CONFIGURED) throw new ApiError(0, "NOT_CONFIGURED", "The app isn't connected to a server. Set EXPO_PUBLIC_API_URL and rebuild.");
   const token = options.token === undefined ? await loadToken() : options.token;
   const headers: Record<string, string> = { "X-AZ-Client": "mobile", "X-AZ-Device": await getInstallId(), Accept: "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  Object.assign(headers, options.headers);
+  // A FormData upload sets its own multipart Content-Type (with the boundary); everything else is JSON.
+  const multipart = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (options.body !== undefined && !multipart) headers["Content-Type"] = "application/json";
 
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
       method: options.method ?? "GET", headers, signal: options.signal,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.body === undefined ? undefined : multipart ? (options.body as FormData) : JSON.stringify(options.body),
     });
   } catch (error) {
     if ((error as Error).name === "AbortError") throw error;

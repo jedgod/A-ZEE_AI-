@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  ArrowUp, BarChart3, ChevronDown, FolderPlus, MessageSquarePlus, Code, File, FileText, Image as ImageIcon, Menu, Moon,
+  ArrowUp, BarChart3, ChevronDown, FolderPlus, MessageSquarePlus, Code, File, FileText, Image as ImageIcon, Menu, Moon, ScanSearch,
   PanelLeftClose, PanelLeftOpen, Plus, Settings, Square, Sun, X,
 } from "lucide-react";
 import styles from "./workspace.module.css";
+import { AiDetectionCard, type AiDetectionResult } from "@/components/ai-detection-card";
 import { AnswerFeedback } from "@/components/answer-feedback";
 import { SidebarUserMenu } from "@/components/sidebar-user-menu";
 import { SidebarNav, type ItemAction, type NavGroup, type NavItem } from "@/components/sidebar-nav";
@@ -136,6 +137,9 @@ export default function WorkspacePage() {
   const [toast, setToast] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiDetectInputRef = useRef<HTMLInputElement>(null);
+  const [scans, setScans] = useState<AiDetectionResult[]>([]);
+  const [scanning, setScanning] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
 
   // Server-backed sidebar (/api/sidebar): this account's projects and chat titles in PostgreSQL;
@@ -311,6 +315,49 @@ export default function WorkspacePage() {
     setToast(text);
     setTimeout(() => setToast(""), 3200);
   }, []);
+
+  // AI-image check: the photo is analysed on the server and only the result is saved to the account.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/vision/scans").then(r => r.ok ? r.json() : null).then(body => {
+      const past: AiDetectionResult[] | undefined = body?.data?.scans;
+      if (alive && past?.length) setScans(now => [...[...past].reverse().filter(h => !now.some(n => n.scanId === h.scanId)), ...now]);
+    }).catch(() => undefined); // signed-out visitors get 401; history is optional
+    return () => { alive = false; };
+  }, []);
+
+  const handleAiImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = event.target.files?.[0];
+    event.target.value = "";
+    if (!picked) return;
+    setScanning(true);
+    try {
+      const form = new FormData();
+      form.append("file", picked);
+      const response = await fetch("/api/vision/detect-ai", { method: "POST", body: form });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        notify(response.status === 401 ? "Sign in to check images." : response.status === 413 ? "That image is too large (10 MB limit)." : response.status === 415 ? "Choose an image file." : response.status === 429 ? "Too many checks. Wait a minute." : "Couldn't check that image.");
+        return;
+      }
+      setScans(list => [...list, { ...body.data, previewUrl: URL.createObjectURL(picked) }]);
+    } catch { notify("Couldn't check that image."); }
+    finally { setScanning(false); }
+  };
+
+  const removeScan = async (scanId: string) => {
+    const before = scans;
+    setScans(list => list.filter(x => x.scanId !== scanId));
+    const response = await fetch(`/api/vision/scans/${scanId}`, { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) { setScans(before); notify("Couldn't delete that scan."); }
+  };
+
+  const clearScans = async () => {
+    const before = scans;
+    setScans([]);
+    const response = await fetch("/api/vision/scans", { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) { setScans(before); notify("Couldn't clear your scans."); }
+  };
 
   const persistHistory = useCallback((next: HistoryItem[]) => {
     setHistory(next);
@@ -632,6 +679,7 @@ export default function WorkspacePage() {
         items: [
           { id: "chat", label: "Chat", icon: "chat" },
           { id: "azee-search", label: "A-Zee Search", icon: "globe", href: "/search" },
+          { id: "aztrade", label: "AZTrade", icon: "candlestick", href: "/aztrade", badge: "Paper" },
           { id: "research", label: "Research", icon: "search" },
           { id: "code", label: "Code workspace", icon: "code", badge: "DEV" },
           { id: "library", label: "Library", icon: "library" },
@@ -1230,6 +1278,14 @@ export default function WorkspacePage() {
                   {m.role === "assistant" && m.requestId && <AnswerFeedback key={m.requestId} requestId={m.requestId} answer={m.content} />}
                 </article>
               ))}
+              {scanning && <p className={styles.note}>Checking the image…</p>}
+              {scans.length > 0 && (
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs font-medium opacity-60">Recent AI scans</span>
+                  <button type="button" onClick={() => void clearScans()} className="text-xs opacity-60 hover:opacity-100">Clear all</button>
+                </div>
+              )}
+              {scans.map((scan, i) => <AiDetectionCard key={scan.scanId ?? i} result={scan} onDelete={id => void removeScan(id)} />)}
             </div>
 
           </section>
@@ -1275,6 +1331,9 @@ export default function WorkspacePage() {
                       onClick={() => can("attachments") ? fileInputRef.current?.click() : notify(`File attachments are included with Plus and above (you're on ${access?.planName ?? "Free"}). See /pricing.`)}
                       aria-label="Attach file" title={can("attachments") ? "Attach file" : "Attachments: Plus and above"}><Plus size={16} /></button>
                     <input ref={fileInputRef} type="file" hidden accept=".txt,.md,.js,.ts,.tsx,.jsx,.py,.json,.css,.html,.csv,.svg" onChange={handleFile} />
+                    <button type="button" disabled={busy || scanning} className={styles.attach} onClick={() => aiDetectInputRef.current?.click()}
+                      aria-label="Check if an image is AI-generated" title="Check if an image is AI-generated"><ScanSearch size={16} /></button>
+                    <input ref={aiDetectInputRef} type="file" hidden accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={handleAiImage} />
                     <select disabled={busy} value={model} onChange={e => setModel(e.target.value as Model)} aria-label="Model">
                       <option value="auto">AZ · Auto</option>
                       <option value="reasoning">AZ · Reasoning</option>
