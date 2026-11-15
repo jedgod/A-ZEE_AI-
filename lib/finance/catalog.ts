@@ -25,7 +25,7 @@ export const CATALOG: CatalogEntry[] = [
 ];
 
 const env = (k: string) => !!process.env[k];
-const stockSource = () => (env("ALPACA_API_KEY") && env("ALPACA_API_SECRET")) || env("FINNHUB_API_KEY") || env("ALPHAVANTAGE_API_KEY") || env("TWELVEDATA_API_KEY") || env("API_NINJAS_KEY");
+const stockSource = () => process.env.YAHOO_FINANCE_DISABLED !== "1" || (env("ALPACA_API_KEY") && env("ALPACA_API_SECRET")) || env("FINNHUB_API_KEY") || env("ALPHAVANTAGE_API_KEY") || env("TWELVEDATA_API_KEY") || env("API_NINJAS_KEY");
 const stockHistory = () => (env("ALPACA_API_KEY") && env("ALPACA_API_SECRET")) || env("TWELVEDATA_API_KEY");
 const isMetal = (symbol: string) => /^X(AU|AG|PT|PD)(-USD)?$/.test(symbol);
 

@@ -8,10 +8,26 @@ const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, 
 const KEYS = ["AZ_PROVIDER_MODE", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHAVANTAGE_API_KEY", "API_NINJAS_KEY", "TRADIER_ACCESS_TOKEN", "COINGECKO_API_KEY", "FINNHUB_API_KEY", "TWELVEDATA_API_KEY"];
 const fetchMock = vi.fn();
 
-beforeEach(() => { for (const k of KEYS) delete process.env[k]; clearQuoteCache(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
+beforeEach(() => { for (const k of KEYS) delete process.env[k]; process.env.YAHOO_FINANCE_DISABLED = "1"; clearQuoteCache(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
 afterEach(() => vi.unstubAllGlobals());
 
+const chart = (meta: object) => ok({ chart: { result: [{ meta }] } });
 const code = async (p: Promise<unknown>) => p.then(() => "none", (e: FinanceError) => `${e.status}:${e.code}`);
+
+describe("Yahoo stock quotes", () => {
+  it("prices a stock with its change from the previous close, labelled yahoo, and needs no key", async () => {
+    delete process.env.YAHOO_FINANCE_DISABLED;
+    fetchMock.mockResolvedValueOnce(chart({ regularMarketPrice: 110, chartPreviousClose: 100, currency: "USD", regularMarketTime: 1_700_000_000 }));
+    const q = await fetchMultiAssetQuote("AAPL", "stocks_etfs");
+    expect(q).toMatchObject({ price: 110, provider: "yahoo", changePercent: "10.00%" });
+    expect(String(fetchMock.mock.calls[0][0])).toContain("finance/chart/AAPL");
+  });
+  it("falls through to the keyed providers when Yahoo has nothing", async () => {
+    delete process.env.YAHOO_FINANCE_DISABLED; process.env.FINNHUB_API_KEY = "k";
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 429 })).mockResolvedValueOnce(ok({ c: 5, dp: 1 }));
+    expect((await fetchMultiAssetQuote("AAPL", "stocks_etfs")).provider).toBe("finnhub");
+  });
+});
 
 describe("Try Finance multi-asset quotes", () => {
   it("makes no outbound call in ollama-only mode", async () => {

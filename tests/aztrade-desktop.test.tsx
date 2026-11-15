@@ -2,13 +2,14 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
-  chartDomain, DEFAULT_WATCH, fmtMoney, fmtPct, fmtPrice, guessClass, indexOfTime, panWindow, parseWatch, percentOk, ruleLine, sma, valuate, zoomWindow,
+  chartDomain, DEFAULT_WATCH, fmtMoney, fmtPct, fmtPrice, guessClass, indexOfTime, panWindow, parseReply, parseWatch, percentOk, ruleLine, sma, valuate, zoomWindow,
   type Point, type QuoteState,
 } from "@/app/aztrade/logic";
 import { Sparkline } from "@/app/aztrade/Sparkline";
 import { PortfolioPanel } from "@/app/aztrade/PortfolioPanel";
 import { AssetPicker } from "@/app/aztrade/AssetPicker";
 import { PriceChart } from "@/app/aztrade/PriceChart";
+import { ReplyView } from "@/app/aztrade/ReplyView";
 import { MonitorsPanel } from "@/app/aztrade/MonitorsPanel";
 import { MarketsPanel } from "@/app/aztrade/MarketsPanel";
 
@@ -69,6 +70,25 @@ describe("desktop AZTrade logic", () => {
     expect(indexOfTime(pts, 25)).toBe(1.5);
     expect(indexOfTime(pts, 40)).toBe(3);
     expect(sma(pts, 2)).toEqual([null, 1.5, 2.5, 3.5]);
+  });
+  it("an AI answer becomes separate blocks: every bullet on its own line, bold labels kept, the disclaimer set apart", () => {
+    const text = ["Based on your AZTrade account data:", "", "* **Certificate of Deposit (CD) Rates:** Not available.", "- **ETFs:** Please name a ticker such as SPY.", "", "*This is education and paper-trading analysis only.*"].join("\n");
+    const blocks = parseReply(text);
+    expect(blocks.map(b => b.kind)).toEqual(["p", "li", "li", "note"]);
+    expect(blocks[1].parts).toEqual([{ text: "Certificate of Deposit (CD) Rates:", bold: true }, { text: " Not available.", bold: false }]);
+    expect(blocks[3].parts[0].text).toBe("This is education and paper-trading analysis only.");
+  });
+  it("bullets that arrive run together on one line are split, and headings and code marks are tidied", () => {
+    expect(parseReply("\u2022 CD rates: none \u2022 ETFs: need a ticker \u2022 BTC: delayed").map(b => b.kind)).toEqual(["li", "li", "li"]);
+    expect(parseReply(["## Risks", "Use `SPY`."].join("\n")).map(b => [b.kind, b.parts.map(p => p.text).join("")])).toEqual([["h", "Risks"], ["p", "Use SPY."]]);
+    expect(parseReply("   \n\n")).toEqual([]);
+  });
+  it("the answer view prints one list item per point, with bold labels", () => {
+    const html = renderToString(createElement(ReplyView, { text: ["Intro line.", "- **BTC:** delayed price.", "- **CD rates:** unavailable.", "*Education only.*"].join("\n") }));
+    expect((html.match(/<li>/g) ?? []).length).toBe(2);
+    expect(html).toContain("<strong>BTC:</strong>");
+    expect(html).toContain("Education only.");
+    expect(html).not.toContain("**");
   });
   it("formats like the phone app", () => {
     expect(fmtPrice(68987.08)).toBe("68,987.08");

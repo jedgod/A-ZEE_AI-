@@ -305,9 +305,11 @@ export default function AZTradeMobileScreen() {
     [["◔", "Diversification", `How does ${T} fit into a diversified portfolio?`], ["≈", "Volatility", `What drives the volatility of ${T}, and how do investors manage it?`], ["%", "Dividends", `How should I think about income and dividends for ${T}?`], ["🌐", "Macro drivers", `Which macro factors, like rates and inflation, matter most for ${T}?`]],
   ][seed % 2];
   const Rich = ({ text }: { text: string }) => (
-    <View style={{ gap: 6 }}>
+    <View style={{ gap: 10 }}>
       {text.split("\n").map((line, i) => {
         if (!line.trim()) return null;
+        const note = /^\s*\*(?![*\s])(.+?)\*\s*$/.exec(line);
+        if (note) return <Text key={i} selectable style={[s.muted, { fontStyle: "italic", textAlign: "justify", borderTopWidth: 1, borderTopColor: P.line, paddingTop: 8 }]}>{note[1]}</Text>;
         const bullet = /^\s*[-*•]\s+/.test(line);
         const heading = /^#{1,3}\s+/.test(line);
         const body = line.replace(/^\s*[-*•]\s+/, "").replace(/^#{1,3}\s+/, "");
@@ -315,7 +317,7 @@ export default function AZTradeMobileScreen() {
         return (
           <View key={i} style={{ flexDirection: "row", gap: 8 }}>
             {bullet ? <Text style={{ color: P.blue, fontSize: 14, lineHeight: 21 }}>•</Text> : null}
-            <Text selectable style={[s.body, { color: P.ink, flex: 1 }, heading && { fontWeight: "800", fontSize: 16 }]}>
+            <Text selectable style={[s.body, { color: P.ink, flex: 1, textAlign: "justify" }, heading && { fontWeight: "800", fontSize: 16 }]}>
               {parts.map((part, j) => (j % 2 ? <Text key={j} style={{ fontWeight: "800" }}>{part}</Text> : part))}
             </Text>
           </View>

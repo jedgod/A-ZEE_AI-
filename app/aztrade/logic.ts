@@ -133,3 +133,35 @@ export function panWindow(a: number, b: number, n: number, deltaIdx: number): [n
   const na = Math.max(0, Math.min(n - 1 - len, a + deltaIdx));
   return [Math.round(na), Math.round(na + len)];
 }
+
+// ---------- research replies ----------
+export type ReplyPart = { text: string; bold: boolean };
+export type ReplyBlock = { kind: 'p' | 'h' | 'li' | 'note'; parts: ReplyPart[] };
+
+const inline = (raw: string): ReplyPart[] =>
+  raw.replace(/`([^`]+)`/g, '$1').replace(/__(.+?)__/g, '**$1**').split(/\*\*(.+?)\*\*/g)
+    .map((text, i) => ({ text, bold: i % 2 === 1 })).filter(p => p.text.length > 0);
+
+/**
+ * The model answers in light Markdown. This turns it into blocks the page can lay out: every bullet on its own
+ * line, bold labels kept, headings and the closing disclaimer (a line wrapped in single asterisks) set apart.
+ * Bullets that arrive run together on one line ("• A • B") are split.
+ */
+export function parseReply(text: string): ReplyBlock[] {
+  const blocks: ReplyBlock[] = [];
+  for (const rawLine of text.replace(/\r/g, '').split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const heading = /^#{1,6}\s+(.*)$/.exec(line);
+    if (heading) { blocks.push({ kind: 'h', parts: inline(heading[1]) }); continue; }
+    const italic = /^\*(?!\*|\s)(.+?)\*$/.exec(line) ?? /^_(?!_)(.+?)_$/.exec(line);
+    if (italic) { blocks.push({ kind: 'note', parts: inline(italic[1]) }); continue; }
+    const bullet = /^(?:[-*\u2022]\s+)(.*)$/.exec(line);
+    if (bullet || /\s\u2022\s/.test(line)) {
+      for (const item of (bullet ? bullet[1] : line).split(/\s+\u2022\s+/).map(x => x.replace(/^\u2022\s*/, '').trim()).filter(Boolean)) blocks.push({ kind: 'li', parts: inline(item) });
+      continue;
+    }
+    blocks.push({ kind: 'p', parts: inline(line) });
+  }
+  return blocks;
+}

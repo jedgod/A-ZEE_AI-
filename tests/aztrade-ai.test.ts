@@ -8,6 +8,8 @@ const S = vi.hoisted(() => ({
   allow: true, walled: false, planId: "plus", chatFails: false, answer: "Your paper cash is $1,000.00.",
 }));
 const chat = vi.hoisted(() => ({ answerChat: vi.fn() }));
+// Delayed free-source quotes are looked up over the network, so here they are a controllable double (default: none).
+const dq = vi.hoisted(() => ({ fn: vi.fn() }));
 // The daily quota has its own tests on a real PostgreSQL (aztrade-quota.test.ts); here it is a recording double.
 const quota = vi.hoisted(() => ({ allowed: true, limit: 5, reserve: vi.fn(), refund: vi.fn() }));
 const key = (u: string, r: string) => `${u}|${r}`;
@@ -30,6 +32,7 @@ const run = vi.hoisted(() => (sql: string, v: any[]): any => {
 const pool = vi.hoisted(() => ({ query: async (sql: string, v: any[] = []) => run(sql, v), connect: async () => ({ query: async (sql: string, v: any[] = []) => run(sql, v), release: () => undefined }) }));
 vi.mock("@/lib/admin/db", () => ({ pool }));
 vi.mock("@/lib/pipeline", () => chat);
+vi.mock("@/lib/aztrade/delayed-quotes", () => ({ delayedQuotesFor: (m: string) => dq.fn(m) }));
 vi.mock("@/lib/aztrade/quota", () => ({ dailyLimit: async () => quota.limit, reserveQuota: (a: unknown) => quota.reserve(a), refundQuota: (a: unknown) => quota.refund(a) }));
 vi.mock("@/lib/pipeline/actor", () => ({ webActor: (_r: Request, u: any) => ({ actor: { userId: u.id } }) }));
 vi.mock("@/lib/plans", () => ({ resolvePlan: async () => S.planId, accessFor: async () => ({ planId: S.planId, planName: S.planId, walled: S.walled, entitlements: { messages: { enabled: true, monthlyLimit: S.limit } } }) }));
@@ -52,6 +55,7 @@ beforeEach(() => {
   quota.allowed = true; quota.limit = 5;
   quota.reserve.mockReset(); quota.reserve.mockImplementation(async () => ({ allowed: quota.allowed, used: 1, limit: quota.limit, remaining: 4, replay: false }));
   quota.refund.mockReset(); quota.refund.mockResolvedValue(true);
+  dq.fn.mockReset(); dq.fn.mockResolvedValue([]);
   chat.answerChat.mockReset();
   chat.answerChat.mockImplementation(async () => { if (S.chatFails) throw new Error("provider down"); return { answer: S.answer, meta: {} }; });
 });
@@ -196,5 +200,43 @@ describe("grounding: the assistant may only state figures the user's own data su
     expect(unsupportedFigures("The market price is $12.51", g)).toEqual(["$12.51"]);
     const withPrice = bridgeSchema.parse(body({ grounding: { ...GROUNDING, market_data_status: "licensed", market_prices: [{ symbol: "ACME", price: "13.25", source: "vendor", observed_at: "2026-11-09T15:00:00Z" }] } })).grounding;
     expect(unsupportedFigures("ACME last traded at $13.25.", withPrice)).toEqual([]);
+  });
+});
+
+describe("delayed, informational quotes for the assets the question names", () => {
+  const BTC = { symbol: "BTC", price: "64515.56", source: "coingecko (delayed)", observed_at: "2026-11-14T22:00:00.000Z" };
+  const prompt = () => chat.answerChat.mock.calls[0][0].messages[0].content as string;
+
+  it("tells the model the status is delayed and gives it the quote, so it can answer with that price", async () => {
+    dq.fn.mockResolvedValue([BTC]); S.answer = "BTC is about $64,515.56 (delayed, informational).";
+    const r = await ok(await call(body({ message: "what is BTC at?" })));
+    expect(r).toMatchObject({ status: 200, reply: S.answer });
+    expect(prompt()).toContain('"market_data_status":"delayed"');
+    expect(prompt()).toContain("64515.56");
+    expect(prompt()).toContain("coingecko (delayed)");
+  });
+  it("still blocks any other figure: only the quote it was given is supported", async () => {
+    dq.fn.mockResolvedValue([BTC]); S.answer = "BTC is $70,000.";
+    expect(await ok(await call(body({ message: "what is BTC at?" })))).toMatchObject({ status: 200, reply: SAFE_REPLY });
+  });
+  it("keeps the status 'unavailable' and quotes nothing when no quote could be fetched, or the lookup fails", async () => {
+    S.answer = "I cannot give a price."; dq.fn.mockResolvedValue([]);
+    await call(body({ message: "what is BTC at?" }));
+    expect(prompt()).toContain('"market_data_status":"unavailable"');
+    chat.answerChat.mockClear(); S.usage.clear(); S.requests.clear();
+    dq.fn.mockRejectedValue(new Error("network down"));
+    expect(await ok(await call(body({ message: "what is BTC at?" })))).toMatchObject({ status: 200, reply: "I cannot give a price." });
+    expect(prompt()).toContain('"market_data_status":"unavailable"');
+  });
+  it("never looks quotes up when licensed prices were supplied, and callers cannot send 'delayed' themselves", async () => {
+    const licensed = { ...GROUNDING, market_data_status: "licensed", market_prices: [{ symbol: "ACME", price: "13.25", source: "vendor", observed_at: "2026-11-09T15:00:00Z" }] };
+    await call(body({ grounding: licensed, message: "what is BTC at?" }));
+    expect(dq.fn).not.toHaveBeenCalled();
+    expect(await ok(await call(body({ grounding: { ...GROUNDING, market_data_status: "delayed" } })))).toMatchObject({ status: 400 });
+  });
+  it("the rules explain 'delayed' and say that anything not in the grounding (such as CD rates) is unavailable", () => {
+    const p = buildPrompt({ message: "q", grounding: { ...GROUNDING, market_prices: [], market_data_status: "delayed" } });
+    expect(p).toContain("delayed, informational quotes");
+    expect(p).toContain("certificate-of-deposit rates");
   });
 });

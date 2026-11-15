@@ -10,7 +10,20 @@ function httpsEndpoint(raw, name) {
 }
 import {mapPlan} from './plans.js';
 import {mtlsConfigured, mtlsFetcher} from './mtls-client.js';
-export async function authenticateAzee(token, {fetcher} = {}) {
+// Several requests carrying the same token often arrive together (the desktop page loads four resources at once).
+// Concurrent checks of one token share a single verification; nothing is kept once it finishes, so a revoked
+// session is still refused on the very next request. A custom fetcher (tests) always runs on its own.
+const inflight = new Map();
+export function authenticateAzee(token, options = {}) {
+  if (options.fetcher || typeof token !== 'string') return verifyAzee(token, options);
+  let pending = inflight.get(token);
+  if (!pending) {
+    pending = verifyAzee(token, options).finally(() => inflight.delete(token));
+    inflight.set(token, pending);
+  }
+  return pending;
+}
+async function verifyAzee(token, {fetcher} = {}) {
   // Production: introspection is service-to-service over mTLS ONLY. No client certificate configured => refuse (fail closed).
   if (!fetcher) {
     if (mtlsConfigured()) fetcher = mtlsFetcher();

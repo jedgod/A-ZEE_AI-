@@ -75,8 +75,25 @@ async function twelveData(symbol: string, key: string, assetClass: AssetClass, d
   return quote({ symbol: display, assetClass, price, currency: "USD", changePercent: pct(d.percent_change), provider: "twelvedata", asOf: typeof d.datetime === "string" ? d.datetime : undefined });
 }
 
+/**
+ * Yahoo Finance (unofficial public chart endpoint, no key). Gives the latest regular-market price and the previous close, so
+ * we can show a 24H change. Unlicensed and unofficial: informational only, labelled delayed, and it can change or block
+ * without notice, so it falls through to the keyed providers. Set YAHOO_FINANCE_DISABLED=1 to turn it off.
+ */
+async function yahoo(symbol: string): Promise<MarketQuote | null> {
+  if (process.env.YAHOO_FINANCE_DISABLED === "1") return null;
+  const d = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${enc(symbol)}?range=1d&interval=1m`, { "User-Agent": "Mozilla/5.0" });
+  const m = d?.chart?.result?.[0]?.meta;
+  const price = num(m?.regularMarketPrice);
+  if (!price || (m?.currency && m.currency !== "USD")) return null;
+  const prev = num(m.chartPreviousClose ?? m.previousClose);
+  const t = Number(m.regularMarketTime);
+  return quote({ symbol, assetClass: "stocks_etfs", price, currency: "USD", changePercent: prev ? pct(((price - prev) / prev) * 100) : undefined, provider: "yahoo", asOf: t > 0 ? new Date(t * 1000).toISOString() : undefined });
+}
+
 async function stock(symbol: string): Promise<MarketQuote> {
   const { ALPACA_API_KEY: key, ALPACA_API_SECRET: secret, ALPHAVANTAGE_API_KEY: av, API_NINJAS_KEY: ninja, FINNHUB_API_KEY: fh, TWELVEDATA_API_KEY: td } = process.env;
+  { const q = await yahoo(symbol); if (q) return q; }
   if (key && secret) {
     const d = await getJson(`https://data.alpaca.markets/v2/stocks/${enc(symbol)}/trades/latest`, { "APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret });
     const price = num(d?.trade?.p);
