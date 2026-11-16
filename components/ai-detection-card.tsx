@@ -12,7 +12,7 @@ export type AiDetectionResult = {
   verification?: {
     publicIndex: {
       status: "checked" | "not_configured" | "unavailable";
-      matches: { url: string; observedAt: string; kind: "exact" | "possible" }[];
+      matches: { url: string; observedAt: string; kind: "exact" | "possible"; provider?: string }[];
       indexedImages?: number;
     };
   } | null;
@@ -61,7 +61,7 @@ export function AiDetectionCard({ result, onDelete }: { result: AiDetectionResul
               : index.status === "unavailable" ? "The A-Zee index could not be checked." : "Public matching is not configured."}</p>
             {index.matches.map(match => (
               <div key={match.url}>
-                <p className="text-zinc-300">{match.kind === "exact" ? "Exact file" : "Possible visual match"} · Observed {match.observedAt.slice(0, 10)}</p>
+                <p className="text-zinc-300">{match.kind === "exact" ? "Exact file" : "Possible visual match"} · Observed {match.observedAt.slice(0, 10)}{match.provider ? ` · ${match.provider}` : ""}</p>
                 {match.url.startsWith("https://") && <a className="break-all text-sky-300 underline" href={match.url} target="_blank" rel="noopener noreferrer">{match.url}</a>}
               </div>
             ))}

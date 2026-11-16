@@ -8,9 +8,11 @@ export async function fingerprint(bytes: Uint8Array) {
   if (bytes.length > MAX_IMAGE_BYTES) throw new Error("FILE_TOO_LARGE");
   try {
     const image = sharp(bytes, { limitInputPixels: 24_000_000, failOn: "warning" });
-    const { format, pages } = await image.metadata();
+    const { format, pages, width, height, orientation } = await image.metadata();
     if (pages && pages > 1) throw new Error("UNSUPPORTED_FORMAT");
     if (format !== "jpeg" && format !== "png" && format !== "webp") throw new Error("UNSUPPORTED_FORMAT");
+    if (!width || !height || width * height > 24_000_000) throw new Error("INVALID_IMAGE");
+    const ratio = orientation && orientation >= 5 ? height / width : width / height;
     const pixels = await image.autoOrient().flatten({ background: "#fff" })
       .resize(9, 8, { fit: "fill" }).greyscale().raw().toBuffer();
     let hash = 0n;
@@ -23,6 +25,7 @@ export async function fingerprint(bytes: Uint8Array) {
       }
     }
     return {
+      ratio,
       mime: `image/${format}`,
       sha256: createHash("sha256").update(bytes).digest("hex"),
       // Low-detail images often share the same perceptual fingerprint.

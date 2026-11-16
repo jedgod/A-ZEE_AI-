@@ -62,3 +62,30 @@ describe("image verification", () => {
     expect(findMatches(query, entries).map(m => m.kind)).toEqual(["exact", "possible"]);
   });
 });
+
+it("reloads an atomically replaced source index without restarting the app", async () => {
+  const { mkdtemp, writeFile, rename, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { lookupMatches } = await import("@/lib/vision/matches");
+  const dir = await mkdtemp(join(tmpdir(), "azee-index-"));
+  const path = join(dir, "index.json");
+  const previous = process.env.AZ_IMAGE_INDEX_FILE;
+  try {
+    process.env.AZ_IMAGE_INDEX_FILE = path;
+    const original = await sample();
+    const query = await fingerprint(original);
+    await writeFile(path, "[]");
+    expect(await lookupMatches(query)).toMatchObject({ status: "checked", matches: [] });
+    await writeFile(join(dir, "next.json"), JSON.stringify([{ ...query, provider: "Wikimedia Commons",
+      url: "https://commons.wikimedia.org/wiki/File:Example.jpg", observedAt: "2026-01-01" }]));
+    await rename(join(dir, "next.json"), path);
+    expect(await detectImage(original)).toMatchObject({ verdict: "INCONCLUSIVE", verification: {
+      publicIndex: { status: "checked", matches: [{ kind: "exact", provider: "Wikimedia Commons" }] },
+    } });
+  } finally {
+    if (previous === undefined) delete process.env.AZ_IMAGE_INDEX_FILE;
+    else process.env.AZ_IMAGE_INDEX_FILE = previous;
+    await rm(dir, { recursive: true, force: true });
+  }
+});
