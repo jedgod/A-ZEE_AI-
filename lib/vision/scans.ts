@@ -1,15 +1,15 @@
 import "server-only";
 import { pool } from "@/lib/admin/db";
-import type { Detection, PixelScores, Verdict } from "./detect";
+import type { Detection, PixelScores, Verdict, Verification } from "./detect";
 
-export type Scan = { scanId: string; verdict: Verdict; confidence: number; pixelScores: PixelScores | null; likelySource: string; signals: string[]; createdAt: string };
+export type Scan = { scanId: string; verdict: Verdict; confidence: number; pixelScores: PixelScores | null; likelySource: string; signals: string[]; verification: Verification | null; createdAt: string };
 
-const COLUMNS = `id AS "scanId", verdict, confidence, pixel_scores AS "pixelScores", COALESCE(likely_source, 'Unknown') AS "likelySource", signals, created_at AS "createdAt"`;
+const COLUMNS = `id AS "scanId", verdict, confidence, pixel_scores AS "pixelScores", COALESCE(likely_source, 'Unknown') AS "likelySource", signals, verification, created_at AS "createdAt"`;
 
 export async function saveScan(ownerId: string, d: Detection): Promise<Scan> {
   const r = await pool.query(
-    `INSERT INTO image_scans (owner_id, verdict, confidence, pixel_scores, likely_source, signals) VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNS}`,
-    [ownerId, d.verdict, d.confidence, d.pixelScores ? JSON.stringify(d.pixelScores) : null, d.likelySource.slice(0, 200), JSON.stringify(d.signals.slice(0, 20))],
+    `INSERT INTO image_scans (owner_id, verdict, confidence, pixel_scores, likely_source, signals, verification) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${COLUMNS}`,
+    [ownerId, d.verdict, d.confidence, d.pixelScores ? JSON.stringify(d.pixelScores) : null, d.likelySource.slice(0, 200), JSON.stringify(d.signals.slice(0, 20)), JSON.stringify(d.verification)],
   );
   return r.rows[0];
 }

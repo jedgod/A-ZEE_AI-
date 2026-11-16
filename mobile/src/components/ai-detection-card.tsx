@@ -8,49 +8,31 @@ export type AiDetectionResult = {
   verdict: "AI_GENERATED" | "LIKELY_REAL" | "INCONCLUSIVE";
   /** 0-100 */
   confidence: number;
-  /** Present when a pixel-level classifier ran; otherwise only the overall confidence is shown. */
   pixelScores?: PixelScores | null;
   likelySource: string;
   signals: string[];
+  verification?: {
+    publicIndex: {
+      status: "checked" | "not_configured" | "unavailable";
+      matches: { url: string; observedAt: string; kind: "exact" | "possible" }[];
+      indexedImages?: number;
+    };
+  } | null;
   previewUrl?: string;
 };
 
 const ROSE = "#f43f5e", AMBER = "#f59e0b", EMERALD = "#10b981";
-const pct = (n: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
-/** High synthetic probability is red, mixed is amber, low is green. */
-const meterColor = (score: number) => (score >= 70 ? ROSE : score >= 35 ? AMBER : EMERALD);
-
 const VERDICTS = {
-  AI_GENERATED: { label: "AI GENERATED", color: ROSE, bg: "rgba(244,63,94,0.16)", glyph: "⚠" },
+  AI_GENERATED: { label: "SIGNED AI CLAIM", color: ROSE, bg: "rgba(244,63,94,0.16)", glyph: "⚠" },
   LIKELY_REAL: { label: "LIKELY REAL", color: EMERALD, bg: "rgba(16,185,129,0.16)", glyph: "✓" },
   INCONCLUSIVE: { label: "INCONCLUSIVE", color: AMBER, bg: "rgba(245,158,11,0.16)", glyph: "?" },
 } as const;
 
-function Meter({ glyph, label, score, color }: { glyph?: string; label: string; score: number; color: string }) {
-  return (
-    <View accessible accessibilityLabel={`${label} ${score} percent`} style={{ gap: 5 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: C.muted, fontSize: 12, fontWeight: "500" }}>{glyph ? `${glyph}  ${label}` : label}</Text>
-        <Text style={{ color, fontSize: 12, fontWeight: "700" }}>{score}%</Text>
-      </View>
-      <View style={{ height: 6, backgroundColor: C.pill, borderRadius: 999, overflow: "hidden" }}>
-        <View style={{ width: `${score}%`, height: "100%", backgroundColor: color, borderRadius: 999 }} />
-      </View>
-    </View>
-  );
-}
-
-/**
- * The result of an AI-image check: verdict badge, the scanned photo, two meters (GenAI diffusion and face
- * deepfake) when pixel scores are available or a single overall meter when they are not, the suspected
- * source, and the forensic clues. It only displays a result; nothing in the app produces one yet.
- */
 export function AiDetectionCard({ result, onDelete }: { result: AiDetectionResult; onDelete?: (scanId: string) => void }) {
-  const v = VERDICTS[result.verdict] ?? VERDICTS.INCONCLUSIVE;
-  const confidence = pct(result.confidence);
-  const scores = result.pixelScores;
+  const resultIsCurrent = Boolean(result.verification);
+  const v = resultIsCurrent ? VERDICTS[result.verdict] ?? VERDICTS.INCONCLUSIVE : VERDICTS.INCONCLUSIVE;
+  const index = result.verification?.publicIndex;
   const box = { backgroundColor: C.bg, borderColor: C.line, borderWidth: 1, borderRadius: 12 };
-
   return (
     <View style={{ marginVertical: 8, borderRadius: 18, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, overflow: "hidden", maxWidth: 340 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line }}>
@@ -70,29 +52,28 @@ export function AiDetectionCard({ result, onDelete }: { result: AiDetectionResul
       {result.previewUrl ? (
         <View style={{ height: 140, width: "100%", backgroundColor: "#000" }}>
           <Image source={{ uri: result.previewUrl }} accessibilityLabel="Scanned image" style={{ width: "100%", height: "100%", opacity: 0.9 }} resizeMode="cover" />
-          <View style={{ position: "absolute", right: 8, bottom: 8, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.82)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: C.pill }}>
-            <Text style={{ color: v.color, fontSize: 12, fontWeight: "700" }}>{v.glyph}</Text>
-            <Text style={{ color: C.ink, fontSize: 12, fontWeight: "700" }}>{confidence}%</Text>
-          </View>
+
         </View>
       ) : null}
 
       <View style={{ padding: 14, gap: 12 }}>
-        {scores ? (
-          <View style={[box, { gap: 10, padding: 10 }]}>
-            <Meter glyph="⚙" label="GenAI Diffusion" score={pct(scores.aiGeneratedScore)} color={meterColor(pct(scores.aiGeneratedScore))} />
-            <Meter glyph="☺" label="Face Deepfake" score={pct(scores.deepfakeScore)} color={meterColor(pct(scores.deepfakeScore))} />
+        {!resultIsCurrent && <Text style={{ color: C.muted }}>Previous scan. Scan again to verify signed credentials.</Text>}
+        {index && (
+          <View style={[box, { padding: 12, gap: 6 }]}>
+            <Text style={{ color: C.ink, fontWeight: "700" }}>Public image matches</Text>
+            <Text style={{ color: C.muted }}>{index.status === "checked"
+              ? `${index.matches.length ? "Showing " + index.matches.length + " matches." : "No matches found."} A-Zee index: ${index.indexedImages ?? 0} source entries.`
+              : index.status === "unavailable" ? "The A-Zee index could not be checked." : "Public matching is not configured."}</Text>
+            {index.matches.map(match => (
+              <View key={match.url}>
+                <Text style={{ color: C.ink }}>{match.kind === "exact" ? "Exact file" : "Possible visual match"} · Observed {match.observedAt.slice(0, 10)}</Text>
+                <Text selectable style={{ color: C.muted }}>{match.url}</Text>
+              </View>
+            ))}
           </View>
-        ) : (
-          <Meter label="Overall Confidence" score={confidence} color={v.color} />
         )}
 
-        <View style={[box, { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8 }]}>
-          <Text style={{ color: C.muted, fontSize: 12 }}>Suspected Source</Text>
-          <Text numberOfLines={1} style={{ color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 170 }}>{result.likelySource}</Text>
-        </View>
-
-        {result.signals.length ? (
+        {resultIsCurrent && result.signals.length ? (
           <View style={{ gap: 5 }}>
             <Text style={{ color: C.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.6 }}>FORENSIC SIGNALS</Text>
             {result.signals.map((clue, i) => (

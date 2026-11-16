@@ -23,6 +23,7 @@ const APPROVED: Record<string, { kind: "ai-cloud" | "data" | "non-ai" | "referen
   "news.google.com": { kind: "data", note: "live news headlines (lib/pipeline/live-news.ts, ollamaOnly-gated)" },
   "exp.host": { kind: "non-ai", note: "Expo push for price alerts (monitor worker, paused in private mode)" },
   "queue.fal.run": { kind: "ai-cloud", note: "video provider (lib/video-provider.ts)" }, "api.sightengine.com": { kind: "ai-cloud", note: "AI-image detection (lib/vision/detect.ts)" },
+  "cv.iptc.org": { kind: "reference", note: "IPTC digital-source-type identifier compared against signed credentials (lib/vision/detect.ts); never fetched" },
   "interactive-examples.mdn.mozilla.net": { kind: "reference", note: "sample URL text" },
   "aztrade.internal": { kind: "reference", note: "private AZTrade bridge placeholder host" },
 };
