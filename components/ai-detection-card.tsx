@@ -1,3 +1,5 @@
+import { ImageTrace } from "@/components/image-trace";
+import type { Match } from "@/lib/vision/matches";
 import { ScanSearch, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -12,7 +14,7 @@ export type AiDetectionResult = {
   verification?: {
     publicIndex: {
       status: "checked" | "not_configured" | "unavailable";
-      matches: { url: string; observedAt: string; kind: "exact" | "possible"; provider?: string }[];
+      matches: Match[];
       indexedImages?: number;
     };
   } | null;
@@ -30,7 +32,7 @@ export function AiDetectionCard({ result, onDelete }: { result: AiDetectionResul
   const v = resultIsCurrent ? VERDICTS[result.verdict] ?? VERDICTS.INCONCLUSIVE : VERDICTS.INCONCLUSIVE;
   const index = result.verification?.publicIndex;
   return (
-    <div className="my-2 max-w-xs overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/95">
+    <div className="my-2 max-w-md overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/95">
       <div className="flex items-center justify-between border-b border-zinc-800/80 px-3.5 py-2.5">
         <div className="flex items-center gap-1.5"><ScanSearch className="h-4 w-4 text-rose-400" /><span className="text-xs font-semibold text-zinc-200">A-Zee AI Detector</span></div>
         <div className="flex items-center gap-1.5">
@@ -59,13 +61,10 @@ export function AiDetectionCard({ result, onDelete }: { result: AiDetectionResul
             <p className="text-zinc-400">{index.status === "checked"
               ? `${index.matches.length ? "Showing " + index.matches.length + " matches." : "No matches found."} A-Zee index: ${index.indexedImages ?? 0} source entries.`
               : index.status === "unavailable" ? "The A-Zee index could not be checked." : "Public matching is not configured."}</p>
-            {index.matches.map(match => (
-              <div key={match.url}>
-                <p className="text-zinc-300">{match.kind === "exact" ? "Exact file" : "Possible visual match"} · Observed {match.observedAt.slice(0, 10)}{match.provider ? ` · ${match.provider}` : ""}</p>
-                {match.url.startsWith("https://") && <a className="break-all text-sky-300 underline" href={match.url} target="_blank" rel="noopener noreferrer">{match.url}</a>}
-              </div>
-            ))}
           </div>
+        )}
+        {result.scanId && index?.status === "checked" && index.matches.length > 0 && (
+          <ImageTrace key={result.scanId} scanId={result.scanId} matches={index.matches} original={result.previewUrl} />
         )}
         {resultIsCurrent && result.signals.length ? (
           <div className="space-y-1.5">

@@ -1,9 +1,10 @@
-import { open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import sharp from "sharp";
 import { randomUUID } from "node:crypto";
 import { commonsSources, commonsImageHosts } from "./image-sources/commons.mjs";
 import { fetchPublic, publicUrl } from "./image-sources/fetch-public.mjs";
-import { fingerprint, MAX_IMAGE_BYTES } from "../lib/vision/fingerprint.ts";
+import { fingerprint, MAX_IMAGE_BYTES, MAX_INDEX_BYTES } from "../lib/vision/fingerprint.ts";
 
 const [manifestFile, outputFile] = process.argv.slice(2);
 if (!manifestFile || !outputFile) throw new Error("Usage: node --experimental-strip-types scripts/index-public-images.mjs manifest.json index.json");
@@ -30,7 +31,7 @@ try {
   const file = await open(outputFile, "r");
   try {
     const stat = await file.stat();
-    if (!stat.isFile() || stat.size > 5_000_000) throw new Error("Invalid previous index");
+    if (!stat.isFile() || stat.size > MAX_INDEX_BYTES) throw new Error("Invalid previous index");
     const bytes = Buffer.alloc(stat.size + 1);
     let offset = 0;
     while (offset < bytes.length) {
@@ -63,10 +64,20 @@ async function readLocal(image) {
     return bytes.subarray(0, offset);
   } finally { await file.close(); }
 }
+const previewDir = process.env.AZ_IMAGE_PREVIEW_DIR;
+function optionalText(value, limit, name) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.length > limit || !value.trim()) throw new Error(`Invalid ${name}`);
+  return value.trim();
+}
 const results = new Map();
 for (const [i, entry] of manifest.entries()) {
   try {
     const { image, imageUrl, pageUrl, provider } = entry;
+    const caption = optionalText(entry.caption, 1000, "caption");
+    const publisher = optionalText(entry.publisher, 160, "publisher");
+    if (entry.comparisonAllowed !== undefined && typeof entry.comparisonAllowed !== "boolean") throw new Error("Invalid comparison permission");
+    if (entry.comparisonAllowed && !previewDir) throw new Error("Configure AZ_IMAGE_PREVIEW_DIR for authorized comparisons");
     const remote = typeof imageUrl === "string";
     const local = typeof image === "string" && image.length > 0;
     if (remote === local) throw new Error("Provide exactly one image path or download URL");
@@ -81,19 +92,31 @@ for (const [i, entry] of manifest.entries()) {
       hosts: provider === "Wikimedia Commons" ? commonsImageHosts : hosts,
       maxBytes: MAX_IMAGE_BYTES, userAgent, accept: "image/jpeg,image/png,image/webp",
     }) : await readLocal(image);
-    const { sha256, dhash, ratio } = await fingerprint(bytes);
+    const { sha256, dhash, ratio, featuresV1 } = await fingerprint(bytes, process.env.AZ_IMAGE_CROP_MATCH === "1");
+    if (entry.comparisonAllowed) {
+      await mkdir(previewDir, { recursive: true, mode: 0o750 });
+      const target = resolve(previewDir, `${sha256}.jpg`);
+      const temp = `${target}.${randomUUID()}.tmp`;
+      try {
+        const preview = await sharp(bytes, { limitInputPixels: 25_000_000 }).rotate()
+          .resize(640, 640, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#fff" })
+          .jpeg({ quality: 75 }).toBuffer();
+        await writeFile(temp, preview, { flag: "wx", mode: 0o640 });
+        await rename(temp, target);
+      } finally { await rm(temp, { force: true }); }
+    }
     const key = JSON.stringify([url, sha256]);
     const oldTime = Date.parse(observed.get(key) ?? "");
     const declaredTime = entry.observedAt ? Date.parse(entry.observedAt) : Date.now();
     const current = results.get(key)?.observedAt;
     const time = Math.min(Number.isFinite(oldTime) ? oldTime : Infinity, declaredTime, current ? Date.parse(current) : Infinity);
-    results.set(key, { url, observedAt: new Date(time).toISOString(), sha256, dhash, ratio, provider });
+    results.set(key, { url, observedAt: new Date(time).toISOString(), sha256, dhash, ratio, featuresV1, provider, caption, publisher, comparisonAllowed: entry.comparisonAllowed });
   } catch (error) {
     throw new Error(`Manifest entry ${i + 1}: ${error.message}`, { cause: error });
   }
 }
 const body = JSON.stringify([...results.values()]);
-if (Buffer.byteLength(body) > 5_000_000) throw new Error("Index exceeds 5 MB");
+if (Buffer.byteLength(body) > MAX_INDEX_BYTES) throw new Error("Index exceeds 32 MB");
 const temporary = `${outputFile}.${randomUUID()}.tmp`;
 try {
   await writeFile(temporary, body, { flag: "wx", mode: 0o600 });

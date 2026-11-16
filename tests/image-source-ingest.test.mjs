@@ -57,3 +57,46 @@ test("CLI preserves the earliest observation and leaves the current index intact
     assert.equal(await readFile(output, "utf8"), original);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test("CLI stores evidence metadata and creates previews only with explicit permission", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "azee-ingest-preview-"));
+  try {
+    await sharp({ create: { width: 800, height: 720, channels: 3, background: "#27c" } }).png().toFile(join(dir, "image.png"));
+    const input = join(dir, "sources.json");
+    const output = join(dir, "index.json");
+    const previews = join(dir, "previews");
+    const run = () => promisify(execFile)(process.execPath,
+      ["--experimental-strip-types", "scripts/index-public-images.mjs", input, output],
+      { env: { ...process.env, AZ_IMAGE_PREVIEW_DIR: previews } });
+    const entry = { image: "image.png", pageUrl: "https://example.org/post", observedAt: "2024-01-01", caption: "Flooding in Bowie", publisher: "Example archive" };
+    await writeFile(input, JSON.stringify([entry]));
+    await run();
+    const [indexed] = JSON.parse(await readFile(output, "utf8"));
+    const path = join(previews, `${indexed.sha256}.jpg`);
+    await assert.rejects(readFile(path), { code: "ENOENT" });
+    assert.equal(indexed.caption, entry.caption);
+    assert.equal(indexed.publisher, entry.publisher);
+    await writeFile(input, JSON.stringify([{ ...entry, comparisonAllowed: true }]));
+    await run();
+    const info = await sharp(await readFile(path)).metadata();
+    assert.equal(info.format, "jpeg");
+    assert.equal(info.width, 640);
+    assert.equal(info.exif, undefined);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("crop-enabled ingestion writes a bounded region signature alongside the legacy hash", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "azee-ingest-region-"));
+  try {
+    const rects = Array.from({ length: 120 }, (_, i) =>
+      `<rect x="${i * 97 % 460}" y="${i * 47 % 310}" width="24" height="22" fill="hsl(${i * 49 % 360},85%,47%)"/>`).join("");
+    await sharp(Buffer.from(`<svg width="480" height="320"><rect width="480" height="320" fill="white"/>${rects}</svg>`)).png().toFile(join(dir, "image.png"));
+    const input = join(dir, "sources.json"), output = join(dir, "index.json");
+    await writeFile(input, JSON.stringify([{ image: "image.png", pageUrl: "https://example.org/crop", observedAt: "2024-01-01" }]));
+    await promisify(execFile)(process.execPath, ["--experimental-strip-types", "scripts/index-public-images.mjs", input, output],
+      { env: { ...process.env, AZ_IMAGE_CROP_MATCH: "1" } });
+    const [entry] = JSON.parse(await readFile(output, "utf8"));
+    assert.match(entry.sha256, /^[0-9a-f]{64}$/);
+    assert.ok(Buffer.from(entry.featuresV1, "base64").length <= 96 * 11);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

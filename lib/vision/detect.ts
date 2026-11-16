@@ -78,7 +78,7 @@ export function buildDetection(verification: Verification, metadataHint: boolean
 
 /** Validate the actual image bytes, then check original provenance and public copies independently. */
 export async function detectImage(bytes: Uint8Array): Promise<Detection> {
-  const query = await fingerprint(bytes);
+  const query = await fingerprint(bytes, process.env.AZ_IMAGE_CROP_MATCH === "1" && !!process.env.AZ_IMAGE_INDEX_FILE);
   const [credential, publicIndex, metadataHint] = await Promise.all([
     verifyCredentials(bytes, query.mime),
     lookupMatches(query),
