@@ -15,7 +15,8 @@ import { ImagineView } from "@/components/imagine";
 import { Logo } from "@/components/logo";
 import { MessageText } from "@/components/message-text";
 import { Sidebar } from "@/components/sidebar";
-import { pickAndScanImage } from "@/lib/vision";
+import { pickAndScanImage, scanImageFile } from "@/lib/vision";
+import { takePhoto } from "../../../../modules/azcamera";
 import { pickAndUploadVideo, type SourceClip } from "@/lib/video-upload";
 import { pickDocument, splitAttachment, type PickedDoc } from "@/lib/docs";
 import { ask, loadChat, saveChat, type Msg } from "@/lib/chat";
@@ -101,6 +102,7 @@ export default function ChatScreen() {
   const [focused, setFocused] = useState(true);
   const [model, setModel] = useState<ModelKey>("auto");
   const [models, setModels] = useState(false);
+  const [attachMenu, setAttachMenu] = useState(false);
   const [translating, setTranslating] = useState(false);
   const list = useRef<FlatList<Shown>>(null);
   const field = useRef<ComponentRef<typeof TextInput>>(null);
@@ -108,6 +110,8 @@ export default function ChatScreen() {
 
   const picked = MODELS.find(m => m.key === (tab === "build" ? "build" : model)) ?? MODELS[3];
   const mode = tab === "build" ? "code" : "chat"; // Build uses the server's Code mode
+  // Expert uses the server's AZ · Reasoning model; Fast, Auto and Build use Auto.
+  const answerModel = tab !== "build" && model === "expert" ? "reasoning" : "auto";
   const canSend = tab !== "imagine" && !sending && input.trim().length > 0;
 
   // Past AI-image scans (newest first from the server) reload into the feed; they have no thumbnail because
@@ -185,17 +189,34 @@ export default function ChatScreen() {
     finally { setScanning(false); }
   }
 
+  // Takes a photo with the phone's camera app (AzCamera module), then asks before anything leaves the phone.
+  const [photoBusy, setPhotoBusy] = useState(false);
+  async function cameraPhoto() {
+    if (photoBusy || scanning) return;
+    setPhotoBusy(true); setError("");
+    try {
+      const photo = await takePhoto();
+      if (!photo) return;
+      Alert.alert("Photo taken", "Check it for signs of AI generation? The photo is sent to A-Zee's image checker and isn't kept.", [
+        { text: "Not now", style: "cancel" },
+        { text: "Check photo", onPress: async () => {
+          setScanning(true);
+          try { const scan = await scanImageFile(photo.uri); setTab("ask"); setScans(list => [...list, scan]); }
+          catch (e) { Alert.alert("AI Image Detect", (e as Error).message); }
+          finally { setScanning(false); }
+        } },
+      ]);
+    } catch (e) { Alert.alert("Camera", (e as Error).message); }
+    finally { setPhotoBusy(false); }
+  }
+
   function runChip(c: Chip) {
     switch (c.action) {
       case "prompt": setInput(c.prompt ?? ""); setHint(c.hint ?? ""); field.current?.focus(); break;
       case "connectors": setConnectors(true); break;
       case "imagine": setImagineKind("image"); setTab("imagine"); break;
       case "video": setImagineKind("video"); setTab("imagine"); break;
-      case "camera":
-        // Opens the phone's camera app. The photo can't be handed back to A-Zee until the app has a camera module.
-        if (Platform.OS === "android") Linking.sendIntent("android.media.action.IMAGE_CAPTURE").catch(() => soon("Camera"));
-        else soon("Camera");
-        break;
+      case "camera": void cameraPhoto(); break;
       case "docs": void attachDocument(); break;
       case "detect": void detectImage(); break;
       case "editvideo": void attachVideo(); break;
@@ -210,7 +231,7 @@ export default function ChatScreen() {
     const next: Shown[] = [...messages, { role: "user", content: spoken.slice(0, MAX_MESSAGE_CHARACTERS) }];
     setMessages(next); setSending(true); setError("");
     try {
-      const reply = await ask(mode, next);
+      const reply = await ask(mode, next, answerModel);
       const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2), ...(reply.sourcing ? { sourcing: reply.sourcing } : {}) }];
       setMessages(done);
       saveChat(chatId, mode, done).then(() => setListKey(k => k + 1)).catch(() => undefined);
@@ -249,7 +270,7 @@ export default function ChatScreen() {
     const next: Shown[] = [...messages.slice(0, editing.index), { role: "user", content, branches: kept }];
     setEditing(null); setVersionsFor(null); setMessages(next); setSending(true); setError("");
     try {
-      const reply = await ask(mode, next);
+      const reply = await ask(mode, next, answerModel);
       const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2), ...(reply.sourcing ? { sourcing: reply.sourcing } : {}) }];
       setMessages(done);
       saveChat(chatId, mode, done).then(() => setListKey(k => k + 1)).catch(() => undefined);
@@ -279,7 +300,7 @@ export default function ChatScreen() {
     const next: Shown[] = [...messages, { role: "user", content }];
     setMessages(next); setInput(""); setDoc(null); setSending(true); setError("");
     try {
-      const reply = await ask(mode, next);
+      const reply = await ask(mode, next, answerModel);
       const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2), ...(reply.sourcing ? { sourcing: reply.sourcing } : {}) }];
       setMessages(done);
       // Saved to the account so it also appears on the website. A failed save never loses the answer.
@@ -465,7 +486,7 @@ export default function ChatScreen() {
             placeholder={listening ? "Listening…" : hint || "Ask Anything"} placeholderTextColor={C.muted} maxLength={MAX_MESSAGE_CHARACTERS} selectionColor={C.ink}
             style={{ color: C.ink, fontSize: SIZE.placeholder, fontWeight: "400", maxHeight: 140, minHeight: 36, paddingHorizontal: 4, paddingTop: 4, paddingBottom: 8 }} />
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <RoundButton glyph="+" label="Add attachment" size={28} onPress={() => soon("Attachments")} bg={C.pill} />
+            <RoundButton glyph="+" label="Add attachment" size={28} onPress={() => { setModels(false); setAttachMenu(true); }} bg={C.pill} />
             <Pressable accessibilityRole="button" accessibilityLabel={`Model: ${picked.label}`} onPress={() => setModels(true)}
               style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 4, height: 28, paddingHorizontal: 11, borderRadius: 14, backgroundColor: C.pill, opacity: pressed ? 0.7 : 1 })}>
               <Text style={{ color: C.ink, fontSize: 11 }}>{picked.glyph}</Text>
@@ -520,10 +541,36 @@ export default function ChatScreen() {
     </Modal>
   );
 
+  // The "+" menu: every way to bring something into the chat. Each row runs the same action as its chip below the chat.
+  const ATTACH = [
+    { glyph: "📄", label: "Document", sub: "PDF, Word, CSV or text: ask about it", run: () => void attachDocument() },
+    { glyph: "🔍", label: "Check an image", sub: "Is this picture AI-generated?", run: () => void detectImage() },
+    { glyph: "📷", label: "Camera", sub: "Take a photo and check it", run: () => runChip({ glyph: "📷", label: "Open Camera", action: "camera" } as Chip) },
+    { glyph: "✂️", label: "Video to edit", sub: "Upload a clip to Imagine", run: () => void attachVideo() },
+  ];
+  const attachSheet = (
+    <Modal visible={attachMenu} transparent animationType="fade" onRequestClose={() => setAttachMenu(false)}>
+      <Pressable accessibilityLabel="Close attachment menu" onPress={() => setAttachMenu(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <View style={{ marginHorizontal: 16, marginBottom: 110, padding: 8, borderRadius: 24, backgroundColor: "#1B1B1B", gap: 2 }}>
+          {ATTACH.map(a => (
+            <Pressable key={a.label} accessibilityRole="button" accessibilityLabel={a.label} onPress={() => { setAttachMenu(false); a.run(); }}
+              style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 14, padding: 14, borderRadius: 18, backgroundColor: pressed ? "#2A2A2A" : "transparent" })}>
+              <Text style={{ fontSize: 20, width: 26, textAlign: "center" }}>{a.glyph}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.ink, fontSize: 16, fontWeight: "600" }}>{a.label}</Text>
+                <Text style={{ color: C.muted, fontSize: 13, marginTop: 2 }}>{a.sub}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+
   const sheet = <ConnectorsSheet visible={connectors} onClose={() => setConnectors(false)} />;
   const sidebar = <Sidebar visible={menu} onClose={() => setMenu(false)} onNewChat={reset} onOpenChat={id => void openChat(id)} selectedId={chatId} refreshKey={listKey} />;
 
-  if (!wide) return <>{conversation}{sidebar}{sheet}{modelMenu}{voiceOverlay}{translateSheet}</>;
+  if (!wide) return <>{conversation}{sidebar}{sheet}{modelMenu}{attachSheet}{voiceOverlay}{translateSheet}</>;
   return (
     <View style={{ flex: 1, flexDirection: "row", backgroundColor: C.bg }}>
       <SafeAreaView edges={["top", "left", "bottom"]} style={{ width: 300, borderRightColor: C.line, borderRightWidth: 1 }}>
@@ -531,7 +578,7 @@ export default function ChatScreen() {
         <ChatList theme={darkTheme} onOpen={id => void openChat(id)} selectedId={chatId} refreshKey={listKey} />
       </SafeAreaView>
       <View style={{ flex: 1 }}>{conversation}</View>
-      {sheet}{modelMenu}{voiceOverlay}{translateSheet}
+      {sheet}{modelMenu}{attachSheet}{voiceOverlay}{translateSheet}
     </View>
   );
 }

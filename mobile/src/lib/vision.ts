@@ -25,3 +25,11 @@ export async function pickAndScanImage(): Promise<AiDetectionResult | null> {
   const scan = await api<AiDetectionResult>("/api/vision/detect-ai", { method: "POST", body: form });
   return { ...scan, previewUrl: asset.uri }; // the server does not keep the image, so the preview is the local copy
 }
+
+/** Sends a photo file already on the phone (for example one just taken with the camera) to the checker. */
+export async function scanImageFile(uri: string, name = "photo.jpg", mime = "image/jpeg"): Promise<AiDetectionResult> {
+  const form = new FormData();
+  form.append("file", { uri, name, type: mime } as unknown as Blob);
+  const scan = await api<AiDetectionResult>("/api/vision/detect-ai", { method: "POST", body: form });
+  return { ...scan, previewUrl: uri };
+}

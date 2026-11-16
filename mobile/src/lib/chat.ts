@@ -7,10 +7,10 @@ export type ChatMode = "chat" | "code";
 export type ChatSummary = { id: string; title: string; mode: string; messageCount?: number; updatedAt: string; pinned?: boolean };
 
 /** Sends the conversation to A-Zee and returns the answer plus any notes (for example the free-plan notice). */
-export async function ask(mode: ChatMode, messages: Msg[]): Promise<{ answer: string; notes: string[]; sourcing?: Sourcing }> {
+export async function ask(mode: ChatMode, messages: Msg[], model: "auto" | "reasoning" = "auto"): Promise<{ answer: string; notes: string[]; sourcing?: Sourcing }> {
   // The server accepts at most 24 messages, ending with the user's.
   const context = messages.slice(-MAX_CONTEXT_MESSAGES).map(m => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARACTERS) }));
-  const result = await api<{ answer: string; pipeline?: { warnings?: string[]; sourcing?: Sourcing } }>("/api/chat", { method: "POST", body: { mode, model: "auto", messages: context } });
+  const result = await api<{ answer: string; pipeline?: { warnings?: string[]; sourcing?: Sourcing } }>("/api/chat", { method: "POST", body: { mode, model, messages: context } });
   const sc = result.pipeline?.sourcing;
   return { answer: result.answer, notes: result.pipeline?.warnings ?? [], ...(sc && [1, 2, 3].includes(sc.level) && typeof sc.label === "string" ? { sourcing: sc } : {}) };
 }
