@@ -10,12 +10,15 @@
  */
 export type FollowUps = { body: string; searches: string[]; keywords: string[] };
 
-const BLOCK = /\n{1,3}(?:\*\*)?Related searches:?(?:\*\*)?:?[ \t]*\n((?:[ \t]*[-*•][ \t]+.+\n?)+)?(?:[ \t]*(?:\*\*)?Keywords:?(?:\*\*)?:?[ \t]*(.+))?\s*$/i;
-const KEYWORDS_ONLY = /\n{1,3}(?:\*\*)?Keywords:?(?:\*\*)?:?[ \t]*(.+)\s*$/i;
+const BLOCK = /\n{1,3}(?:[-*_]{3,}\s*\n+)?(?:\*\*)?Related searches:?(?:\*\*)?:?[ \t]*\n((?:[ \t]*[-*•][ \t]+.+\n?)+)?\s*(?:(?:\*\*)?Keywords:?(?:\*\*)?:?[ \t]*(.+))?\s*$/i;
+const KEYWORDS_ONLY = /\n{1,3}(?:[-*_]{3,}\s*\n+)?(?:\*\*)?Keywords:?(?:\*\*)?:?[ \t]*(.+)\s*$/i;
+/** Internal source markers such as [market:1] mean nothing to a reader. */
+const MARKERS = /[ \t]?\[market:\d+\]/g;
 
 const clean = (s: string) => s.replace(/^[-*•\s]+/, "").replace(/[*_`]/g, "").trim();
 
-export function splitFollowUps(content: string): FollowUps {
+export function splitFollowUps(raw: string): FollowUps {
+  const content = raw.replace(MARKERS, "");
   const m = BLOCK.exec(content);
   if (m && (m[1] || m[2])) {
     return {

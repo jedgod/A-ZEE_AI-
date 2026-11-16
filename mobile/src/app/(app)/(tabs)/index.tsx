@@ -349,7 +349,7 @@ export default function ChatScreen() {
                     const part = mine ? splitAttachment(item.content) : { text: fu!.body, fileName: null };
                     return <>
                       {part.fileName ? <Text style={{ color: C.muted, fontSize: 13, marginBottom: part.text ? 6 : 0 }}>📄 {part.fileName}</Text> : null}
-                      {part.text ? <MessageText text={part.text} color={C.ink} /> : null}
+                      {part.text ? <MessageText text={part.text} color={C.ink} plain={mine} /> : null}
                       {fu && fu.searches.length ? (
                         <View style={{ marginTop: 10, gap: 6 }}>
                           <Text style={{ color: C.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.6 }}>RELATED SEARCHES</Text>

@@ -41,3 +41,12 @@ describe("follow-up block", () => {
     expect(splitFollowUps(t)).toEqual({ body: t, searches: [], keywords: [] });
   });
 });
+
+describe("follow-up block as models actually write it", () => {
+  it("handles a rule before it, a blank line before Keywords, and stray source markers", () => {
+    const r = splitFollowUps("Bitcoin is up [market:1].\n\n---\n\nRelated searches:\n- one thing\n- another thing\n\nKeywords: Bitcoin price, gold price");
+    expect(r.body).toBe("Bitcoin is up.");
+    expect(r.searches).toEqual(["one thing", "another thing"]);
+    expect(r.keywords).toEqual(["Bitcoin price", "gold price"]);
+  });
+});
