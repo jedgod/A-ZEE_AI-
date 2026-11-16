@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentRef } from "rea
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import { TranslateSheet } from "@/components/translate-sheet";
 import { VoiceModeOverlay } from "@/components/voice-mode-overlay";
-import { Alert, FlatList, Share, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, AppState, FlatList, Share, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,8 +15,8 @@ import { ImagineView } from "@/components/imagine";
 import { Logo } from "@/components/logo";
 import { MessageText } from "@/components/message-text";
 import { Sidebar } from "@/components/sidebar";
-import { pickAndScanImage, scanImageFile } from "@/lib/vision";
-import { takePhoto } from "../../../../modules/azcamera";
+import { pickImage, scanImageFile, type PickedImage } from "@/lib/vision";
+import { consumeSharedImage, onSharedImage, takePhoto } from "../../../../modules/azcamera";
 import { pickAndUploadVideo, type SourceClip } from "@/lib/video-upload";
 import { pickDocument, splitAttachment, type PickedDoc } from "@/lib/docs";
 import { ask, loadChat, saveChat, type Msg } from "@/lib/chat";
@@ -42,7 +42,7 @@ const CHIPS: Record<Exclude<Tab, "imagine">, Chip[]> = {
     { glyph: "🖼", label: "Edit Image", action: "imagine" },
     { glyph: "📷", label: "Open Camera", action: "camera" },
     { glyph: "📄", label: "Docs Analysis", action: "docs" },
-    { glyph: "🔍", label: "AI Image Detect", action: "detect" },
+    { glyph: "🔍", label: "Image Verify", action: "detect" },
     { glyph: "🌍", label: "Translate", action: "translate" },
   ],
   build: [
@@ -181,15 +181,39 @@ export default function ChatScreen() {
 
   async function detectImage() {
     if (scanning) return;
-    setScanning(true); setError("");
     try {
-      const scan = await pickAndScanImage();
-      if (scan) { setTab("ask"); setScans(list => [...list, scan]); }
-    } catch (e) { Alert.alert("AI Image Detect", (e as Error).message); }
+      const picked = await pickImage();
+      if (picked) await verifyFile(picked);
+    } catch (e) { Alert.alert("Image Verify", (e as Error).message); }
+  }
+
+  // Verify one image already on the phone (picked, shared in from another app, or just taken). Checked inside A-Zee; nothing goes to outside services.
+  async function verifyFile(file: PickedImage) {
+    if (scanning) return;
+    setScanning(true); setError("");
+    try { const scan = await scanImageFile(file); setTab("ask"); setScans(list => [...list, scan]); }
+    catch (e) { Alert.alert("Image Verify", (e as Error).message); }
     finally { setScanning(false); }
   }
 
-  // Takes a photo with the phone's camera app (AzCamera module), then asks before anything leaves the phone.
+  // A picture shared to "A-Zee Image Verify" from another app (WhatsApp, Telegram, Gallery...). Collected when this screen opens, when the app
+  // comes back to the front, and when a share arrives while the app is already open. Each share is handed over once.
+  useEffect(() => {
+    let alive = true;
+    const collect = () => {
+      consumeSharedImage()
+        .then(img => { if (alive && img) void verifyFile({ uri: img.uri, name: img.name, mime: img.mime }); })
+        .catch(e => { if (alive) Alert.alert("Image Verify", (e as Error).message); });
+    };
+    collect();
+    const sub = AppState.addEventListener("change", state => { if (state === "active") collect(); });
+    const stop = onSharedImage(collect);
+    return () => { alive = false; sub.remove(); stop(); };
+    // verifyFile only reads current state through setters, so a stale copy is fine here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Takes a photo with the phone's camera app (AzCamera module), then asks before anything is checked.
   const [photoBusy, setPhotoBusy] = useState(false);
   async function cameraPhoto() {
     if (photoBusy || scanning) return;
@@ -197,14 +221,9 @@ export default function ChatScreen() {
     try {
       const photo = await takePhoto();
       if (!photo) return;
-      Alert.alert("Photo taken", "Check it for signs of AI generation? The photo is sent to A-Zee's image checker and isn't kept.", [
+      Alert.alert("Photo taken", "Verify it? A-Zee checks its signed credentials and looks for public copies in its own index.", [
         { text: "Not now", style: "cancel" },
-        { text: "Check photo", onPress: async () => {
-          setScanning(true);
-          try { const scan = await scanImageFile(photo.uri); setTab("ask"); setScans(list => [...list, scan]); }
-          catch (e) { Alert.alert("AI Image Detect", (e as Error).message); }
-          finally { setScanning(false); }
-        } },
+        { text: "Verify photo", onPress: () => void verifyFile({ uri: photo.uri, name: "photo.jpg", mime: "image/jpeg" }) },
       ]);
     } catch (e) { Alert.alert("Camera", (e as Error).message); }
     finally { setPhotoBusy(false); }
@@ -544,7 +563,7 @@ export default function ChatScreen() {
   // The "+" menu: every way to bring something into the chat. Each row runs the same action as its chip below the chat.
   const ATTACH = [
     { glyph: "📄", label: "Document", sub: "PDF, Word, CSV or text: ask about it", run: () => void attachDocument() },
-    { glyph: "🔍", label: "Check an image", sub: "Is this picture AI-generated?", run: () => void detectImage() },
+    { glyph: "🔍", label: "Verify an image", sub: "How it was made and where it has appeared", run: () => void detectImage() },
     { glyph: "📷", label: "Camera", sub: "Take a photo and check it", run: () => runChip({ glyph: "📷", label: "Open Camera", action: "camera" } as Chip) },
     { glyph: "✂️", label: "Video to edit", sub: "Upload a clip to Imagine", run: () => void attachVideo() },
   ];

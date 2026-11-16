@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Linking, Text, View } from "react-native";
 import { Link } from "expo-router";
+import { BrandMark } from "@/components/brand-mark";
 import { Body, Button, ErrorText, Field, Screen, Title } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { API_CONFIGURED, API_URL } from "@/lib/config";
@@ -25,6 +26,7 @@ export default function SignIn() {
   return (
     <Screen narrow>
       <View style={{ flex: 1, justifyContent: "center", minHeight: 520 }}>
+        <BrandMark align="flex-start" />
         <Title sub="Welcome back to A-Zee.">Sign in</Title>
         {!API_CONFIGURED && <ErrorText>This build isn't connected to a server (EXPO_PUBLIC_API_URL is not set).</ErrorText>}
         <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" returnKeyType="next" />

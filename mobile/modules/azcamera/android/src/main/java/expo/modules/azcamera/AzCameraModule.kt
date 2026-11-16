@@ -5,7 +5,10 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
@@ -13,6 +16,7 @@ import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
+import java.io.FileOutputStream
 
 private const val TAKE_PHOTO_CODE = 4291
 
@@ -28,6 +32,44 @@ class AzCameraModule : Module() {
 
     override fun definition() = ModuleDefinition {
         Name("AzCamera")
+        Events("onShare")
+
+        /**
+         * A picture another app shared to "A-Zee Image Verify", copied into this app's private storage. Resolves { uri, name, mime, size },
+         * or null when nothing is waiting. Each share is handed over once. Only image types are accepted.
+         */
+        AsyncFunction("consumeSharedImage") {
+            val activity = appContext.currentActivity ?: return@AsyncFunction null
+            val intent = activity.intent ?: return@AsyncFunction null
+            if (intent.action != Intent.ACTION_SEND || !CameraFiles.acceptsShared(intent.type)) return@AsyncFunction null
+            val stream: Uri? = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            activity.intent = Intent(Intent.ACTION_MAIN)   // handed over: do not process the same share twice
+            if (stream == null) return@AsyncFunction null
+            val dir = File(context.filesDir, CameraFiles.FOLDER).apply { mkdirs() }
+            CameraFiles.tidy(dir, System.currentTimeMillis())
+            val out = File(dir, CameraFiles.sharedName(System.currentTimeMillis(), intent.type))
+            try {
+                context.contentResolver.openInputStream(stream)?.use { input -> FileOutputStream(out).use { input.copyTo(it) } }
+                    ?: throw CodedException("E_SHARE_UNREADABLE", "The shared picture could not be opened.", null)
+            } catch (e: CodedException) { throw e } catch (e: Exception) {
+                out.delete()
+                throw CodedException("E_SHARE_UNREADABLE", "The shared picture could not be read. The phone may be low on storage.", e)
+            }
+            if (!CameraFiles.withinSharedLimit(out.length())) {
+                val size = out.length()
+                out.delete()
+                throw CodedException("E_SHARE_SIZE", if (size == 0L) "The shared picture is empty." else "The shared picture is larger than 15 MB.", null)
+            }
+            val name = context.contentResolver.query(stream, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } ?: out.name
+            mapOf("uri" to "file://${out.absolutePath}", "name" to name, "mime" to (intent.type ?: "image/jpeg"), "size" to out.length())
+        }
+
+        /** The app was already open when a picture was shared to it: tell the screen to collect it. */
+        OnNewIntent { intent ->
+            appContext.currentActivity?.intent = intent
+            sendEvent("onShare", mapOf<String, Any?>())
+        }
 
         /** Opens the camera. Resolves { uri, width, height, size } or null when the user cancels. */
         AsyncFunction("takePhoto") { promise: Promise ->

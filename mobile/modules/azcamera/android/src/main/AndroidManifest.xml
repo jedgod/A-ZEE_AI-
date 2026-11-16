@@ -6,6 +6,18 @@
     </intent>
   </queries>
   <application>
+    <!-- "A-Zee Image Verify" in the Android share sheet: share a picture from WhatsApp, Telegram, Gallery or any app to check it. -->
+    <activity-alias
+      android:name="expo.modules.azcamera.ImageVerifyShare"
+      android:targetActivity="${applicationId}.MainActivity"
+      android:label="A-Zee Image Verify"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/*" />
+      </intent-filter>
+    </activity-alias>
     <!-- Gives the camera app a private place in this app's private storage to write one photo. Nothing else is shared. -->
     <provider
       android:name="expo.modules.azcamera.AzCameraFileProvider"

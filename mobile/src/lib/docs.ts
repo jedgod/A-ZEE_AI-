@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { appendFile } from "./upload";
 
 export type PickedDoc = { fileName: string; attachment: string; characters: number; truncated: boolean };
 
@@ -39,7 +40,7 @@ export async function pickDocument(): Promise<PickedDoc | null> {
 
   const form = new FormData();
   // React Native's FormData reads the file from its uri.
-  form.append("file", { uri: asset.uri, name: asset.name, type: asset.mimeType || "application/octet-stream" } as unknown as Blob);
+  await appendFile(form, "file", { uri: asset.uri, name: asset.name, type: asset.mimeType || "application/octet-stream" });
   const r = await api<{ fileName: string; attachment: string; characters: number; truncated: boolean }>("/api/docs/parse", { method: "POST", body: form });
   return { fileName: r.fileName, attachment: r.attachment, characters: r.characters, truncated: r.truncated };
 }

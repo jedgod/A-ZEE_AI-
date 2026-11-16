@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { appendFile } from "./upload";
 import { PickerMissingError } from "./docs";
 
 export type SourceClip = { videoUrl: string; fileName: string };
@@ -24,6 +25,6 @@ export async function pickAndUploadVideo(): Promise<SourceClip | null> {
   if (asset.size && asset.size > 50 * 1024 * 1024) throw new Error("That video is larger than 50 MB. Choose a shorter clip.");
 
   const form = new FormData();
-  form.append("file", { uri: asset.uri, name: asset.name || `clip-${Date.now()}.mp4`, type: asset.mimeType || "video/mp4" } as unknown as Blob);
+  await appendFile(form, "file", { uri: asset.uri, name: asset.name || `clip-${Date.now()}.mp4`, type: asset.mimeType || "video/mp4" });
   return api<SourceClip>("/api/vision/upload-video", { method: "POST", body: form });
 }
