@@ -8,7 +8,7 @@ import { FinanceError } from "@/lib/finance/provider";
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 const KEYS = ["AZ_PROVIDER_MODE", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHAVANTAGE_API_KEY", "API_NINJAS_KEY", "FINNHUB_API_KEY", "TWELVEDATA_API_KEY", "COINGECKO_API_KEY"];
 const fetchMock = vi.fn();
-beforeEach(() => { for (const k of KEYS) delete process.env[k]; process.env.YAHOO_FINANCE_DISABLED = "1"; clearHistoryCache(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
+beforeEach(() => { for (const k of KEYS) delete process.env[k]; process.env.YAHOO_FINANCE_DISABLED = "1"; process.env.EXCHANGE_PRICES_DISABLED = "1"; clearHistoryCache(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
 afterEach(() => vi.unstubAllGlobals());
 const code = async (p: Promise<unknown>) => p.then(() => "none", (e: FinanceError) => `${e.status}:${e.code}`);
 const series = (n: number, step = 300_000, t0 = 1_794_000_000_000) => Array.from({ length: n }, (_, i): [number, number] => [t0 + i * step, 70_000 + i]);

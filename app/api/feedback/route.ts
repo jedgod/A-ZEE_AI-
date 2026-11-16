@@ -1,3 +1,4 @@
+import { originAllowed } from "@/lib/users/auth";
 import { z } from "zod";
 import { runCorrectionCapture } from "@/13_FEEDBACK/correction_capture/module";
 import { runUserRating } from "@/13_FEEDBACK/user_rating/module";
@@ -19,7 +20,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   const headers = { "Cache-Control": "no-store" };
   const origin = request.headers.get("origin");
-  if (origin && origin !== (process.env.APP_ORIGIN || "http://localhost:3000")) {
+  if (origin && !originAllowed(origin)) {
     return Response.json({ error: "INVALID_ORIGIN" }, { status: 403, headers });
   }
   if (!process.env.DATABASE_URL) return Response.json({ error: "FEEDBACK_UNAVAILABLE" }, { status: 503, headers });

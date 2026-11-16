@@ -66,7 +66,7 @@ export default function KeyboardSetup() {
 
       <Card style={{ marginBottom: 14 }}>
         {step(1, consented, "Your privacy")}
-        <Body muted>When you tap a button such as <Text style={{ fontWeight: "700" }}>Suggest</Text>, <Text style={{ fontWeight: "700" }}>Rewrite</Text> or <Text style={{ fontWeight: "700" }}>Translate</Text>, the keyboard sends only the text you selected or typed to A-Zee. It never sends passwords, email addresses, web addresses or anything from fields that ask keyboards not to learn, and it never reads anything in the background. It never sends a message for you.</Body>
+        <Body muted>When you tap a button such as <Text style={{ fontWeight: "700" }}>Suggest</Text>, <Text style={{ fontWeight: "700" }}>Rewrite</Text> or <Text style={{ fontWeight: "700" }}>Translate</Text>, the keyboard sends only the text you selected or typed to A-Zee. It never sends passwords, email addresses, web addresses or anything from fields that ask keyboards not to learn, and the keyboard never reads anything in the background. The keyboard never sends a message for you. (Autopilot is a separate feature that is off until you turn it on in the Autopilot screen.)</Body>
         <Body style={{ marginTop: 8 }}>{plan?.disclosure ?? "Your text is processed by A-Zee and by the external AI services A-Zee uses to write the result."}</Body>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
           <Text style={{ color: t.ink, fontSize: 15, flex: 1, paddingRight: 12 }}>Let AZLinqext write, rewrite and translate text I choose</Text>

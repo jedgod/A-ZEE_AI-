@@ -8,6 +8,10 @@ import {
 import styles from "./workspace.module.css";
 import { AiDetectionCard, type AiDetectionResult } from "@/components/ai-detection-card";
 import { AnswerFeedback } from "@/components/answer-feedback";
+import { SourcingBadge, type SourcingInfo } from "@/components/sourcing-badge";
+import { FollowUps } from "@/components/follow-ups";
+import { splitFollowUps } from "@/lib/followups";
+import { UserMessageActions } from "@/components/user-message-actions";
 import { SidebarUserMenu } from "@/components/sidebar-user-menu";
 import { SidebarNav, type ItemAction, type NavGroup, type NavItem } from "@/components/sidebar-nav";
 import { SidebarDialog, type SidebarDialogState } from "@/components/sidebar-dialog";
@@ -28,12 +32,13 @@ import { addProject, DEFAULT_PROJECT, MAX_PROJECT_NAME, parseProjects, projectOf
 import { decodeProjectShare, decodeShare, encodeProjectShare, MAX_SHARED_CHATS, PROJECT_SHARE_PREFIX, ShareTooLargeError, type SharedProject, type SharedProjectBundle } from "@/lib/share";
 
 type Mode = "chat" | "code" | "research";
-type Model = "auto" | "reasoning" | "code";
+type Model = "auto" | "reasoning" | "code" | "google";
 // requestId links an answer to its server-side records so it can be rated (13_FEEDBACK).
 // plan (08 reasoning) and notes (warnings, e.g. 10 evidence checks) are shown with the answer,
 // as are sources (11 citations: retrieved sources the answer cites).
 type Source = { id: string; title: string; url: string | null };
-type Message = { role: "user" | "assistant"; content: string; display?: string; requestId?: string; plan?: string[]; notes?: string[]; sources?: Source[] };
+type Message = { role: "user" | "assistant"; content: string; sourcing?: SourcingInfo; branches?: Message[][]; display?: string; requestId?: string; plan?: string[]; notes?: string[]; sources?: Source[] };
+const isSourcing = (s: any): s is SourcingInfo => !!s && [1, 2, 3].includes(s.level) && typeof s.label === "string" && typeof s.detail === "string";
 const isSource = (s: unknown): s is Source => !!s && typeof (s as Source).id === "string" && typeof (s as Source).title === "string" &&
   ((s as Source).url === null || (typeof (s as Source).url === "string" && /^https?:\/\//i.test((s as Source).url!)));
 // 12 streaming: what the pipeline is doing right now, shown under the composer.
@@ -43,7 +48,7 @@ const STAGE_LABELS: Record<string, string> = {
   plan: "Planning the answer…", generate: "Writing the answer…", validate: "Checking the answer…", deliver: "Finishing…",
 };
 const TOOL_LABELS: Record<string, string> = { calculator: "the calculator", search: "search" };
-const STYLE_LABELS: Record<AnswerStyle, string> = { default: "Tone · Default", concise: "Concise", professional: "Professional", friendly: "Friendly", technical: "Technical" };
+const STYLE_LABELS: Record<AnswerStyle, string> = { default: "Tone · Default", concise: "Concise", detailed: "Detailed", professional: "Professional", friendly: "Friendly", technical: "Technical" };
 type HistoryItem = { id: string; title: string; mode: Mode; messages: Message[]; projectId?: string };
 type SavedPrompt = { id: string; title: string; mode: Mode; prompt: string };
 type Attachment = { name: string; content: string };
@@ -446,24 +451,48 @@ export default function WorkspacePage() {
     setModel(next === "code" ? "code" : "auto");
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const text = input.trim();
-    if (!text || busy) return;
+  // Editing a prompt: the old prompt and everything after it is kept as an earlier version, then the new text is sent from that point.
+  const [editing, setEditing] = useState<{ index: number; text: string } | null>(null);
+  const startEdit = (index: number) => { if (!busy) setEditing({ index, text: messages[index].display || messages[index].content }); };
+  const saveEdit = () => {
+    if (!editing) return;
+    const old = messages[editing.index];
+    const kept = [...(old.branches ?? []), messages.slice(editing.index).map(({ branches: _b, ...rest }) => rest)];
+    const text = editing.text.trim();
+    if (!text) return;
+    setEditing(null);
+    void handleSubmit(undefined, { text, base: messages.slice(0, editing.index), branches: kept });
+  };
+  /** Swap the current version of a prompt (and the conversation after it) with an earlier one. */
+  const pickVersion = (index: number, which: number) => {
+    if (busy) return;
+    const branches = messages[index].branches ?? [];
+    const alt = branches[which];
+    if (!alt?.length) return;
+    const nowTail = messages.slice(index).map(({ branches: _b, ...rest }) => rest);
+    const next = [...messages.slice(0, index), { ...alt[0], branches: branches.map((b, i) => (i === which ? nowTail : b)) }, ...alt.slice(1)];
+    setMessages(next);
+    saveHistory(next, mode, currentId);
+  };
 
-    const content = text + (file ? `\n\nAttached file: ${file.name}\n${file.content}` : "");
+  const handleSubmit = async (e?: React.FormEvent, edit?: { text: string; base: Message[]; branches?: Message[][] }) => {
+    e?.preventDefault();
+    const text = edit ? edit.text : input.trim();
+    if (!text || busy) return;
+    const attached = edit ? null : file;
+
+    const content = text + (attached ? `\n\nAttached file: ${attached.name}\n${attached.content}` : "");
     if (content.length > MAX_MESSAGE_CHARACTERS) {
       setStatus(`Message and attachment must total ${MAX_MESSAGE_CHARACTERS.toLocaleString()} characters or fewer.`);
       return;
     }
-    const submittedFile = file;
+    const submittedFile = attached;
     setBusy(true);
     setStatus("thinking");
-    const userMsg: Message = { role: "user", content, display: text + (file ? `\n[Attached: ${file.name}]` : "") };
-    const nextMessages = [...messages, userMsg];
+    const userMsg: Message = { role: "user", content, display: text + (attached ? `\n[Attached: ${attached.name}]` : ""), ...(edit?.branches ? { branches: edit.branches } : {}) };
+    const nextMessages = [...(edit ? edit.base : messages), userMsg];
     setMessages(nextMessages);
-    setInput("");
-    setFile(null);
+    if (!edit) { setInput(""); setFile(null); }
 
     try {
       const stop = new AbortController();
@@ -525,7 +554,7 @@ export default function WorkspacePage() {
       const notes = Array.isArray(pipeline.warnings) ? pipeline.warnings.filter((w: unknown): w is string => typeof w === "string" && !w.startsWith("Moderation service")) : [];
       const withAssistant = [...nextMessages, {
         role: "assistant" as const, content: result.data.answer,
-        ...(requestId ? { requestId } : {}), ...(plan.length ? { plan } : {}), ...(notes.length ? { notes } : {}), ...(sources.length ? { sources } : {}),
+        ...(requestId ? { requestId } : {}), ...(isSourcing(pipeline.sourcing) ? { sourcing: pipeline.sourcing } : {}), ...(plan.length ? { plan } : {}), ...(notes.length ? { notes } : {}), ...(sources.length ? { sources } : {}),
       }];
       setMessages(withAssistant);
       saveHistory(withAssistant, mode, currentId);
@@ -539,8 +568,7 @@ export default function WorkspacePage() {
     } catch (err: any) {
       setStatus(err.name === "TimeoutError" ? "Request timed out." : err.name === "AbortError" ? "Stopped. Your message is back in the box." : err.message);
       setMessages(messages);
-      setInput(text);
-      setFile(submittedFile);
+      if (!edit) { setInput(text); setFile(submittedFile); }
     } finally {
       stopRef.current = null;
       setBusy(false);
@@ -1264,7 +1292,24 @@ export default function WorkspacePage() {
                         <ol>{m.plan.map((step, n) => <li key={n}>{step}</li>)}</ol>
                       </details>
                     )}
-                    <MessageContent role={m.role} content={m.display || m.content} />
+                    {m.role === "user" && editing?.index === i ? (
+                      <div>
+                        <textarea className={styles.editBox} autoFocus value={editing.text} aria-label="Edit message" rows={Math.min(10, Math.max(3, editing.text.split("\n").length))}
+                          onChange={e => setEditing({ index: i, text: e.target.value })}
+                          onKeyDown={e => { if (e.key === "Escape") setEditing(null); }} />
+                        <div className={styles.editButtons}>
+                          <button type="button" onClick={() => setEditing(null)}>Cancel</button>
+                          <button type="button" className={styles.editSave} disabled={!editing.text.trim() || busy} onClick={saveEdit}>Save &amp; send</button>
+                        </div>
+                      </div>
+                    ) : (() => {
+                      const fu = m.role === "assistant" ? splitFollowUps(m.display || m.content) : null;
+                      return <>
+                        <MessageContent role={m.role} content={fu ? fu.body : (m.display || m.content)} />
+                        {fu && <FollowUps searches={fu.searches} keywords={fu.keywords} disabled={busy} onAsk={q => void handleSubmit(undefined, { text: q, base: messages })} />}
+                      </>;
+                    })()}
+                    {m.role === "assistant" && m.sourcing && <div><SourcingBadge info={m.sourcing} /></div>}
                     {m.role === "assistant" && m.sources && (
                       <nav className={styles.sources} aria-label="Sources">
                         <span>Sources</span>
@@ -1275,6 +1320,11 @@ export default function WorkspacePage() {
                     )}
                     {m.role === "assistant" && m.notes?.map(note => <p key={note} className={styles.note}>⚠ {note}</p>)}
                   </div>
+                  {m.role === "user" && editing?.index !== i && (
+                    <UserMessageActions text={m.display || m.content} disabled={busy} notify={notify}
+                      versions={(m.branches ?? []).map(b => b[0]?.display || b[0]?.content || "")}
+                      onEdit={() => startEdit(i)} onPickVersion={n => pickVersion(i, n)} />
+                  )}
                   {m.role === "assistant" && m.requestId && <AnswerFeedback key={m.requestId} requestId={m.requestId} answer={m.content} />}
                 </article>
               ))}
@@ -1338,6 +1388,7 @@ export default function WorkspacePage() {
                       <option value="auto">AZ · Auto</option>
                       <option value="reasoning">AZ · Reasoning</option>
                       <option value="code">AZ · Code</option>
+                      <option value="google">Google AI Mode</option>
                     </select>
                     <select disabled={busy} value={style} aria-label="Answer tone" title="Answer tone"
                       onChange={e => {

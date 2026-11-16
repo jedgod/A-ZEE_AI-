@@ -5,6 +5,7 @@ import { pool } from "@/lib/admin/db";
 import { ProviderError } from "@/lib/chat/provider";
 import { InputBlockedError, NotPermittedError, OutputBlockedError } from "@/lib/pipeline";
 import { PlanLimitError, UpgradeRequiredError } from "@/lib/plans";
+import { originAllowed } from "@/lib/users/auth";
 
 // Shared by the browser chat routes: /api/chat (JSON) and /api/chat/stream (SSE).
 
@@ -36,7 +37,7 @@ export async function chatAllowed(request: Request) {
 
 export const sameOrigin = (request: Request) => {
   const origin = request.headers.get("origin");
-  return !origin || origin === (process.env.APP_ORIGIN || "http://localhost:3000");
+  return !origin || originAllowed(origin); // same rule as sign-in: localhost on the same port also passes outside production
 };
 
 /** Maps a pipeline failure to the public error body and HTTP status (no internal details). */

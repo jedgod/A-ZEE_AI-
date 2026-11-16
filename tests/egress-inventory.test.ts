@@ -17,6 +17,13 @@ const APPROVED: Record<string, { kind: "ai-cloud" | "data" | "non-ai" | "referen
   "openidconnect.googleapis.com": { kind: "data", note: "Drive connector OAuth" }, "www.googleapis.com": { kind: "data", note: "Drive/Gmail connectors" }, "gmail.googleapis.com": { kind: "data", note: "Gmail connector" },
   "api.github.com": { kind: "data", note: "GitHub connector" }, "github.com": { kind: "data", note: "GitHub connector / links" }, "drive.google.com": { kind: "reference", note: "link text" },
   "api.stripe.com": { kind: "non-ai", note: "billing (only when Stripe is configured)" }, "api.resend.com": { kind: "non-ai", note: "transactional email" },
+  // Market data / news / media (informational reads; each file is gated on ollamaOnly)
+  ...Object.fromEntries(["api.binance.com", "api.bybit.com", "www.okx.com", "api.coingecko.com", "api.frankfurter.dev", "api.twelvedata.com", "data.alpaca.markets", "finnhub.io",
+    "query1.finance.yahoo.com", "www.alphavantage.co", "api.api-ninjas.com"].map(h => [h, { kind: "data" as const, note: "market-data price read (lib/finance, ollamaOnly-gated)" }])),
+  "news.google.com": { kind: "data", note: "live news headlines (lib/pipeline/live-news.ts, ollamaOnly-gated)" },
+  "exp.host": { kind: "non-ai", note: "Expo push for price alerts (monitor worker, paused in private mode)" },
+  "queue.fal.run": { kind: "ai-cloud", note: "video provider (lib/video-provider.ts)" }, "api.sightengine.com": { kind: "ai-cloud", note: "AI-image detection (lib/vision/detect.ts)" },
+  "interactive-examples.mdn.mozilla.net": { kind: "reference", note: "sample URL text" },
   "aztrade.internal": { kind: "reference", note: "private AZTrade bridge placeholder host" },
 };
 const ROOTS = ["app", "lib", "05_MODEL_LAYER", "07_TOOLS", "15_EXTENSIONS", "15_ADMIN"];

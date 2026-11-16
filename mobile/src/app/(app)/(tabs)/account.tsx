@@ -49,6 +49,7 @@ export default function Account() {
       </Card>
 
       {Platform.OS === "android" ? <Button title="AZLinqext keyboard" variant="outline" onPress={() => router.push("/keyboard")} style={{ marginBottom: 14 }} /> : null}
+      {Platform.OS === "android" ? <Button title="AZLinqext Autopilot" variant="outline" onPress={() => router.push("/autopilot")} style={{ marginBottom: 14 }} /> : null}
 
       <View style={{ gap: 10, marginBottom: 14 }}>
         <Button title="Sign out" variant="outline" onPress={() => confirm("Sign out?", "You'll need to sign in again on this device.", async () => { await signOut(); router.replace("/sign-in"); })} />

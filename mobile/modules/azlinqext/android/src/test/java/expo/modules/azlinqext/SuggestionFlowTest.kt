@@ -130,8 +130,19 @@ class NoAutoSendTest {
     }
     @Test fun noOtherPartOfTheModuleDeclaresAnAccessibilityOrNotificationService() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        assertFalse(manifest.contains("AccessibilityService")); assertFalse(manifest.contains("NotificationListenerService")); assertFalse(manifest.contains("SEND_SMS"))
-        assertEquals(1, Regex("<service").findAll(manifest).count())
+        assertFalse(manifest.contains("AccessibilityService")); assertFalse(manifest.contains("SEND_SMS"))
+        // Autopilot (opt-in, off by default) is the one allowed notification listener: the keyboard plus that listener, nothing else.
+        assertEquals(1, Regex("android.service.notification.NotificationListenerService").findAll(manifest).count())
+        assertTrue(manifest.contains("expo.modules.azlinqext.autopilot.AzNotificationListener"))
+        assertEquals(2, Regex("<service").findAll(manifest).count())
+    }
+    @Test fun theKeyboardAndAiPackagesNeverTouchNotificationsOrReplyBoxes() {
+        for (dir in listOf("ai", "ime")) for (f in File(root, dir).listFiles { x -> x.extension == "kt" }!!)
+            for (word in listOf("NotificationListenerService", "RemoteInput", "StatusBarNotification")) assertFalse("${f.name} must not use $word", f.readText().contains(word))
+    }
+    @Test fun autopilotNeverUsesSmsOrAccessibilityOrKeyInjection() {
+        for (f in File(root, "autopilot").listFiles { x -> x.extension == "kt" }!!)
+            for (word in listOf("SmsManager", "sendTextMessage", "AccessibilityService", "performAction", "dispatchGesture", "sendKeyEvent")) assertFalse("${f.name} must not use $word", f.readText().contains(word))
     }
 }
 

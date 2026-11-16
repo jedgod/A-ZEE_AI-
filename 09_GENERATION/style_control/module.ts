@@ -33,6 +33,7 @@ import { ANSWER_STYLES, type AnswerStyle } from "../../lib/chat/contracts";
 
 const STYLE_INSTRUCTIONS: Record<Exclude<AnswerStyle, "default">, string> = {
   concise: "Answer briefly. Prefer direct sentences; omit unnecessary preambles.",
+  detailed: "Give a thorough, well-organised answer: explain the reasoning, cover the important cases and caveats, add short examples where they help, and end with practical next steps.",
   professional: "Use a measured professional tone and a clear logical structure.",
   friendly: "Be approachable and warm without sacrificing precision.",
   technical: "Use precise technical language; explain assumptions and limitations.",

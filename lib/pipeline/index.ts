@@ -62,12 +62,28 @@ import type { ChatInput } from "@/lib/chat/contracts";
 import { closeOpenFences, FREE_CODE_INSTRUCTION, FREE_CODE_NOTICE, freeCodeBudget, freeCodeLimitApplies } from "./free-limits";
 import { ProviderError } from "@/lib/chat/provider";
 import type { RequestActor } from "./actor";
+import { liveSources } from "./live-news";
+import { pageSources } from "./page-context";
+import { marketSources } from "./market-context";
+import { sourcingFor, type Sourcing } from "./sourcing";
 import { compactHistory, pipelineConfigured, pipelineSearchAdapter, withContext, type RetrievedSource } from "./context";
 import { OperationsLog } from "./operations";
 import { CODE_MODE_PII, detectLanguage, LANGUAGE_NAMES, normalizeInput, PiiVault } from "./preprocess";
 import { codeProviderIds, configuredProviders, metaRegistry, routingCandidates } from "./registry";
 import { runToolLoop, wantsTools, withToolResults, type ToolEvent } from "./tools";
 import { moderationChecker } from "./validation";
+
+/** "Google AI Mode": a fuller, search-style answer. Runs on Gemini first and falls back to the other providers. */
+const GOOGLE_AI_MODE = "Answer in an AI-overview style: start with a direct 1-2 sentence answer, then give a structured, thorough explanation with short headed sections or bullets for the key points, comparisons and caveats. Be complete rather than brief. Say plainly when something may be out of date or uncertain; never invent sources or facts. ";
+
+/** Follow-up block the web and mobile apps turn into tappable searches and keyword links. Kept machine-readable and last. */
+const FOLLOW_UPS = ["Finish the answer with exactly this block, after a blank line, and nothing after it:", "Related searches:", "- <a short search a curious reader might run next>", "- <another>", "- <another>", "Keywords: <3 to 5 key terms from the answer, separated by commas>"].join("\n") + " When you used a linked page or retrieved sources, cite them with their IDs, like [page:1] or [web:2]. If the page text does not contain what was asked, say so instead of guessing.";
+
+/** Added when live quotes were retrieved, so the answer leads with the numbers instead of sending the user elsewhere. */
+const MARKET_ANSWER = "Live market quotes are in the reference material as [market:1]. Lead with the actual numbers in a compact table (asset, price, change), then 2-3 short sentences of context. State that these are delayed, informational quotes and name their source; note that crypto trades 24/7 and prices differ slightly between exchanges. Quote only the numbers provided; never invent highs, lows, volumes or levels that are not listed. If an asset shows no quote, say so. Do not say you lack market data and do not write the [market:1] marker in the answer; name the data sources in words instead. No buy or sell advice.";
+
+/** The house standard for how an answer is prepared and laid out (chat and research). Skipped for code and structured JSON. */
+const ANSWER_STANDARD = "Answer standard: open with the direct answer in the first sentence. Then organise what follows so it can be scanned: short headed sections, bullets, numbered steps or a table only where they make the answer clearer (comparisons, steps, data), otherwise plain well-paced paragraphs. Be specific and original: add the one insight, concrete example, number or next step a knowledgeable expert would add, and cut filler, restating the question, hedging boilerplate and generic disclaimers. Keep facts, inferences and your own general knowledge distinct, say plainly when you are unsure or something may be out of date, and never invent sources, quotes or figures. Match the user's language, level and length; a simple question gets a short answer.";
 
 export class InputBlockedError extends Error {
   constructor(public reasons: string[]) { super("INPUT_BLOCKED"); }
@@ -102,6 +118,7 @@ export type PipelineMeta = {
   extensions: Record<string, unknown>;
   contentType?: string;
   plan?: string[];             // 08 decomposition / planning
+  sourcing?: Sourcing;         // how well-grounded the answer is (Level 1 live data, 2 web sources, 3 general knowledge)
   evidence?: EvidenceReport;   // 10 factual + hallucination checks, 09 confidence tag
   structured?: { answer: string; citations: string[]; warnings: string[] }; // format: "json"
   style?: string;              // 09 style control
@@ -203,11 +220,32 @@ export async function answerChat(
     // 03 context: compact history; 07 search retrieves documents/memories when configured.
     const { messages, dropped } = compactHistory(redacted, budgetChars);
     let sources: RetrievedSource[] = [];
+    const plainQuestion = messages.at(-1)!.content;
     if (pipelineConfigured() && actor.execution.permissions.has("tools:search")) {
       stage("search");
       sources = await span("retrieve", () =>
         runSearch(actor.execution, { query: messages.at(-1)!.content.slice(0, 2000) }, pipelineSearchAdapter(fetchImpl)));
       if (sources.length) messages[messages.length - 1] = { role: "user", content: withContext(messages.at(-1)!.content, sources) };
+    }
+    // A link in the message: that page's text is what "summarise / explain / translate this" refers to.
+    const page = await span("retrieve", () => pageSources(latest));
+    if (page.sources.length) {
+      sources = [...page.sources, ...sources];
+      messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
+    } else if (page.note) warnings.push(page.note);
+    // Market-rate questions ("price of bitcoin", "how is the market today") get live, delayed quotes to quote from.
+    const market = await span("retrieve", () => marketSources(latest));
+    if (market.sources.length) {
+      sources = [...market.sources, ...sources];
+      messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
+    } else if (market.note) warnings.push(market.note);
+    // Open, time-sensitive questions ("latest news on…") get live headlines when no web source came from the pipeline.
+    if (!sources.some(x => x.sourceId.startsWith("web:"))) {
+      const live = await span("retrieve", () => liveSources(latest, fetchImpl));
+      if (live.length) {
+        sources = [...live, ...sources];
+        messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
+      }
     }
 
     // 01 intake record (metadata only; no message text is stored).
@@ -298,6 +336,10 @@ export async function answerChat(
       system.message.content,
       ...(PROFILE[input.mode] ? [buildDeveloperPrompt(PROFILE[input.mode]).content] : []),
       ...(reasoning ? [buildReasoningGuardrails().content] : []),
+      ...(input.mode !== "code" && !structured ? [ANSWER_STANDARD] : []),
+      ...(input.model === "google" ? [GOOGLE_AI_MODE] : []),
+      ...(sources.some(x => x.sourceId.startsWith("market:")) ? [MARKET_ANSWER] : []),
+      ...(input.model === "google" || sources.length ? [FOLLOW_UPS] : []),
       ...(styleInstruction(input.style) ? [styleInstruction(input.style)!] : []),
       ...(structured ? [`Return ONLY a JSON object matching this JSON Schema, with no other text: ${JSON.stringify(answerJsonSchema)}. Put the full Markdown answer in "answer".`] : []),
       notes.join("\n"),
@@ -355,6 +397,7 @@ export async function answerChat(
           const specialist = createSpecialistRouter([{ id: "code", modelId: "routed", capabilities: ["coding"], adapter: chatModel(codeProviderIds()), enabled: true }]);
           return specialist("coding", prompt);
         }
+        if (input.model === "google") return chatModel(["gemini"]).run({ prompt, modelId: "routed" }); // Gemini first, normal fallback after
         return chatModel().run({ prompt, modelId: "routed" });
       });
     } catch (error) {
@@ -438,6 +481,7 @@ export async function answerChat(
         ...(toolResults.length ? { tools: toolResults.map(r => ({ tool: r.tool, ok: r.ok })) } : {}),
         ...(references.citations.length ? { sources: references.citations } : {}),
         ...(plan.length ? { plan: plan.map(p => vault.restore(p)) } : {}),
+        sourcing: sourcingFor(sources, references.citations.length, toolResults.filter(r => r.ok).map(r => r.tool)),
         ...(evidence ? { evidence } : {}),
         ...(structuredOut ? { structured: { answer, citations, warnings: [...structuredOut.warnings.map(w => vault.restore(w)), ...warnings] } } : {}),
       },

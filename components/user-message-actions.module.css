@@ -1,0 +1,10 @@
+.row { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+.row button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--faint); cursor: pointer; }
+.row button:hover:not(:disabled) { color: var(--ink); background: var(--code); }
+.row button:disabled { opacity: .35; cursor: default; }
+.versionWrap { position: relative; }
+.menu { position: absolute; right: 0; top: 36px; z-index: 20; width: min(300px, 80vw); margin: 0; padding: 6px; list-style: none; background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 28px -8px rgb(15 23 42 / .25); }
+.menu li { list-style: none; }
+.menu button { display: block; width: 100%; height: auto; padding: 8px 10px; text-align: left; color: var(--ink); }
+.menu b { display: block; font-size: 12px; }
+.menu span { display: block; font-size: 13px; opacity: .75; overflow-wrap: anywhere; }

@@ -1,4 +1,5 @@
 import "server-only";
+import { envAny, oandaConfigured } from "./exchanges";
 
 /**
  * The assets the monitoring and chart feeds can name. `live` says whether a price source for it is configured on THIS server right
@@ -34,7 +35,7 @@ export function availability(e: CatalogEntry): { live: boolean; history: boolean
     case "crypto": return { live: true, history: true };
     case "forex": return { live: true, history: true };
     case "stocks_etfs": return { live: !!stockSource(), history: !!stockHistory() };
-    case "commodities": return { live: env("API_NINJAS_KEY") || (env("TWELVEDATA_API_KEY") && isMetal(e.symbol)) || (env("ALPHAVANTAGE_API_KEY") && !isMetal(e.symbol)), history: env("TWELVEDATA_API_KEY") && isMetal(e.symbol) };
+    case "commodities": return { live: (oandaConfigured() && isMetal(e.symbol)) || env("API_NINJAS_KEY") || (env("TWELVEDATA_API_KEY") && isMetal(e.symbol)) || (env("ALPHAVANTAGE_API_KEY") && !isMetal(e.symbol)), history: env("TWELVEDATA_API_KEY") && isMetal(e.symbol) };
   }
 }
 
@@ -49,4 +50,31 @@ export function searchCatalog(query: string, limit = 40): CatalogResult[] {
     return { e, score };
   }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
   return scored.slice(0, limit).map(({ e }) => ({ ...e, pair: e.assetClass === "stocks_etfs" ? `${e.symbol} · ${e.name}` : `${e.symbol} · ${e.name}`, ...availability(e) }));
+}
+
+/**
+ * The market-data sources table: every price source this server can use, what it covers and whether it is configured right now.
+ * Only names and on/off are listed, never a key. All are informational and delayed; none is licensed for trading, and none places orders.
+ */
+export type DataSource = { provider: string; covers: string[]; keyNeeded: boolean; configured: boolean; envNames: string[]; note: string };
+
+export function dataSources(): DataSource[] {
+  const has = (...names: string[]) => !!envAny(...names);
+  const exchangesOn = process.env.EXCHANGE_PRICES_DISABLED !== "1";
+  const row = (provider: string, covers: string[], envNames: string[], configured: boolean, note: string, keyNeeded = envNames.length > 0): DataSource => ({ provider, covers, keyNeeded, configured, envNames, note });
+  return [
+    row("Yahoo Finance", ["stocks_etfs"], [], process.env.YAHOO_FINANCE_DISABLED !== "1", "Public chart data, no key. Delayed."),
+    row("Alpaca", ["stocks_etfs"], ["ALPACA_API_KEY", "ALPACA_API_SECRET"], has("ALPACA_API_KEY") && has("ALPACA_API_SECRET"), "Market data only; trading is never used."),
+    row("Finnhub", ["stocks_etfs"], ["FINNHUB_API_KEY"], has("FINNHUB_API_KEY"), "Free tier."),
+    row("Alpha Vantage", ["stocks_etfs", "commodities"], ["ALPHAVANTAGE_API_KEY"], has("ALPHAVANTAGE_API_KEY"), "Free tier, daily commodities."),
+    row("Twelve Data", ["stocks_etfs", "forex", "commodities"], ["TWELVEDATA_API_KEY"], has("TWELVEDATA_API_KEY"), "Metals and history."),
+    row("API Ninjas", ["stocks_etfs", "commodities"], ["API_NINJAS_KEY"], has("API_NINJAS_KEY"), ""),
+    row("CoinGecko", ["crypto"], ["COINGECKO_API_KEY"], true, "Works without a key; the key raises the rate limit.", false),
+    row("Binance", ["crypto"], ["Binance_spot_API_KEY"], exchangesOn, "Public spot ticker, no key used. Blocked in some regions (such as the US), then skipped.", false),
+    row("Bybit", ["crypto"], ["Bybit_API_KEY"], exchangesOn, "Public spot ticker, no key used.", false),
+    row("OKX", ["crypto"], ["OKX_API_KEY"], exchangesOn, "Public spot ticker, no key used.", false),
+    row("Frankfurter (ECB)", ["forex"], [], true, "Daily reference rates, no key."),
+    row("OANDA", ["forex", "commodities"], ["OANDA_API_KEY", "OANDA_PRACTICE_API_KEY"], oandaConfigured(), "Read-only pricing for forex pairs and metals. No orders, no account data."),
+    row("Tradier", ["options"], ["TRADIER_ACCESS_TOKEN"], has("TRADIER_ACCESS_TOKEN"), "Option expirations."),
+  ];
 }

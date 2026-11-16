@@ -99,7 +99,7 @@ export async function createReply(request: Request, raw: unknown) {
 
   const claimed = await pool.query(
     `INSERT INTO linqext_requests (user_id, request_id, payload_hash, status, trigger, mode, attempt_id) VALUES ($1, $2, $3, 'running', $4, $5, $6) ON CONFLICT DO NOTHING RETURNING 1`,
-    [user.id, input.requestId, hash, input.trigger, input.mode, attempt]);
+    [user.id, input.requestId, hash, input.trigger, input.mode === "compose" ? "rewrite" : input.mode /* the mode column predates compose; it is stored as the writing mode it is */, attempt]);
   if (!claimed.rowCount) {
     const row = (await pool.query(`SELECT payload_hash, status, response FROM linqext_requests WHERE user_id = $1 AND request_id = $2`, [user.id, input.requestId])).rows[0];
     if (row?.payload_hash !== hash) throw new LinqextError(409, "IDEMPOTENCY_CONFLICT");

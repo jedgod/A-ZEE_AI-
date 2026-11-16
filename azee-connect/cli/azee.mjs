@@ -12,7 +12,7 @@ export const MAX_CHARS = 20000;
 export const AROUND_LINES = 40;
 const TOKEN = /^az_[a-f0-9]{64}$/;
 const MODES = ["chat", "code", "research"];
-const MODELS = ["auto", "reasoning", "code"];
+const MODELS = ["auto", "reasoning", "code", "google"];
 
 export const EXIT = { OK: 0, REQUEST: 1, USAGE: 2, AUTH: 3 };
 

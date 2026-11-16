@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentRef } from "rea
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import { TranslateSheet } from "@/components/translate-sheet";
 import { VoiceModeOverlay } from "@/components/voice-mode-overlay";
-import { Alert, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, FlatList, Share, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,11 +20,12 @@ import { pickAndUploadVideo, type SourceClip } from "@/lib/video-upload";
 import { pickDocument, splitAttachment, type PickedDoc } from "@/lib/docs";
 import { ask, loadChat, saveChat, type Msg } from "@/lib/chat";
 import { C, SIZE } from "@/lib/chat-theme";
+import { splitFollowUps } from "@/lib/followups";
 import { MAX_MESSAGE_CHARACTERS } from "@/lib/config";
 import { newId } from "@/lib/storage";
 import { darkTheme, TABLET_WIDTH } from "@/lib/theme";
 
-type Shown = Msg & { notes?: string[] };
+type Shown = Msg & { notes?: string[]; sourcing?: { level: 1 | 2 | 3; label: string; detail: string }; branches?: Shown[][] }; // branches: earlier versions of an edited prompt (this session only)
 type Tab = "ask" | "imagine" | "build";
 
 const TABS: { key: Tab; label: string }[] = [{ key: "ask", label: "Ask" }, { key: "imagine", label: "Imagine" }, { key: "build", label: "Build" }];
@@ -210,7 +211,7 @@ export default function ChatScreen() {
     setMessages(next); setSending(true); setError("");
     try {
       const reply = await ask(mode, next);
-      const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2) }];
+      const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2), ...(reply.sourcing ? { sourcing: reply.sourcing } : {}) }];
       setMessages(done);
       saveChat(chatId, mode, done).then(() => setListKey(k => k + 1)).catch(() => undefined);
       return reply.answer;
@@ -231,6 +232,44 @@ export default function ChatScreen() {
   });
   const listening = voice.voiceState === "listening" && !voice.isVoiceModeActive;
 
+  // Edit a prompt you already sent: the old prompt and its answers are kept as an earlier version, then it is sent again from that point.
+  const [editing, setEditing] = useState<{ index: number; text: string } | null>(null);
+  const [versionsFor, setVersionsFor] = useState<number | null>(null);
+  const bare = (m: Shown): Shown => ({ role: m.role, content: m.content, ...(m.notes ? { notes: m.notes } : {}) });
+
+  async function saveEdit() {
+    if (!editing || sending) return;
+    const old = messages[editing.index];
+    const text = editing.text.trim();
+    if (!text) return;
+    const suffix = old.content.slice(splitAttachment(old.content).text.length); // keeps an attached document
+    const content = text + suffix;
+    if (content.length > MAX_MESSAGE_CHARACTERS) { setError(`That message is too long (limit ${MAX_MESSAGE_CHARACTERS.toLocaleString()} characters).`); return; }
+    const kept = [...(old.branches ?? []), messages.slice(editing.index).map(bare)];
+    const next: Shown[] = [...messages.slice(0, editing.index), { role: "user", content, branches: kept }];
+    setEditing(null); setVersionsFor(null); setMessages(next); setSending(true); setError("");
+    try {
+      const reply = await ask(mode, next);
+      const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2), ...(reply.sourcing ? { sourcing: reply.sourcing } : {}) }];
+      setMessages(done);
+      saveChat(chatId, mode, done).then(() => setListKey(k => k + 1)).catch(() => undefined);
+    } catch (e) {
+      setError((e as Error).message);
+      setMessages(messages); // the original conversation comes back untouched
+    } finally { setSending(false); }
+  }
+
+  function pickVersion(index: number, which: number) {
+    if (sending) return;
+    const branches = messages[index].branches ?? [];
+    const alt = branches[which];
+    if (!alt?.length) return;
+    const nowTail = messages.slice(index).map(bare);
+    const next: Shown[] = [...messages.slice(0, index), { ...alt[0], branches: branches.map((b, i) => (i === which ? nowTail : b)) }, ...alt.slice(1)];
+    setVersionsFor(null); setMessages(next);
+    saveChat(chatId, mode, next).then(() => setListKey(k => k + 1)).catch(() => undefined);
+  }
+
   async function send() {
     const text = input.trim();
     if (!text || sending || tab === "imagine") return;
@@ -241,7 +280,7 @@ export default function ChatScreen() {
     setMessages(next); setInput(""); setDoc(null); setSending(true); setError("");
     try {
       const reply = await ask(mode, next);
-      const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2) }];
+      const done: Shown[] = [...next, { role: "assistant", content: reply.answer, notes: reply.notes.slice(0, 2), ...(reply.sourcing ? { sourcing: reply.sourcing } : {}) }];
       setMessages(done);
       // Saved to the account so it also appears on the website. A failed save never loses the answer.
       saveChat(chatId, mode, done).then(() => setListKey(k => k + 1)).catch(() => undefined);
@@ -300,19 +339,83 @@ export default function ChatScreen() {
           contentContainerStyle={{ padding: 14, gap: 14, flexGrow: 1 }}
           onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={empty}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const mine = item.role === "user";
             return (
               <View style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: mine ? (wide ? "70%" : "85%") : "100%" }}>
                 <View style={mine ? { backgroundColor: C.pill, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10 } : { paddingHorizontal: 2 }}>
                   {(() => {
-                    const part = mine ? splitAttachment(item.content) : { text: item.content, fileName: null };
+                    const fu = mine ? null : splitFollowUps(item.content);
+                    const part = mine ? splitAttachment(item.content) : { text: fu!.body, fileName: null };
                     return <>
                       {part.fileName ? <Text style={{ color: C.muted, fontSize: 13, marginBottom: part.text ? 6 : 0 }}>📄 {part.fileName}</Text> : null}
                       {part.text ? <MessageText text={part.text} color={C.ink} /> : null}
+                      {fu && fu.searches.length ? (
+                        <View style={{ marginTop: 10, gap: 6 }}>
+                          <Text style={{ color: C.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.6 }}>RELATED SEARCHES</Text>
+                          {fu.searches.map(q => (
+                            <Pressable key={q} accessibilityRole="button" disabled={sending} onPress={() => void voiceTurn(q)}
+                              style={{ alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: C.surface, opacity: sending ? 0.5 : 1 }}>
+                              <Text style={{ color: C.ink, fontSize: 13.5 }}>🔎 {q}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      ) : null}
+                      {fu && fu.keywords.length ? (
+                        <View style={{ marginTop: 10, flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                          <Text style={{ color: C.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.6 }}>KEYWORDS</Text>
+                          {fu.keywords.map(k => (
+                            <Pressable key={k} accessibilityRole="link" onPress={() => void Linking.openURL(`https://duckduckgo.com/?q=${encodeURIComponent(k)}`)}
+                              style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14, backgroundColor: C.surface }}>
+                              <Text style={{ color: C.ink, fontSize: 13 }}>{k} ↗</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      ) : null}
                     </>;
                   })()}
                 </View>
+                {mine && editing?.index === index ? (
+                  <View style={{ marginTop: 8, gap: 8 }}>
+                    <TextInput accessibilityLabel="Edit message" multiline autoFocus value={editing.text} onChangeText={t => setEditing({ index, text: t })}
+                      style={{ color: C.ink, backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, minHeight: 80, textAlignVertical: "top" }} />
+                    <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+                      <Pressable accessibilityRole="button" onPress={() => setEditing(null)} style={{ paddingHorizontal: 14, height: 34, borderRadius: 17, justifyContent: "center", backgroundColor: C.surface }}><Text style={{ color: C.ink }}>Cancel</Text></Pressable>
+                      <Pressable accessibilityRole="button" disabled={!editing.text.trim() || sending} onPress={() => void saveEdit()} style={{ paddingHorizontal: 14, height: 34, borderRadius: 17, justifyContent: "center", backgroundColor: C.ink, opacity: editing.text.trim() && !sending ? 1 : 0.4 }}><Text style={{ color: C.bg, fontWeight: "600" }}>Save &amp; send</Text></Pressable>
+                    </View>
+                  </View>
+                ) : null}
+                {mine && editing?.index !== index ? (
+                  <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 2, marginTop: 4 }}>
+                    {[
+                      { label: "Copy", glyph: "⧉", on: () => void Share.share({ message: splitAttachment(item.content).text }), off: false },   // no clipboard module: the share sheet has Copy
+                      { label: "Share", glyph: "⇪", on: () => void Share.share({ message: splitAttachment(item.content).text }), off: false },
+                      { label: "See versions", glyph: "↺", on: () => setVersionsFor(v => (v === index ? null : index)), off: !item.branches?.length },
+                      { label: "Edit message", glyph: "✎", on: () => { setVersionsFor(null); setEditing({ index, text: splitAttachment(item.content).text }); }, off: sending },
+                    ].map(a => (
+                      <Pressable key={a.label} accessibilityRole="button" accessibilityLabel={a.label} disabled={a.off} onPress={a.on} hitSlop={4}
+                        style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", opacity: a.off ? 0.3 : 1 }}>
+                        <Text style={{ color: C.muted, fontSize: 18 }}>{a.glyph}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+                {mine && versionsFor === index && item.branches?.length ? (
+                  <View style={{ marginTop: 4, backgroundColor: C.surface, borderRadius: 14, padding: 6 }}>
+                    {item.branches.map((b, n) => (
+                      <Pressable key={n} accessibilityRole="button" onPress={() => pickVersion(index, n)} style={{ paddingHorizontal: 10, paddingVertical: 8 }}>
+                        <Text style={{ color: C.ink, fontSize: 12, fontWeight: "700" }}>Version {n + 1}</Text>
+                        <Text numberOfLines={2} style={{ color: C.muted, fontSize: 13 }}>{splitAttachment(b[0]?.content ?? "").text}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+                {!mine && item.sourcing ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginLeft: 2 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.sourcing.level === 1 ? "#16a34a" : item.sourcing.level === 2 ? "#2563eb" : "#a3a3a3" }} />
+                    <Text style={{ color: C.muted, fontSize: 12 }}>{item.sourcing.label}</Text>
+                  </View>
+                ) : null}
                 {item.notes?.length ? <Text style={{ color: C.muted, fontSize: 12, marginTop: 4, marginHorizontal: 6 }}>{item.notes[item.notes.length - 1]}</Text> : null}
               </View>
             );
@@ -344,12 +447,12 @@ export default function ChatScreen() {
 
         {/* Suggestion chips */}
         {tab !== "imagine" ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ paddingHorizontal: 14, gap: 8, paddingBottom: 10 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ paddingHorizontal: 12, gap: 6, paddingBottom: 8 }}>
             {CHIPS[tab].map(c => (
               <Pressable key={c.label} accessibilityRole="button" onPress={() => runChip(c)}
-                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: C.surface, opacity: pressed ? 0.7 : 1 })}>
-                <Text style={{ fontSize: 16 }}>{c.glyph}</Text>
-                <Text style={{ color: C.ink, fontSize: 14, fontWeight: "500" }}>{c.label}</Text>
+                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 5, height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: C.surface, opacity: pressed ? 0.7 : 1 })}>
+                <Text style={{ fontSize: 12 }}>{c.glyph}</Text>
+                <Text style={{ color: C.ink, fontSize: 11.5, fontWeight: "500" }}>{c.label}</Text>
               </Pressable>
             ))}
           </ScrollView>

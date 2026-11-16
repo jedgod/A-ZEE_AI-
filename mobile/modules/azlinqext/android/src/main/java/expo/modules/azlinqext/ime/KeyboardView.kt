@@ -48,16 +48,16 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     private val compact = resources.displayMetrics.heightPixels / density < 480 // landscape phones: shorter keys
     private val handler = Handler(Looper.getMainLooper())
 
-    private val tierText = text(13f, p.muted, bold = true)
+    private val tierText = text(11.5f, p.muted, bold = true)
     private val connect = chip("Open A-Zee", filled = false)
-    private val hideButton = chip("Hide AI", filled = false).apply { minimumHeight = dp(32); contentDescription = "Hide the AI suggestion bar" }
-    private val actionsRow = LinearLayout(context).apply { orientation = HORIZONTAL; setPadding(0, dp(2), 0, dp(2)) }
-    private val status = text(13f, p.muted).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE; maxLines = 3 }
+    private val hideButton = chip("Hide AZLinqext", filled = false).apply { minimumHeight = dp(26); setPadding(dp(8), 0, dp(8), 0); contentDescription = "Hide the AZLinqext suggestion bar" }
+    private val actionsRow = LinearLayout(context).apply { orientation = HORIZONTAL; setPadding(0, dp(1), 0, dp(1)) }
+    private val status = text(11.5f, p.muted).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE; maxLines = 2 }
     private val suggest = chip("Suggest", filled = true)
     private val clipboard = chip("Clipboard", filled = false)
     private val modeButton = chip("Reply", filled = false)
     private val languageButton = chip("Spanish", filled = false)
-    private val optionsRow = LinearLayout(context).apply { orientation = HORIZONTAL; setPadding(0, dp(2), 0, dp(2)) }
+    private val optionsRow = LinearLayout(context).apply { orientation = HORIZONTAL; setPadding(0, dp(1), 0, dp(1)) }
     private var runLabel = "Suggest"
     private var idleHint = "Select or type a message, then tap Suggest"
     private val toneButton = chip("Professional", filled = false)
@@ -73,12 +73,12 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     init {
         orientation = VERTICAL
         setBackgroundColor(p.bg)
-        setPadding(dp(4), dp(4), dp(4), dp(4))
+        setPadding(dp(4), dp(2), dp(4), dp(2))
         header.addView(tierText, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         header.addView(connect)
         header.addView(hideButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6), 0, 0, 0) })
         addView(header)
-        addView(status, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { setMargins(dp(8), dp(2), dp(8), dp(2)) })
+        addView(status, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { setMargins(dp(8), 0, dp(8), 0) })
         listOf(modeButton, languageButton, toneButton, variantButton).forEach { optionsRow.addView(it, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(2), 0, dp(2), 0) }) }
         listOf(suggest, clipboard).forEach { actionsRow.addView(it, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(2), 0, dp(2), 0) }) }
         addView(optionsRow)
@@ -103,12 +103,12 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
 
     fun renderKeys(state: KeyboardState, enterLabel: String) {
         keys.removeAllViews()
-        val rowHeight = dp(if (compact) 40 else 50)
+        val rowHeight = dp(if (compact) 34 else 42)
         KeyboardLogic.rows(state, enterLabel).forEach { row ->
             val line = LinearLayout(context).apply { orientation = HORIZONTAL }
             row.forEach { spec ->
                 val special = spec.key !is Key.Char && spec.key !is Key.Space
-                val view = text(if (spec.label.length > 2) 15f else 20f, p.text, bold = special).apply {
+                val view = text(if (spec.label.length > 2) 13f else 18f, p.text, bold = special).apply {
                     gravity = Gravity.CENTER
                     text = spec.label
                     contentDescription = spec.description
@@ -118,7 +118,7 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
                     isFocusable = true
                 }
                 if (spec.key is Key.Backspace) attachRepeat(view, spec.key) else view.setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); listener.onKey(spec.key) }
-                line.addView(view, LayoutParams(0, rowHeight, spec.weight).apply { setMargins(dp(2), dp(3), dp(2), dp(3)) })
+                line.addView(view, LayoutParams(0, rowHeight, spec.weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
             }
             keys.addView(line)
         }
@@ -147,12 +147,12 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         else status(idleHint)
     }
 
-    /** Collapses the AI bar to a single "Show AI" button, leaving the typing keys. */
+    /** Collapses the AI bar to a single "Show AZLinqext" button, leaving the typing keys. */
     fun setBarHidden(hidden: Boolean) {
         barHidden = hidden
         if (!appSupported) return // not a supported app: the whole AI panel stays away
-        hideButton.text = if (hidden) "Show AI" else "Hide AI"
-        hideButton.contentDescription = if (hidden) "Show the AI suggestion bar" else "Hide the AI suggestion bar"
+        hideButton.text = if (hidden) "Show AZLinqext" else "Hide AZLinqext"
+        hideButton.contentDescription = if (hidden) "Show the AZLinqext suggestion bar" else "Hide the AZLinqext suggestion bar"
         val shown = if (hidden) GONE else VISIBLE
         tierText.visibility = shown; actionsRow.visibility = shown; optionsRow.visibility = shown
         if (hidden) { connect.visibility = GONE; status.visibility = GONE; replyScroll.visibility = GONE; replyRow.removeAllViews() } else if (status.text.isNotEmpty()) status.visibility = VISIBLE
@@ -206,17 +206,17 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         replyRow.removeAllViews()
         replyScroll.visibility = if (items.isEmpty() || !appSupported) GONE else VISIBLE
         items.forEachIndexed { i, reply ->
-            val card = text(15f, p.text).apply {
+            val card = text(13f, p.text).apply {
                 text = reply
                 maxLines = 5
-                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setPadding(dp(10), dp(6), dp(10), dp(6))
                 background = ripple(p.card, dp(10), stroke = p.accent)
                 isClickable = true
                 isFocusable = true
                 contentDescription = "Reply ${i + 1} of ${items.size}: $reply. Double tap to put it in the text box"
                 setOnClickListener { listener.onReply(i) }
             }
-            replyRow.addView(card, LayoutParams(dp(if (items.size == 1) 320 else 260), LayoutParams.WRAP_CONTENT).apply { setMargins(dp(4), dp(2), dp(4), dp(4)) })
+            replyRow.addView(card, LayoutParams(dp(if (items.size == 1) 320 else 250), LayoutParams.WRAP_CONTENT).apply { setMargins(dp(4), dp(1), dp(4), dp(2)) })
         }
         replyScroll.scrollTo(0, 0)
     }
@@ -241,13 +241,13 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         if (bold) typeface = Typeface.DEFAULT_BOLD
     }
 
-    private fun chip(label: String, filled: Boolean) = text(13f, if (filled) p.accentText else p.text, bold = true).apply {
+    private fun chip(label: String, filled: Boolean) = text(11.5f, if (filled) p.accentText else p.text, bold = true).apply {
         text = label
         gravity = Gravity.CENTER
-        minimumHeight = dp(40)
+        minimumHeight = dp(30)
         setPadding(dp(6), 0, dp(6), 0)
         maxLines = 1
-        background = ripple(if (filled) p.accent else p.keyAlt, dp(20))
+        background = ripple(if (filled) p.accent else p.keyAlt, dp(15))
         isClickable = true
         isFocusable = true
     }

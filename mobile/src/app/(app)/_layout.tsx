@@ -16,6 +16,8 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="keyboard" options={{ headerShown: true, title: "AZLinqext keyboard" }} />
+      <Stack.Screen name="review" options={{ headerShown: true, title: "Review draft" }} />
+      <Stack.Screen name="autopilot" options={{ headerShown: true, title: "Autopilot" }} />
       <Stack.Screen name="delete-account" options={{ headerShown: true, title: "Delete account", presentation: "modal" }} />
     </Stack>
   );

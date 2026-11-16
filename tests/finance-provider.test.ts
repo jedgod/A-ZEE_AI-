@@ -8,7 +8,7 @@ const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, 
 const KEYS = ["AZ_PROVIDER_MODE", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHAVANTAGE_API_KEY", "API_NINJAS_KEY", "TRADIER_ACCESS_TOKEN", "COINGECKO_API_KEY", "FINNHUB_API_KEY", "TWELVEDATA_API_KEY"];
 const fetchMock = vi.fn();
 
-beforeEach(() => { for (const k of KEYS) delete process.env[k]; process.env.YAHOO_FINANCE_DISABLED = "1"; clearQuoteCache(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
+beforeEach(() => { for (const k of KEYS) delete process.env[k]; process.env.YAHOO_FINANCE_DISABLED = "1"; process.env.EXCHANGE_PRICES_DISABLED = "1"; clearQuoteCache(); fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock); });
 afterEach(() => vi.unstubAllGlobals());
 
 const chart = (meta: object) => ok({ chart: { result: [{ meta }] } });

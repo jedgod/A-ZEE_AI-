@@ -1,5 +1,6 @@
 import "server-only";
 import { ollamaOnly } from "@/lib/pipeline/privacy";
+import { exchangeCrypto, oandaConfigured, oandaPrice } from "./exchanges";
 
 /**
  * Informational multi-asset quotes for A-Zee's "Try Finance". These come from public/free developer APIs: they may be delayed,
@@ -121,7 +122,11 @@ async function crypto(symbol: string): Promise<MarketQuote> {
   const demo = process.env.COINGECKO_API_KEY;
   const d = await getJson(`https://api.coingecko.com/api/v3/simple/price?ids=${enc(id)}&vs_currencies=usd&include_24hr_change=true`, demo ? { "x-cg-demo-api-key": demo } : {});
   const e = d?.[id]; const price = num(e?.usd);
-  if (!price) throw new FinanceError(503, "QUOTE_UNAVAILABLE");
+  if (!price) {                                          // CoinGecko is rate limited: fall back to the public exchange tickers
+    const x = await exchangeCrypto(base);
+    if (x) return quote({ symbol, assetClass: "crypto", price: x.price, currency: "USD", changePercent: x.changePercent, provider: x.provider });
+    throw new FinanceError(503, "QUOTE_UNAVAILABLE");
+  }
   return quote({ symbol, assetClass: "crypto", price, currency: "USD", changePercent: typeof e.usd_24h_change === "number" ? `${e.usd_24h_change.toFixed(2)}%` : undefined, provider: "coingecko" });
 }
 
@@ -129,6 +134,8 @@ async function forex(pair: string): Promise<MarketQuote> {
   const clean = pair.replace(/[\/-]/g, "");
   const base = clean.slice(0, 3), to = clean.slice(3, 6) || "USD";
   if (!/^[A-Z]{3}$/.test(base) || !/^[A-Z]{3}$/.test(to)) throw new FinanceError(400, "INVALID_SYMBOL");
+  const live = await oandaPrice(`${base}_${to}`);          // near real time when an OANDA key is configured; otherwise the daily ECB rate below
+  if (live) return quote({ symbol: `${base}/${to}`, assetClass: "forex", price: live.price, currency: to, provider: live.provider, asOf: live.asOf });
   const d = await getJson(`https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${to}`);   // ECB reference rates, published daily
   const price = num(d?.rates?.[to]);
   if (price) return quote({ symbol: `${base}/${to}`, assetClass: "forex", price, currency: to, provider: "frankfurter-ecb", asOf: d.date });
@@ -142,6 +149,11 @@ const METALS: Record<string, string> = { XAU: "gold", XAG: "silver", XPT: "plati
 async function commodity(raw: string): Promise<MarketQuote> {
   const { API_NINJAS_KEY: ninja, ALPHAVANTAGE_API_KEY: av, TWELVEDATA_API_KEY: td } = process.env;
   const stem = raw.replace(/[-\/]USD$/, "");
+  const oandaMetal = ["XAU", "XAG", "XPT", "XPD"].find(m => m === stem || (METALS[stem] && METALS[m] === METALS[stem]));
+  if (oandaMetal) {
+    const q = await oandaPrice(`${oandaMetal}_USD`);
+    if (q) return quote({ symbol: raw, assetClass: "commodities", price: q.price, currency: "USD", provider: q.provider, asOf: q.asOf });
+  }
   const name = METALS[stem] ? METALS[stem].toUpperCase() : stem;
   if (ninja) {
     const d = await getJson(`https://api.api-ninjas.com/v1/commodityprice?name=${enc((METALS[stem] ?? name).toLowerCase())}`, { "X-Api-Key": ninja });
@@ -156,7 +168,7 @@ async function commodity(raw: string): Promise<MarketQuote> {
     const latest = Array.isArray(d?.data) ? d.data[0] : null; const price = num(latest?.value);
     if (price) return quote({ symbol: fn, assetClass: "commodities", price, currency: "USD", provider: "alphavantage", asOf: latest.date, details: { unit: d.unit } });
   }
-  throw new FinanceError(503, ninja || av || td ? "QUOTE_UNAVAILABLE" : "PROVIDER_NOT_CONFIGURED");
+  throw new FinanceError(503, ninja || av || td || oandaConfigured() ? "QUOTE_UNAVAILABLE" : "PROVIDER_NOT_CONFIGURED");
 }
 
 async function options(underlying: string): Promise<MarketQuote> {
