@@ -65,6 +65,8 @@ Verdict: **NO-GO**. This is an implementation candidate, not a production certif
 - Stub auth cannot work once migration 004 forces RLS (the demo user has no tenant). Identity integration is the next phase.
 - Portfolio and risk routes still use JavaScript Number for display math (not ledger-bearing).
 
+> **Release status lives in one place: `docs/RELEASE_EVIDENCE_MATRIX.md`.** This file is implementation history; if it disagrees with the matrix, the matrix wins. Decision: **NO-GO**.
+
 
 ---
 

@@ -1,5 +1,7 @@
 # AZTrade AI — Full Stack (Development Baseline v3)
 
+> **Release status lives in one place: `docs/RELEASE_EVIDENCE_MATRIX.md`.** This file is implementation history; if it disagrees with the matrix, the matrix wins. Decision: **NO-GO**.
+
 **Status: Development baseline — NO-GO for production.**
 
 See `docs/RELEASE_EVIDENCE_MATRIX.md` for the current gate status.

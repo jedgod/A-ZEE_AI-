@@ -38,7 +38,7 @@ vi.mock("@/lib/pipeline/actor", () => ({ webActor: (_r: Request, u: any) => ({ a
 vi.mock("@/lib/plans", () => ({ resolvePlan: async () => S.planId, accessFor: async () => ({ planId: S.planId, planName: S.planId, walled: S.walled, entitlements: { messages: { enabled: true, monthlyLimit: S.limit } } }) }));
 vi.mock("@/lib/users/auth", () => ({ allow: async () => S.allow, sha: (v: string) => v, tokenFrom: () => null }));
 
-import { buildPrompt, bridgeSchema, handleBridge, SAFE_REPLY, supportedAmounts, unsupportedFigures } from "@/lib/aztrade/ai";
+import { buildPrompt, bridgeSchema, handleBridge, SAFE_REPLY, supportedAmounts, unsupportedFigures, withDisclaimer } from "@/lib/aztrade/ai";
 
 const KEY = generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 const SECRET = "s".repeat(40);
@@ -95,7 +95,7 @@ describe("authentication and identity", () => {
 describe("a separate, atomic allowance", () => {
   it("answers, charges once, and does NOT touch the chat allowance (skipUsage)", async () => {
     const r = await ok(await call(body()));
-    expect(r).toMatchObject({ status: 200, reply: "Your paper cash is $1,000.00.", allowance: "aztrade_assistant", replay: false });
+    expect(r).toMatchObject({ status: 200, reply: withDisclaimer("Your paper cash is $1,000.00."), allowance: "aztrade_assistant", replay: false });
     expect(chat.answerChat.mock.calls[0][3]).toEqual({ skipUsage: true });
     expect([...S.usage.values()]).toEqual([1]);
   });
@@ -210,7 +210,7 @@ describe("delayed, informational quotes for the assets the question names", () =
   it("tells the model the status is delayed and gives it the quote, so it can answer with that price", async () => {
     dq.fn.mockResolvedValue([BTC]); S.answer = "BTC is about $64,515.56 (delayed, informational).";
     const r = await ok(await call(body({ message: "what is BTC at?" })));
-    expect(r).toMatchObject({ status: 200, reply: S.answer });
+    expect(r).toMatchObject({ status: 200, reply: withDisclaimer(S.answer) });
     expect(prompt()).toContain('"market_data_status":"delayed"');
     expect(prompt()).toContain("64515.56");
     expect(prompt()).toContain("coingecko (delayed)");
@@ -225,7 +225,7 @@ describe("delayed, informational quotes for the assets the question names", () =
     expect(prompt()).toContain('"market_data_status":"unavailable"');
     chat.answerChat.mockClear(); S.usage.clear(); S.requests.clear();
     dq.fn.mockRejectedValue(new Error("network down"));
-    expect(await ok(await call(body({ message: "what is BTC at?" })))).toMatchObject({ status: 200, reply: "I cannot give a price." });
+    expect(await ok(await call(body({ message: "what is BTC at?" })))).toMatchObject({ status: 200, reply: withDisclaimer("I cannot give a price.") });
     expect(prompt()).toContain('"market_data_status":"unavailable"');
   });
   it("never looks quotes up when licensed prices were supplied, and callers cannot send 'delayed' themselves", async () => {

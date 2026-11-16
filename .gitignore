@@ -18,3 +18,12 @@ pipeline-api/.venv/
 .pytest_cache/
 .mirror/
 secrets-staging/
+
+# Keys and credentials must never be committed (tests/no-committed-secrets.test.ts enforces this)
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+secrets*/
+last-token.json

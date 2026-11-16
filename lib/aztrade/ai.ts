@@ -82,6 +82,13 @@ export function unsupportedFigures(reply: string, g: Grounding): string[] {
   }
   return bad;
 }
+export const DISCLAIMER = "*This is education and paper-trading analysis only, not investment advice.*";
+/** The model is asked to end with this line, but a prompt is a request, not a guarantee: the server adds it when the answer lacks it. */
+export function withDisclaimer(reply: string): string {
+  const last = reply.trimEnd().split("\n").pop() ?? "";
+  return /not investment advice/i.test(last) ? reply : `${reply.trimEnd()}\n\n${DISCLAIMER}`;
+}
+
 export const SAFE_REPLY = "I can only state figures that come from your own AZTrade account data, and I can't verify the figure I was about to give. Please check your portfolio screen, or ask me about the positions and cash balance you can see there.";
 
 // ---- allowance: atomic, once per request, refunded on failure ----
@@ -183,7 +190,7 @@ export async function handleBridge(request: Request): Promise<Response> {
     const delayed = body.grounding.market_data_status === "unavailable" ? await delayedQuotesFor(body.message).catch(() => []) : [];
     const grounding: Grounding = delayed.length ? { ...body.grounding, market_prices: [...(body.grounding.market_prices ?? []), ...delayed], market_data_status: "delayed" } : body.grounding;
     const { answer } = await answerChat({ mode: "chat", model: "auto", messages: [{ role: "user", content: buildPrompt({ message: body.message, grounding }) }] }, actor, fetch, { skipUsage: true });
-    const reply = unsupportedFigures(answer, grounding).length ? SAFE_REPLY : answer.slice(0, 12_000);
+    const reply = unsupportedFigures(answer, grounding).length ? SAFE_REPLY : withDisclaimer(answer.slice(0, 12_000));
     const result = { reply, allowance: ALLOWANCE };
     const completed = await pool.query(`UPDATE aztrade_ai_requests SET status = 'completed', response = $3 WHERE user_id = $1 AND request_id = $2 AND attempt_id = $4 AND status = 'running'`, [user.id, body.requestId, JSON.stringify(result), attempt]);
     if (!completed.rowCount) throw new Error('Inference attempt superseded');
