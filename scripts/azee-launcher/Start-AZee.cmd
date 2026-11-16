@@ -18,7 +18,7 @@ curl.exe -s -o nul -m 5 -w "%%{http_code}" %URL%/ | findstr /R /C:"^[23]" >nul
 if not errorlevel 1 goto open
 set /a tries+=1
 if %tries% geq 60 goto open
-timeout /t 3 /nobreak >nul
+ping -n 4 127.0.0.1 >nul
 goto wait
 
 :open

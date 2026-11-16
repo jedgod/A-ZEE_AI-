@@ -227,26 +227,23 @@ export async function answerChat(
         runSearch(actor.execution, { query: messages.at(-1)!.content.slice(0, 2000) }, pipelineSearchAdapter(fetchImpl)));
       if (sources.length) messages[messages.length - 1] = { role: "user", content: withContext(messages.at(-1)!.content, sources) };
     }
-    // A link in the message: that page's text is what "summarise / explain / translate this" refers to.
-    const page = await span("retrieve", () => pageSources(latest));
-    if (page.sources.length) {
-      sources = [...page.sources, ...sources];
-      messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
-    } else if (page.note) warnings.push(page.note);
-    // Market-rate questions ("price of bitcoin", "how is the market today") get live, delayed quotes to quote from.
-    const market = await span("retrieve", () => marketSources(latest));
-    if (market.sources.length) {
-      sources = [...market.sources, ...sources];
-      messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
-    } else if (market.note) warnings.push(market.note);
-    // Open, time-sensitive questions ("latest news on…") get live headlines when no web source came from the pipeline.
-    if (!sources.some(x => x.sourceId.startsWith("web:"))) {
-      const live = await span("retrieve", () => liveSources(latest, fetchImpl));
-      if (live.length) {
-        sources = [...live, ...sources];
-        messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
-      }
+    // A link in the message (its text is what "summarise / explain / translate this" refers to) and market-rate questions ("price of bitcoin",
+    // "how is the market today", answered from live delayed quotes) are independent network reads, so they run at the same time.
+    const [page, market] = await Promise.all([
+      span("retrieve", () => pageSources(latest)),
+      span("retrieve", () => marketSources(latest)),
+    ]);
+    for (const found of [page, market]) {   // market quotes end up first, as before
+      if (found.sources.length) sources = [...found.sources, ...sources];
+      else if (found.note) warnings.push(found.note);
     }
+    // Open, time-sensitive questions ("latest news on...") get live headlines, but only when nothing better was found: a linked page or live quotes
+    // already answer the question, and the headline lookup would only add waiting time.
+    if (!sources.some(x => /^(web|page|market):/.test(x.sourceId))) {
+      const live = await span("retrieve", () => liveSources(latest, fetchImpl));
+      if (live.length) sources = [...live, ...sources];
+    }
+    if (sources.length) messages[messages.length - 1] = { role: "user", content: withContext(plainQuestion, sources) };
 
     // 01 intake record (metadata only; no message text is stored).
     ops.add("intake", {
