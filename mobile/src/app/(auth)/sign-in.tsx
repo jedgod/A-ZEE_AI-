@@ -26,7 +26,7 @@ export default function SignIn() {
   return (
     <Screen narrow>
       <View style={{ flex: 1, justifyContent: "center", minHeight: 520 }}>
-        <BrandMark align="flex-start" />
+        <BrandMark />
         <Title sub="Welcome back to A-Zee.">Sign in</Title>
         {!API_CONFIGURED && <ErrorText>This build isn't connected to a server (EXPO_PUBLIC_API_URL is not set).</ErrorText>}
         <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" returnKeyType="next" />

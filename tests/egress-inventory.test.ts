@@ -22,7 +22,7 @@ const APPROVED: Record<string, { kind: "ai-cloud" | "data" | "non-ai" | "referen
     "query1.finance.yahoo.com", "www.alphavantage.co", "api.api-ninjas.com"].map(h => [h, { kind: "data" as const, note: "market-data price read (lib/finance, ollamaOnly-gated)" }])),
   "news.google.com": { kind: "data", note: "live news headlines (lib/pipeline/live-news.ts, ollamaOnly-gated)" },
   "exp.host": { kind: "non-ai", note: "Expo push for price alerts (monitor worker, paused in private mode)" },
-  "queue.fal.run": { kind: "ai-cloud", note: "video provider (lib/video-provider.ts)" }, "api.sightengine.com": { kind: "ai-cloud", note: "AI-image detection (lib/vision/detect.ts)" },
+  "queue.fal.run": { kind: "ai-cloud", note: "video provider (lib/video-provider.ts)" }, "api.sightengine.com": { kind: "ai-cloud", note: "AI-image detection (lib/vision/detect.ts)" }, "vision.googleapis.com": { kind: "ai-cloud", note: "public image discovery, consent-gated and ollamaOnly-gated (lib/vision/providers.ts)" },
   "cv.iptc.org": { kind: "reference", note: "IPTC digital-source-type identifier compared against signed credentials (lib/vision/detect.ts); never fetched" },
   "interactive-examples.mdn.mozilla.net": { kind: "reference", note: "sample URL text" },
   "aztrade.internal": { kind: "reference", note: "private AZTrade bridge placeholder host" },
