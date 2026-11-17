@@ -96,6 +96,7 @@ export default function ChatScreen() {
   const [reading, setReading] = useState(false);
   const [scans, setScans] = useState<AiDetectionResult[]>([]);
   const [scanning, setScanning] = useState(false);
+  const scanInFlight = useRef(false);
   const [clip, setClip] = useState<SourceClip | null>(null);
   const [uploading, setUploading] = useState(false);
   const [imagineKind, setImagineKind] = useState<"image" | "video">("image");
@@ -187,13 +188,14 @@ export default function ChatScreen() {
     } catch (e) { Alert.alert("Image Verify", (e as Error).message); }
   }
 
-  // Verify one image already on the phone (picked, shared in from another app, or just taken). Checked inside A-Zee; nothing goes to outside services.
+  // All entry points use the same per-image provider consent prompt before upload.
   async function verifyFile(file: PickedImage) {
-    if (scanning) return;
+    if (scanInFlight.current) return;
+    scanInFlight.current = true;
     setScanning(true); setError("");
-    try { const scan = await scanImageFile(file); setTab("ask"); setScans(list => [...list, scan]); }
+    try { const scan = await scanImageFile(file); if (!scan) return; setTab("ask"); setScans(list => [...list, scan]); }
     catch (e) { Alert.alert("Image Verify", (e as Error).message); }
-    finally { setScanning(false); }
+    finally { scanInFlight.current = false; setScanning(false); }
   }
 
   // A picture shared to "A-Zee Image Verify" from another app (WhatsApp, Telegram, Gallery...). Collected when this screen opens, when the app
@@ -563,7 +565,7 @@ export default function ChatScreen() {
   // The "+" menu: every way to bring something into the chat. Each row runs the same action as its chip below the chat.
   const ATTACH = [
     { glyph: "📄", label: "Document", sub: "PDF, Word, CSV or text: ask about it", run: () => void attachDocument() },
-    { glyph: "🔍", label: "Verify an image", sub: "How it was made and where it has appeared", run: () => void detectImage() },
+    { glyph: "🔍", label: "Check image evidence", sub: "Provenance, AI estimates and public matches", run: () => void detectImage() },
     { glyph: "📷", label: "Camera", sub: "Take a photo and check it", run: () => runChip({ glyph: "📷", label: "Open Camera", action: "camera" } as Chip) },
     { glyph: "✂️", label: "Video to edit", sub: "Upload a clip to Imagine", run: () => void attachVideo() },
   ];

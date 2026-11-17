@@ -10,6 +10,8 @@ export class ApiError extends Error {
 }
 
 const MESSAGES: Record<string, string> = {
+  IMAGE_PROVIDER_LIMIT: "Image provider limit reached. Wait for an active scan to finish, or try later if your daily allowance is used.",
+  INVALID_CONSENT: "The image provider choice was invalid. Choose the image again.",
   INVALID_CREDENTIALS: "Email or password is incorrect.",
   RATE_LIMITED: "Too many attempts. Wait a minute and try again.",
   REGISTRATION_FAILED: "We couldn't create that account. Try signing in, or use a different email.",

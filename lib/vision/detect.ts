@@ -1,7 +1,9 @@
 import "server-only";
 import { Context, Reader } from "@contentauth/c2pa-node";
 import { fingerprint } from "./fingerprint";
+import type { GoogleObservations } from "./gemini";
 import { lookupMatches } from "./matches";
+import type { Classification, Discovery, ImageConsent } from "./provider-types";
 
 export { MAX_IMAGE_BYTES } from "./fingerprint";
 
@@ -10,8 +12,15 @@ export type Verdict = "AI_GENERATED" | "LIKELY_REAL" | "INCONCLUSIVE";
 export type PixelScores = { aiGeneratedScore: number; deepfakeScore: number };
 type Credential = "trusted_ai_creation" | "trusted_other" | "untrusted" | "invalid" | "absent" | "unavailable";
 export type Verification = {
+  evidenceVersion?: 2;
+  consent?: ImageConsent;
+  providerRequestId?: string;
+  classification?: Classification;
+  discovery?: Discovery;
   credential: Credential;
   publicIndex: Awaited<ReturnType<typeof lookupMatches>>;
+  /** Optional visual clues or explicit skipped/unavailable status; never changes the verdict. */
+  google?: GoogleObservations;
 };
 export type Detection = {
   verdict: Verdict;
@@ -64,7 +73,7 @@ export function buildDetection(verification: Verification, metadataHint: boolean
   const declaredAI = verification.credential === "trusted_ai_creation";
   const signals = [CREDENTIAL_NOTES[verification.credential]];
   if (metadataHint) signals.push("Unsigned metadata mentions AI-related processing. This is a clue only.");
-  signals.push("No pixel classifier was used.");
+  signals.push("Local provenance checks do not classify image pixels.");
   return {
     verdict: declaredAI ? "AI_GENERATED" : "INCONCLUSIVE",
     // Compatibility with existing database and API clients. Neither number is a probability.

@@ -335,10 +335,18 @@ export default function WorkspacePage() {
     const picked = event.target.files?.[0];
     event.target.value = "";
     if (!picked) return;
+    if (!window.confirm("Upload this image to A-Zee to check trusted metadata and configured local copy matches? Optional AI classification and public web search require separate provider choices next. Results do not prove authenticity or the original source.")) return;
     setScanning(true);
     try {
+      const capabilities = await fetch("/api/vision/capabilities").then(r => r.ok ? r.json() : null).then(body => body?.data).catch(() => null);
+      const googleConsent = capabilities?.googleAi === true && window.confirm("Send this image to Google's Gemini for visible text and visual clues? Not proof of origin. Cancel skips this provider for this image.");
+      const classifierConsent = capabilities?.aiLikelihoodEstimator?.configured === true && window.confirm("Send this image to Sightengine for estimated AI classification? The score can be wrong and is not calibrated by A-Zee. Cancel skips this provider for this image.");
+      const discoveryConsent = capabilities?.internetSearch?.configured === true && window.confirm("Send a resized copy to Google Cloud Vision Web Detection for public indexed image matches and social links? No private messages/profiles or exhaustive platform search. Cancel skips this provider for this image.");
       const form = new FormData();
       form.append("file", picked);
+      form.append("googleConsent", String(googleConsent));
+      form.append("classifierConsent", String(classifierConsent));
+      form.append("discoveryConsent", String(discoveryConsent));
       const response = await fetch("/api/vision/detect-ai", { method: "POST", body: form });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
